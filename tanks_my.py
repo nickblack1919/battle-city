@@ -6,20 +6,23 @@ from pygame.locals import *
 import os, pygame, time, random, uuid, sys
 
 # CHEATS
-START_LEVEL = 1
+START_LEVEL = 5
 FORTRESS_FOREVER = 0
 PLAYER_INFINITE_ARMOR = 0
 
 # GAME
+SPAWN_TIMEOUT = 2500
 LEVEL_FINISH_TIMEOUT = 5000
-BONUS_FREQ = 4 # 1 in BONUS_FREQ chance this will be bonus carrier
+BONUS_FREQ = 5 # 1 in BONUS_FREQ chance this will be bonus carrier
 TIME_FREEZE = 10000
-MAX_ACTIVE_ENEMIES = 5
+MAX_ACTIVE_ENEMIES = 4
+MAX_ACTIVE_ENEMIES_2_PLAYERS = 8
+MAX_ACTIVE_ENEMIES_3_PLAYERS = 12
 DONT_HIT_FRIENDS = True
 
 # PLAYER
 START_SUPERPOWER_LEVEL = 0
-PLAYER_START_LIFE = 4
+PLAYER_START_LIFE = 3
 PLAYER_START_HEALTH = 100
 PLAYER_START_SCORE = 0
 PLAYER_MAX_ACTIVE_BULLETS_DEFAULT = 1
@@ -417,12 +420,18 @@ class Level():
 		# max number of enemies simultaneously  being on map
 		self.max_active_enemies = MAX_ACTIVE_ENEMIES
 
+		# if self.nr_of_players == 1:
+		# 	self.max_active_enemies = MAX_ACTIVE_ENEMIES
+		# elif self.nr_of_players == 2:
+		# 	self.max_active_enemies = MAX_ACTIVE_ENEMIES_2_PLAYERS
+		# elif self.nr_of_players == 3:
+		# 	self.max_active_enemies = MAX_ACTIVE_ENEMIES_3_PLAYERS
+
 		tile_images = [
 			pygame.Surface((8*2, 8*2)),
 			sprites.subsurface(48*2, 64*2, 8*2, 8*2),
 			sprites.subsurface(48*2, 72*2, 8*2, 8*2),
 			sprites.subsurface(56*2, 72*2, 8*2, 8*2),
-			sprites.subsurface(64*2, 64*2, 8*2, 8*2),
 			sprites.subsurface(64*2, 64*2, 8*2, 8*2),
 			sprites.subsurface(72*2, 64*2, 8*2, 8*2),
 			sprites.subsurface(64*2, 72*2, 8*2, 8*2)
@@ -454,7 +463,7 @@ class Level():
 		self.updateObstacleRects()
 		self.updateRemovableRects()
 
-		gtimer.add(400, lambda :self.toggleWaves())
+		gtimer.add(600, lambda :self.toggleWaves())
 
 	def hitTile(self, pos, power = 1, sound = False):
 		"""
@@ -741,7 +750,7 @@ class Tank():
 
 		# 0 - no superpowers
 		if self.superpowers >= 0:
-			self.bullet_speed = 5
+			self.bullet_speed = 4
 			self.bullet_power = 1
 			self.max_active_bullets = PLAYER_MAX_ACTIVE_BULLETS_DEFAULT
 
@@ -757,15 +766,15 @@ class Tank():
 		if self.superpowers >= 3:
 			self.bullet_power = 2
 			
-		# 4 -	can destroy steel
+		# 4 - can destroy steel
 		if self.superpowers >= 4:
 			self.bullet_power = 3
 			
-		# 5 - can fire 3 bullets
+		# 5 -can fire 3 bullets
 		if self.superpowers >= 5:
 			self.max_active_bullets = 3
 		
-		# 5 - can clear bricks and steel in 1 shot
+		# 6- can clear bricks and steel in 1 shot
 		if self.superpowers >= 6:
 			self.bullet_power = 4
 			
@@ -1174,9 +1183,9 @@ class Enemy(Tank):
 					return
 
 			# collisions with bonuses - currently disabled
-			# for bonus in bonuses:
-			# 	if new_rect.colliderect(bonus.rect):
-			# 		bonuses.remove(bonus)
+			for bonus in bonuses:
+				if new_rect.colliderect(bonus.rect):
+					bonuses.remove(bonus)
 
 			# if no collision, move enemy
 			self.rect.topleft = new_rect.topleft
@@ -2227,7 +2236,7 @@ class Game():
 
 		self.reloadPlayers()
 
-		gtimer.add(3000, lambda :self.spawnEnemy())
+		gtimer.add(SPAWN_TIMEOUT, lambda :self.spawnEnemy())
 
 		# if True, start "game over" animation
 		self.game_over = False
