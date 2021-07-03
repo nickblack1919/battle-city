@@ -1463,6 +1463,7 @@ class Game():
 			sounds["steel"] = pygame.mixer.Sound("sounds/steel.ogg")
 			sounds["armor"] = pygame.mixer.Sound("sounds/armor.ogg")
 			sounds["life"] = pygame.mixer.Sound("sounds/life.ogg")
+			sounds["pause"] = pygame.mixer.Sound("sounds/pause.ogg")
 
 		self.enemy_life_image = sprites.subsurface(81*2, 57*2, 7*2, 7*2)
 		self.player_life_image = sprites.subsurface(89*2, 56*2, 7*2, 8*2)
@@ -2157,6 +2158,8 @@ class Game():
 			self.toggleEnemyFreeze(True)
 			self.togglePlayersFreeze(True)
 			pygame.mixer.stop()
+			if play_sounds:
+				sounds["pause"].play()
 							
 		else:
 			#print "Game unpaused"
@@ -2235,7 +2238,7 @@ class Game():
 
 					if event.key == pygame.K_ESCAPE:
 						quit()
-					if event.key == pygame.K_p:
+					if event.key == pygame.K_RETURN:
 						self.pause()
 					# toggle sounds
 					elif event.key == pygame.K_m:
