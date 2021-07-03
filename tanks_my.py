@@ -231,7 +231,7 @@ class Bullet():
 			self.explosion.draw()
 
 	def update(self):
-		global castle, players, enemies, bullets
+		global castle, players, enemies, bullets, sounds
 
 		if self.state == self.STATE_EXPLODING:
 			if not self.explosion.active:
@@ -276,14 +276,15 @@ class Bullet():
 		# check for removable tiles
 		# if bullet is powerfull enough it can clear those tiles
 		if self.power >= 2:
-			if play_sounds and sound:
-				sounds["brick"].play()
+			
 			rects = self.level.removable_rects
 			removable = self.rect.collidelistall(rects)
 			if removable != []:
 				for i in removable:
 					for tile in self.level.mapr:
 						if tile.topleft == rects[i].topleft:
+							if play_sounds:
+								sounds["brick"].play()
 							self.level.mapr.remove(tile)
 
 		# check for collisions with walls. one bullet can destroy several (1 or 2)
