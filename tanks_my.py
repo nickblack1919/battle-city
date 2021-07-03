@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # coding=utf-8
 
+from pygame.locals import *
+
 import os, pygame, time, random, uuid, sys
 
 # CHEATS
@@ -1427,15 +1429,14 @@ class Game():
 
 		pygame.init()
 
-
 		pygame.display.set_caption("Battle City")
 
-		size = width, height = 480, 416
-
 		if "-f" in sys.argv[1:]:
-			screen = pygame.display.set_mode(size, pygame.FULLSCREEN)
+			self.is_fullscreen = True
 		else:
-			screen = pygame.display.set_mode(size)
+			self.is_fullscreen = False
+
+		screen = self.setFullScreen(self.is_fullscreen)
 
 		self.clock = pygame.time.Clock()
 
@@ -1505,7 +1506,20 @@ class Game():
 		del bullets[:]
 		del enemies[:]
 		del bonuses[:]
+		
+	def toggleFullScreen(self):
+		self.is_fullscreen = not self.is_fullscreen
+		self.setFullScreen(self.is_fullscreen)
 
+	def setFullScreen(self, fullScreen):
+		size = width, height = 480, 416
+
+		if fullScreen:
+			screen = pygame.display.set_mode(size, FULLSCREEN | DOUBLEBUF)
+		else:
+			screen = pygame.display.set_mode(size, DOUBLEBUF)
+			
+		return screen
 
 	def triggerBonus(self, bonus, player):
 		""" Execute bonus powers """
@@ -1682,6 +1696,9 @@ class Game():
 					
 					elif event.key == pygame.K_RETURN:
 						main_loop = False
+					
+					elif event.key == pygame.K_f and pygame.key.get_mods() & pygame.KMOD_CTRL:
+						self.toggleFullScreen()
 
 		del players[:]
 		self.nextLevel()
@@ -2237,10 +2254,13 @@ class Game():
 					quit()
 				elif event.type == pygame.KEYDOWN and not self.game_over and self.active:
 
+					
 					if event.key == pygame.K_ESCAPE:
 						quit()
 					if event.key == pygame.K_RETURN:
 						self.pause()
+					if event.key == pygame.K_f and pygame.key.get_mods() & pygame.KMOD_CTRL:
+						self.toggleFullScreen()
 					# toggle sounds
 					elif event.key == pygame.K_m:
 						play_sounds = not play_sounds
