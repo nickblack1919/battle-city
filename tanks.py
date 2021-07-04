@@ -5,7 +5,7 @@ import os, pygame, time, random, uuid, sys
 from pygame.locals import *
 
 # CHEATS
-START_LEVEL = 5
+START_LEVEL = 1
 FORTRESS_FOREVER = 0
 PLAYER_INFINITE_ARMOR = 0
 
@@ -13,7 +13,7 @@ PLAYER_INFINITE_ARMOR = 0
 DONT_HIT_FRIENDS = True
 ENEMY_SPAWN_TIMEOUT = 2500
 LEVEL_FINISH_TIMEOUT = 4000
-BONUS_FREQ = 5 # every n-th enemy tank will be carry a bonus
+BONUS_FREQ = 1 # every n-th enemy tank will be carry a bonus
 TIME_FREEZE = 10000
 MAX_ACTIVE_ENEMIES = 4
 MAX_ACTIVE_ENEMIES_2_PLAYERS = 8
@@ -177,7 +177,6 @@ class Bonus():
 		""" Toggle bonus visibility """
 		self.visible = not self.visible
 
-
 class Bullet():
 	# direction constants
 	(DIR_UP, DIR_RIGHT, DIR_DOWN, DIR_LEFT) = range(4)
@@ -340,7 +339,6 @@ class Bullet():
 	def destroy(self):
 		self.state = self.STATE_REMOVED
 
-
 class Label():
 	def __init__(self, position, text = "", duration = None):
 
@@ -362,7 +360,6 @@ class Label():
 
 	def destroy(self):
 		self.active = False
-
 
 class Explosion():
 	def __init__(self, position, interval = None, images = None):
@@ -539,7 +536,7 @@ class Level():
 		global screen
 
 		if tiles == None:
-			tiles = [TILE_BRICK, TILE_STEEL, TILE_WATER, TILE_GRASS, TILE_FROZE]
+			tiles = [self.TILE_BRICK, self.TILE_STEEL, self.TILE_WATER, self.TILE_GRASS, self.TILE_FROZE]
 
 		for tile in self.mapr:
 			if tile.type in tiles:
@@ -890,7 +887,7 @@ class Tank():
 
 			# if Tank has a bonus display it
 			if self.bonus:
-				self.bonus = None
+				self.removeBonus()
 
 				# If bonus already exit on screen, remove it
 				if len(bonuses) > 0:
@@ -1025,6 +1022,17 @@ class Enemy(Tank):
 		# turn on flashing
 		if self.bonus:
 			self.timer_uuid_flash = gtimer.add(200, lambda :self.toggleFlash())
+
+	def removeBonus(self):
+		""" Remove bonus from enemy tank and stop flashing """
+		self.bonus = None
+		gtimer.destroy(self.timer_uuid_flash)
+
+		self.image_up = self.image1_up
+		self.image_right = self.image1_right
+		self.image_down = self.image1_down
+		self.image_left = self.image1_left
+		self.rotate(self.direction, False)
 
 	def toggleFlash(self):
 		""" Toggle flash state """
@@ -1291,8 +1299,6 @@ class Enemy(Tank):
 				positions.append([x-px, y])
 
 		return positions
-
-
 
 class Player(Tank):
 
