@@ -8,26 +8,40 @@ from pygame.locals import *
 START_LEVEL = 1
 FORTRESS_FOREVER = 0
 PLAYER_INFINITE_ARMOR = 0
+PLAYER_INFINITE_LIVES = False
+INFINITE_HEALTH_FOR_ALL = False	# if True overrides PLAYER_INFINITE_ARMOR
+INFINITE_BONUSES = False
 
-# GAME
-DONT_HIT_FRIENDS = True
-ENEMY_SPAWN_TIMEOUT = 2500
-LEVEL_FINISH_TIMEOUT = 4000
-BONUS_FREQ = 1 # every n-th enemy tank will be carry a bonus
-TIME_FREEZE = 10000
+# GAME MECHANICS
+BONUS_FREQ = 5 # every n-th enemy tank will carry a bonus
+ALLOW_MULTI_BONUS = True
+ENEMY_PICKUP_BONUSES = True
+FRIENDLY_FIRE = False
 MAX_ACTIVE_ENEMIES = 4
 MAX_ACTIVE_ENEMIES_2_PLAYERS = 8
 MAX_ACTIVE_ENEMIES_3_PLAYERS = 12
+DEFAULT_BULLET_SPEED = 4
+ENEMY_SPAWN_TIMEOUT = 2500
+LEVEL_FINISH_TIMEOUT = 4000
+BONUS_TIMER_FREEZE_TIMEOUT = 10000
+BONUS_FORTRESS_WALLS_TIMEOUT = 10000
+BONUS_PLAYER_SHIELD_TIMEOUT = 10000
+BONUS_PLAYER_HIDDEN_TIMEOUT = 10000
+BONUS_SPAWN_TIMEOUT = 20000
 
 # PLAYER
-START_SUPERPOWER_LEVEL = 0
+PLAYER_START_SUPERPOWER = 0
 PLAYER_START_LIFE = 3
 PLAYER_START_HEALTH = 100
 PLAYER_START_SCORE = 0
-PLAYER_MAX_ACTIVE_BULLETS_DEFAULT = 1
+PLAYER_START_MAX_ACTIVE_BULLETS = 1
+PLAYER_START_SHIELD_TIMEOUT = 4000
 
-#DEBUG
+# DEBUG
+DEBUG_UNFREEZE_PLAYERS_ON_PAUSE = False
+DEBUG_SPRITES = False
 DEBUG_COORDINATES = False
+DISABLE_LABELS = True	# to avoid bug with delayed font loading
 
 class myRect(pygame.Rect):
 	""" Add type property """
@@ -156,11 +170,10 @@ class Bonus():
 
 		self.bonus = random.choice([
 			self.BONUS_STAR,
-			self.BONUS_GRENADE,
 			self.BONUS_STAR,
+			self.BONUS_GRENADE,
 			self.BONUS_HELMET,
 			self.BONUS_SHOVEL,
-			self.BONUS_STAR,
 			self.BONUS_TANK,
 			self.BONUS_TIMER
 		])
@@ -186,7 +199,7 @@ class Bullet():
 
 	(OWNER_PLAYER, OWNER_ENEMY) = range(2)
 
-	def __init__(self, level, position, direction, damage = 100, speed = 5, power = 1):
+	def __init__(self, level, position, direction, damage = 100, speed = DEFAULT_BULLET_SPEED, power = 1):
 
 		global sprites
 
@@ -225,6 +238,9 @@ class Bullet():
 
 		self.state = self.STATE_ACTIVE
 
+		self.dbg_label = Label(self.rect.bottomleft, str(self.rect.topleft))
+
+
 	def draw(self):
 		""" draw bullet """
 		global screen
@@ -232,6 +248,14 @@ class Bullet():
 			screen.blit(self.image, self.rect.topleft)
 		elif self.state == self.STATE_EXPLODING:
 			self.explosion.draw()
+
+		# debug sprites
+		if DEBUG_SPRITES:
+			red = (255,0,0)
+			pygame.draw.rect(screen, red, self.rect)
+			self.dbg_label.position = self.rect.bottomleft
+			self.dbg_label.text = str(self.rect.topleft)
+			self.dbg_label.draw()
 
 	def update(self):
 		global castle, players, enemies, bullets, sounds
@@ -348,7 +372,8 @@ class Label():
 
 		self.text = text
 
-		self.font = pygame.font.SysFont("Arial", 13)
+		if not DISABLE_LABELS:
+			self.font = pygame.font.SysFont("Arial", 10)
 
 		if duration != None:
 			gtimer.add(duration, lambda :self.destroy(), 1)
@@ -356,7 +381,8 @@ class Label():
 	def draw(self):
 		""" draw label """
 		global screen
-		screen.blit(self.font.render(self.text, False, (200,200,200)), [self.position[0]+4, self.position[1]+8])
+		if not DISABLE_LABELS: 
+			screen.blit(self.font.render(self.text, False, (200,200,200)), [self.position[0]+4, self.position[1]+8])
 
 	def destroy(self):
 		self.active = False
@@ -638,10 +664,10 @@ class Tank():
 		# flashing state. 0-off, 1-on
 		self.flash = 0
 		
-		self.bullet_speed = 5
+		self.bullet_speed = DEFAULT_BULLET_SPEED
 		self.bullet_power = 1
 		# how many bullets can tank fire simultaneously
-		self.max_active_bullets = PLAYER_MAX_ACTIVE_BULLETS_DEFAULT
+		self.max_active_bullets = PLAYER_START_MAX_ACTIVE_BULLETS
 
 		self.superpowers = 0
 		self.updateSuperpowers()
@@ -654,6 +680,9 @@ class Tank():
 
 		# currently pressed buttons (navigation only)
 		self.pressed = [False] * 4
+
+		# visibility state
+		self.visible = True
 
 		self.shield_images = [
 			sprites.subsurface(0, 48*2, 16*2, 16*2),
@@ -689,6 +718,26 @@ class Tank():
 		# duration of spawning
 		self.timer_uuid_spawn_end = gtimer.add(1000, lambda :self.endSpawning())
 
+		self.visibility_timer = None
+
+		self.dbg_label = Label(self.rect.bottomleft, str(self.rect.topleft))
+
+	def toggleVisibility(self):
+		""" Toggle tank visibility """
+		self.visible = not self.visible
+
+	def hideTank(self, duration = None):
+		if self.visibility_timer:
+			gtimer.destroy(self.visibility_timer)
+
+		self.setVisibility(False)
+		self.visibility_timer = gtimer.add(duration, lambda: self.setVisibility(True))
+
+
+	def setVisibility(self, visible):
+		""" Set tank visibility """
+		self.visible = visible
+
 	def endSpawning(self):
 		""" End spawning
 		Player becomes operational
@@ -721,7 +770,11 @@ class Tank():
 	def draw(self):
 		""" draw tank """
 		global screen
+
 		if self.state == self.STATE_ALIVE:
+			# hidden state
+			if not self.visible:
+				return
 			screen.blit(self.image, self.rect.topleft)
 			if self.shielded:
 				screen.blit(self.shield_image, [self.rect.left-3, self.rect.top-3])
@@ -729,6 +782,14 @@ class Tank():
 			self.explosion.draw()
 		elif self.state == self.STATE_SPAWNING:
 			screen.blit(self.spawn_image, self.rect.topleft)
+
+		# debug sprites
+		if DEBUG_SPRITES:
+			green = (0,255,0)
+			pygame.draw.rect(screen, green, self.rect)
+			self.dbg_label.position = self.rect.bottomleft
+			self.dbg_label.text = str(self.rect.topleft)
+			self.dbg_label.draw()
 
 	def explode(self):
 		""" start tanks's explosion """
@@ -742,9 +803,10 @@ class Tank():
 
 		# 0 - no superpowers
 		if self.superpowers >= 0:
-			self.bullet_speed = 4
+			self.bullet_speed = DEFAULT_BULLET_SPEED
+
 			self.bullet_power = 1
-			self.max_active_bullets = PLAYER_MAX_ACTIVE_BULLETS_DEFAULT
+			self.max_active_bullets = PLAYER_START_MAX_ACTIVE_BULLETS
 
 		# 1 - faster bullets
 		if self.superpowers >= 1:
@@ -879,7 +941,8 @@ class Tank():
 			return True
 
 		if not friendly_fire:
-			self.health -= damage
+			if not INFINITE_HEALTH_FOR_ALL:
+				self.health -= damage
 
 			# restore health if inifinite armor
 			if PLAYER_INFINITE_ARMOR > 0 and self.side == self.SIDE_PLAYER:
@@ -887,10 +950,11 @@ class Tank():
 
 			# if Tank has a bonus display it
 			if self.bonus:
-				self.removeBonus()
+				if not INFINITE_BONUSES:
+					self.removeBonusLoad()
 
 				# If bonus already exit on screen, remove it
-				if len(bonuses) > 0:
+				if len(bonuses) > 0 and not ALLOW_MULTI_BONUS:
 					self.clearAllBonuses()
 				
 				# Show new bonus
@@ -919,7 +983,7 @@ class Tank():
 		if self.side == self.SIDE_ENEMY:
 			return False
 		elif self.side == self.SIDE_PLAYER:
-			if DONT_HIT_FRIENDS:
+			if not FRIENDLY_FIRE:
 				return False
 			if not self.paralised:
 				self.setParalised(True)
@@ -1019,11 +1083,13 @@ class Enemy(Tank):
 		# 1000 is duration between shots
 		self.timer_uuid_fire = gtimer.add(1000, lambda :self.fire())
 
+		self.bonus_aquired = None
+
 		# turn on flashing
 		if self.bonus:
 			self.timer_uuid_flash = gtimer.add(200, lambda :self.toggleFlash())
 
-	def removeBonus(self):
+	def removeBonusLoad(self):
 		""" Remove bonus from enemy tank and stop flashing """
 		self.bonus = None
 		gtimer.destroy(self.timer_uuid_flash)
@@ -1060,7 +1126,7 @@ class Enemy(Tank):
 		bonus = Bonus(self.level)
 		bonuses.append(bonus)
 		gtimer.add(300, lambda :bonus.toggleVisibility())
-		gtimer.add(20000, lambda :bonuses.remove(bonus), 1)
+		gtimer.add(BONUS_SPAWN_TIMEOUT, lambda :bonuses.remove(bonus), 1)
 
 		if play_sounds:
 			sounds["bonusnew"].play()
@@ -1185,10 +1251,11 @@ class Enemy(Tank):
 					self.path = self.generatePath(self.direction)
 					return
 
-			# collisions with bonuses - currently disabled
-			for bonus in bonuses:
-				if new_rect.colliderect(bonus.rect):
-					bonuses.remove(bonus)
+			# collisions with bonuses
+			if ENEMY_PICKUP_BONUSES:
+				for bonus in bonuses:
+					if new_rect.colliderect(bonus.rect):
+						self.bonus_aquired = bonus
 
 			# if no collision, move enemy
 			self.rect.topleft = new_rect.topleft
@@ -1317,7 +1384,7 @@ class Player(Tank):
 		self.speed = 2
 		self.lives = PLAYER_START_LIFE
 
-		self.superpowers = START_SUPERPOWER_LEVEL
+		self.superpowers = PLAYER_START_SUPERPOWER
 
 		# total score
 		self.score = PLAYER_START_SCORE
@@ -1411,7 +1478,7 @@ class Player(Tank):
 		""" reset player """
 		self.rotate(self.start_direction, False)
 		self.rect.topleft = self.start_position
-		self.max_active_bullets = PLAYER_MAX_ACTIVE_BULLETS_DEFAULT
+		self.max_active_bullets = PLAYER_START_MAX_ACTIVE_BULLETS
 		self.superpowers = 0
 		self.updateSuperpowers()
 		self.health = PLAYER_START_HEALTH
@@ -1531,6 +1598,55 @@ class Game():
 			
 		return screen
 
+	def triggerEnemyBonus(self, bonus, enemy):
+		""" Execute enemy bonus powers """
+
+		global enemies, labels, play_sounds, sounds
+
+		# destory all players
+		if bonus.bonus == bonus.BONUS_GRENADE:
+			if play_sounds:
+				sounds["explosion"].play()
+			for player in players:
+				player.explode()
+		# hide all players for 10 seconds
+		elif bonus.bonus == bonus.BONUS_HELMET:
+			if play_sounds:
+				sounds["bonus"].play()
+			for player in players:
+				player.hideTank(BONUS_PLAYER_HIDDEN_TIMEOUT)
+		# remove walls from fortress for 10 seconds
+		elif bonus.bonus == bonus.BONUS_SHOVEL:
+			if play_sounds:
+				sounds["bonus"].play()
+			if not FORTRESS_FOREVER:
+				self.level.buildFortress(self.level.TILE_EMPTY)
+				gtimer.add(BONUS_FORTRESS_WALLS_TIMEOUT, lambda :self.level.buildFortress(self.level.TILE_BRICK), 1)
+		# remove 1 superpower from all players
+		elif bonus.bonus == bonus.BONUS_STAR:
+			if play_sounds:
+				sounds["bonus"].play()
+			for player in players:
+				if player.superpowers >0:
+					player.superpowers -= 1
+					player.updateSuperpowers()
+		# remove 1 life from all players
+		elif bonus.bonus == bonus.BONUS_TANK:
+			if play_sounds:
+				sounds["life"].play()
+			for player in players:
+				if player.lives >= 2:
+					player.lives -= 1
+		# freeze players for 10 seconds
+		elif bonus.bonus == bonus.BONUS_TIMER:
+			if play_sounds:
+				sounds["bonus"].play()
+			self.togglePlayersFreeze(True)
+			gtimer.add(BONUS_TIMER_FREEZE_TIMEOUT, lambda :self.togglePlayersFreeze(False), 1)
+		
+		if bonus in bonuses:
+			bonuses.remove(bonus)
+
 	def triggerBonus(self, bonus, player):
 		""" Execute bonus powers """
 
@@ -1539,36 +1655,44 @@ class Game():
 		player.trophies["bonus"] += 1
 		player.score += 500
 
+		# destroy all on screen enemies
 		if bonus.bonus == bonus.BONUS_GRENADE:
 			if play_sounds:
 				sounds["explosion"].play()
 			for enemy in enemies:
 				enemy.explode()
+		# shield player for 10 seconds
 		elif bonus.bonus == bonus.BONUS_HELMET:
 			if play_sounds:
 				sounds["bonus"].play()
-			self.shieldPlayer(player, True, 10000)
+			self.shieldPlayer(player, True, BONUS_PLAYER_SHIELD_TIMEOUT)
+		# upgrade fortress walls tp steel
 		elif bonus.bonus == bonus.BONUS_SHOVEL:
 			if play_sounds:
 				sounds["bonus"].play()
 			self.level.buildFortress(self.level.TILE_STEEL)
 			if not FORTRESS_FOREVER:
-				gtimer.add(10000, lambda :self.level.buildFortress(self.level.TILE_BRICK), 1)
+				gtimer.add(BONUS_FORTRESS_WALLS_TIMEOUT, lambda :self.level.buildFortress(self.level.TILE_BRICK), 1)
+		# upgrade superpower
 		elif bonus.bonus == bonus.BONUS_STAR:
 			if play_sounds:
 				sounds["bonus"].play()
 			player.superpowers += 1
 			player.updateSuperpowers()
+		# add 1 life
 		elif bonus.bonus == bonus.BONUS_TANK:
 			if play_sounds:
 				sounds["life"].play()
 			player.lives += 1
+		# stop all enemies for 10 seconds
 		elif bonus.bonus == bonus.BONUS_TIMER:
 			if play_sounds:
 				sounds["bonus"].play()
 			self.toggleEnemyFreeze(True)
-			gtimer.add(TIME_FREEZE, lambda :self.toggleEnemyFreeze(False), 1)
-		bonuses.remove(bonus)
+			gtimer.add(BONUS_TIMER_FREEZE_TIMEOUT, lambda :self.toggleEnemyFreeze(False), 1)
+		
+		if bonus in bonuses:
+			bonuses.remove(bonus)
 
 		labels.append(Label(bonus.rect.topleft, "500", 500))
 
@@ -1598,6 +1722,8 @@ class Game():
 
 		global enemies
 
+		if self.game_paused:
+			return
 		if len(enemies) >= self.level.max_active_enemies:
 			return
 		if len(self.level.enemies_left) < 1:
@@ -1622,7 +1748,7 @@ class Game():
 				"bonus" : 0, "enemy0" : 0, "enemy1" : 0, "enemy2" : 0, "enemy3" : 0
 			}
 
-		self.shieldPlayer(player, True, 4000)
+		self.shieldPlayer(player, True, PLAYER_START_SHIELD_TIMEOUT)
 
 	def gameOver(self):
 		""" End game and return to menu """
@@ -1660,6 +1786,8 @@ class Game():
 				if event.type == pygame.QUIT:
 					quit()
 				elif event.type == pygame.KEYDOWN:
+					if event.key == pygame.K_ESCAPE:
+						quit()
 					if event.key == pygame.K_RETURN:
 						self.showMenu()
 						return
@@ -1966,7 +2094,7 @@ class Game():
 					if lives_left < 0:
 						lives_left = 0
 					screen.blit(self.font.render(str(n+1)+"P", False, text_color), [x+16, y+240])
-					screen.blit(self.font.render(str(players[n].lives), False, text_color), [x+31, y+255])
+					screen.blit(self.font.render(str(lives_left), False, text_color), [x+31, y+255])
 					screen.blit(self.player_life_image, [x+17, y+255])
 
 			screen.blit(self.flag_image, [x+17, y+280])
@@ -2121,6 +2249,14 @@ class Game():
 			enemy.paused = freeze
 		self.timefreeze = freeze
 
+	def togglePlayersFreeze(self, freeze = True):
+		""" Freeze/defreeze all players """
+
+		global players
+
+		for player in players:
+			player.paralized = freeze
+		self.timefreeze = freeze
 
 	def loadHiscore(self):
 		""" Load hiscore
@@ -2175,6 +2311,8 @@ class Game():
 		for player in players:
 			player.paralised = freeze
 			player.paused = freeze
+
+		
 		
 	def pause(self):
 		""" Pause the game """
@@ -2184,8 +2322,9 @@ class Game():
 			#print "Game paused"
 			self.game_paused = True
 			self.toggleEnemyFreeze(True)
-			self.togglePlayersFreeze(True)
 			pygame.mixer.stop()
+			if not DEBUG_UNFREEZE_PLAYERS_ON_PAUSE:
+				self.togglePlayersFreeze(True)
 			if play_sounds:
 				sounds["pause"].play()
 							
@@ -2279,6 +2418,23 @@ class Game():
 						else:
 							sounds["bg"].play(-1)
 
+					if self.game_paused and not DEBUG_UNFREEZE_PLAYERS_ON_PAUSE:
+						continue
+
+					# borrow life from active players
+					if event.key == pygame.K_b:
+						dead_player = None
+						for player in players:
+							if player.state == player.STATE_DEAD:
+								dead_player = player
+						
+						if dead_player:
+							for plr in players:
+								if plr.state == plr.STATE_ALIVE and plr.lives >= 2:
+									plr.lives -= 1
+									dead_player.lives += 1
+									self.respawnPlayer(dead_player)
+
 					for player in players:
 						if player.state == player.STATE_ALIVE:
 							try:
@@ -2327,6 +2483,10 @@ class Game():
 				player.update(time_passed)
 
 			for enemy in enemies:
+				if enemy.state == enemy.STATE_ALIVE:
+						if enemy.bonus_aquired != None:
+							self.triggerEnemyBonus(enemy.bonus_aquired, enemy)
+							enemy.bonus_aquired = None
 				if enemy.state == enemy.STATE_DEAD and not self.game_over and self.active:
 					enemies.remove(enemy)
 					if len(self.level.enemies_left) == 0 and len(enemies) == 0:
@@ -2338,14 +2498,19 @@ class Game():
 				for player in players:
 					if player.state == player.STATE_ALIVE:
 						if player.bonus != None and player.side == player.SIDE_PLAYER:
-							self.triggerBonus(bonus, player)
+							self.triggerBonus(player.bonus, player)
 							player.bonus = None
 					elif player.state == player.STATE_DEAD:
-						player.lives -= 1
+						if not PLAYER_INFINITE_LIVES and player.lives > 0:
+							player.lives -= 1
 						if player.lives > 0:
 							self.respawnPlayer(player)
 						else:
-							self.gameOver()
+							total_lives = 0
+							for plr in players:
+								total_lives += plr.lives
+							if total_lives <= 0:
+									self.gameOver()
 
 			for bullet in bullets:
 				if bullet.state == bullet.STATE_REMOVED:
