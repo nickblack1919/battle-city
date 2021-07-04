@@ -1,9 +1,8 @@
 #!/usr/bin/python
 # coding=utf-8
 
-from pygame.locals import *
-
 import os, pygame, time, random, uuid, sys
+from pygame.locals import *
 
 # CHEATS
 START_LEVEL = 5
@@ -11,14 +10,14 @@ FORTRESS_FOREVER = 0
 PLAYER_INFINITE_ARMOR = 0
 
 # GAME
-SPAWN_TIMEOUT = 2500
-LEVEL_FINISH_TIMEOUT = 5000
-BONUS_FREQ = 5 # 1 in BONUS_FREQ chance this will be bonus carrier
+DONT_HIT_FRIENDS = True
+ENEMY_SPAWN_TIMEOUT = 2500
+LEVEL_FINISH_TIMEOUT = 4000
+BONUS_FREQ = 5 # every n-th enemy tank will be carry a bonus
 TIME_FREEZE = 10000
 MAX_ACTIVE_ENEMIES = 4
 MAX_ACTIVE_ENEMIES_2_PLAYERS = 8
 MAX_ACTIVE_ENEMIES_3_PLAYERS = 12
-DONT_HIT_FRIENDS = True
 
 # PLAYER
 START_SUPERPOWER_LEVEL = 0
@@ -647,10 +646,6 @@ class Tank():
 		# how many bullets can tank fire simultaneously
 		self.max_active_bullets = PLAYER_MAX_ACTIVE_BULLETS_DEFAULT
 
-		# 0 - no superpowers
-		# 1 - faster bullets
-		# 2 - can fire 2 bullets
-		# 3 - can destroy steel
 		self.superpowers = 0
 		self.updateSuperpowers()
 
@@ -770,11 +765,11 @@ class Tank():
 		if self.superpowers >= 4:
 			self.bullet_power = 3
 			
-		# 5 -can fire 3 bullets
+		# 5 - can fire 3 bullets
 		if self.superpowers >= 5:
 			self.max_active_bullets = 3
 		
-		# 6- can clear bricks and steel in 1 shot
+		# 6- can clear trees, bricks and steel in 1 shot
 		if self.superpowers >= 6:
 			self.bullet_power = 4
 			
@@ -910,8 +905,8 @@ class Tank():
 
 			elif self.health < 1:
 				if self.side == self.SIDE_ENEMY:
-					tank.trophies["enemy"+str(self.type)] += 1
-					points = (self.type+1) * 100
+					tank.trophies["enemy" + str(self.type)] += 1
+					points = (self.type + 1) * 100
 					tank.score += points
 					if play_sounds:
 						sounds["explosion"].play()
@@ -992,19 +987,19 @@ class Enemy(Tank):
 
 		self.image = images[self.type+0]
 
-		self.image_up = self.image;
+		self.image_up = self.image
 		self.image_left = pygame.transform.rotate(self.image, 90)
 		self.image_down = pygame.transform.rotate(self.image, 180)
 		self.image_right = pygame.transform.rotate(self.image, 270)
 
 		if self.bonus:
-			self.image1_up = self.image_up;
+			self.image1_up = self.image_up
 			self.image1_left = self.image_left
 			self.image1_down = self.image_down
 			self.image1_right = self.image_right
 
 			self.image2 = images[self.type+4]
-			self.image2_up = self.image2;
+			self.image2_up = self.image2
 			self.image2_left = pygame.transform.rotate(self.image2, 90)
 			self.image2_down = pygame.transform.rotate(self.image2, 180)
 			self.image2_right = pygame.transform.rotate(self.image2, 270)
@@ -2236,7 +2231,7 @@ class Game():
 
 		self.reloadPlayers()
 
-		gtimer.add(SPAWN_TIMEOUT, lambda :self.spawnEnemy())
+		gtimer.add(ENEMY_SPAWN_TIMEOUT, lambda :self.spawnEnemy())
 
 		# if True, start "game over" animation
 		self.game_over = False
