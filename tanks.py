@@ -13,21 +13,27 @@ INFINITE_HEALTH_FOR_ALL = False	# if True overrides PLAYER_INFINITE_ARMOR
 INFINITE_BONUSES = False
 
 # GAME MECHANICS
-BONUS_FREQ = 5 # every n-th enemy tank will carry a bonus
+BONUS_FREQ = 4 # every n-th enemy tank will carry a bonus
 ALLOW_MULTI_BONUS = True
 ENEMY_PICKUP_BONUSES = True
 FRIENDLY_FIRE = False
 MAX_ACTIVE_ENEMIES = 4
 MAX_ACTIVE_ENEMIES_2_PLAYERS = 8
 MAX_ACTIVE_ENEMIES_3_PLAYERS = 12
-DEFAULT_BULLET_SPEED = 4
 ENEMY_SPAWN_TIMEOUT = 2500
 LEVEL_FINISH_TIMEOUT = 4000
 BONUS_TIMER_FREEZE_TIMEOUT = 10000
-BONUS_FORTRESS_WALLS_TIMEOUT = 10000
-BONUS_PLAYER_SHIELD_TIMEOUT = 10000
+BONUS_FORTRESS_WALLS_TIMEOUT = 15000
+BONUS_PLAYER_SHIELD_TIMEOUT = 15000
 BONUS_PLAYER_HIDDEN_TIMEOUT = 10000
 BONUS_SPAWN_TIMEOUT = 20000
+
+# GAME SPEED
+GAME_FRAME_TIMING = 50
+DEFAULT_BULLET_SPEED = 5
+PLAYER_DEFAULT_SPEED = 2
+DEFAULT_ENEMY_SPEED = 1
+DEFAULT_ENEMY_SPEED_FAST = 1
 
 # PLAYER
 PLAYER_START_SUPERPOWER = 0
@@ -40,8 +46,13 @@ PLAYER_START_SHIELD_TIMEOUT = 4000
 # DEBUG
 DEBUG_UNFREEZE_PLAYERS_ON_PAUSE = False
 DEBUG_SPRITES = False
+DEBUG_DRAW_MESH = False
 DEBUG_COORDINATES = False
 DISABLE_LABELS = True	# to avoid bug with delayed font loading
+
+# CONSTANTS
+S_SIZE = 4
+T_SIZE = 32
 
 class myRect(pygame.Rect):
 	""" Add type property """
@@ -151,7 +162,7 @@ class Bonus():
 	"""
 
 	# bonus types
-	(BONUS_GRENADE, BONUS_HELMET, BONUS_SHOVEL, BONUS_STAR, BONUS_TANK, BONUS_TIMER) = range(6)
+	(BONUS_GRENADE, BONUS_HELMET, BONUS_TIMER, BONUS_SHOVEL, BONUS_TANK, BONUS_STAR, BONUS_PISTOL, BONUS_SHIP) = range(8)
 
 	def __init__(self, level):
 
@@ -172,13 +183,22 @@ class Bonus():
 			self.BONUS_STAR,
 			self.BONUS_STAR,
 			self.BONUS_GRENADE,
+			self.BONUS_GRENADE,
+			self.BONUS_HELMET,
 			self.BONUS_HELMET,
 			self.BONUS_SHOVEL,
+			self.BONUS_SHOVEL,
 			self.BONUS_TANK,
-			self.BONUS_TIMER
+			self.BONUS_TANK,
+			self.BONUS_TIMER,
+			self.BONUS_TIMER,
+			self.BONUS_PISTOL,
+			self.BONUS_SHIP,
+			self.BONUS_SHIP
 		])
 
-		self.image = sprites.subsurface(16*2*self.bonus, 32*2, 16*2, 15*2)
+		# self.image = sprites.subsurface(16*2*self.bonus, 32*2, 16*2, 15*2)
+		self.image = sprites2.subsurface((7*S_SIZE+2)*T_SIZE, 32*(self.bonus+1), 32, 32)
 
 	def draw(self):
 		""" draw bonus """
@@ -218,16 +238,16 @@ class Bullet():
 		# position is player's top left corner, so we'll need to
 		# recalculate a bit. also rotate image itself.
 		if direction == self.DIR_UP:
-			self.rect = pygame.Rect(position[0] + 11, position[1] - 8, 6, 8)
+			self.rect = pygame.Rect(position[0] + 12, position[1], 8, 8)
 		elif direction == self.DIR_RIGHT:
 			self.image = pygame.transform.rotate(self.image, 270)
-			self.rect = pygame.Rect(position[0] + 26, position[1] + 11, 8, 6)
+			self.rect = pygame.Rect(position[0] + 32 - 8, position[1] + 12, 8, 8)
 		elif direction == self.DIR_DOWN:
 			self.image = pygame.transform.rotate(self.image, 180)
-			self.rect = pygame.Rect(position[0] + 11, position[1] + 26, 6, 8)
+			self.rect = pygame.Rect(position[0] + 12, position[1] + 32 - 8, 8, 8)
 		elif direction == self.DIR_LEFT:
 			self.image = pygame.transform.rotate(self.image, 90)
-			self.rect = pygame.Rect(position[0] - 8 , position[1] + 11, 8, 6)
+			self.rect = pygame.Rect(position[0] + 4 , position[1] + 12, 8, 8)
 
 		self.explosion_images = [
 			sprites.subsurface(0, 80*2, 32*2, 32*2),
@@ -252,9 +272,9 @@ class Bullet():
 		# debug sprites
 		if DEBUG_SPRITES:
 			red = (255,0,0)
-			pygame.draw.rect(screen, red, self.rect)
+			pygame.draw.rect(screen, red, self.rect, 1)
 			self.dbg_label.position = self.rect.bottomleft
-			self.dbg_label.text = str(self.rect.topleft)
+			self.dbg_label.text = str(self.rect.topleft) + " " + str(self.rect.size)
 			self.dbg_label.draw()
 
 	def update(self):
@@ -358,7 +378,7 @@ class Bullet():
 		global screen
 		if self.state != self.STATE_REMOVED:
 			self.state = self.STATE_EXPLODING
-			self.explosion = Explosion([self.rect.left-13, self.rect.top-13], None, self.explosion_images)
+			self.explosion = Explosion([self.rect.left-16, self.rect.top-16], None, self.explosion_images)
 
 	def destroy(self):
 		self.state = self.STATE_REMOVED
@@ -437,17 +457,17 @@ class Level():
 		""" There are total 35 different levels. If level_nr is larger than 35, loop over
 		to next according level so, for example, if level_nr ir 37, then load level 2 """
 
-		global sprites
+		global sprites, game
 
 		# max number of enemies simultaneously  being on map
 		self.max_active_enemies = MAX_ACTIVE_ENEMIES
 
-		# if self.nr_of_players == 1:
-		# 	self.max_active_enemies = MAX_ACTIVE_ENEMIES
-		# elif self.nr_of_players == 2:
-		# 	self.max_active_enemies = MAX_ACTIVE_ENEMIES_2_PLAYERS
-		# elif self.nr_of_players == 3:
-		# 	self.max_active_enemies = MAX_ACTIVE_ENEMIES_3_PLAYERS
+		if game.nr_of_players == 1:
+			self.max_active_enemies = MAX_ACTIVE_ENEMIES
+		elif game.nr_of_players == 2:
+			self.max_active_enemies = MAX_ACTIVE_ENEMIES_2_PLAYERS
+		elif game.nr_of_players == 3:
+			self.max_active_enemies = MAX_ACTIVE_ENEMIES_3_PLAYERS
 
 		tile_images = [
 			pygame.Surface((8*2, 8*2)),
@@ -578,8 +598,8 @@ class Level():
 					screen.blit(self.tile_grass, tile.topleft)
 					
 	def updateRemovableRects(self):
-		""" Set self.removable_rects to all tiles' rects that players can destroy
-		with bullets """
+		""" Set self.removable_rects to all tiles' rects that players can drive through and clear
+		with bullets having enough power """
 
 		global castle
 
@@ -656,7 +676,7 @@ class Tank():
 		self.shielded = False
 
 		# px per move
-		self.speed = 1
+		self.speed = DEFAULT_ENEMY_SPEED
 
 		# friend or foe
 		self.side = side
@@ -670,7 +690,7 @@ class Tank():
 		self.max_active_bullets = PLAYER_START_MAX_ACTIVE_BULLETS
 
 		self.superpowers = 0
-		self.updateSuperpowers()
+		# self.updateSuperpowers()
 
 		# each tank can pick up 1 bonus
 		self.bonus = None
@@ -685,8 +705,10 @@ class Tank():
 		self.visible = True
 
 		self.shield_images = [
-			sprites.subsurface(0, 48*2, 16*2, 16*2),
-			sprites.subsurface(16*2, 48*2, 16*2, 16*2)
+			# sprites.subsurface(0, 48*2, 16*2, 16*2),
+			# sprites.subsurface(16*2, 48*2, 16*2, 16*2)
+			sprites2.subsurface(7*32+4, 9*32, 16*2, 16*2),
+			sprites2.subsurface(8*32+4, 9*32, 16*2, 16*2)
 		]
 		self.shield_image = self.shield_images[0]
 		self.shield_index = 0
@@ -701,9 +723,9 @@ class Tank():
 		self.level = level
 
 		if position != None:
-			self.rect = pygame.Rect(position, (26, 26))
+			self.rect = pygame.Rect(position, (32, 32))
 		else:
-			self.rect = pygame.Rect(0, 0, 26, 26)
+			self.rect = pygame.Rect(0, 0, 32, 32)
 
 		if direction == None:
 			self.direction = random.choice([self.DIR_RIGHT, self.DIR_DOWN, self.DIR_LEFT])
@@ -719,6 +741,8 @@ class Tank():
 		self.timer_uuid_spawn_end = gtimer.add(1000, lambda :self.endSpawning())
 
 		self.visibility_timer = None
+
+		self.shield_end_timer = None
 
 		self.dbg_label = Label(self.rect.bottomleft, str(self.rect.topleft))
 
@@ -777,7 +801,7 @@ class Tank():
 				return
 			screen.blit(self.image, self.rect.topleft)
 			if self.shielded:
-				screen.blit(self.shield_image, [self.rect.left-3, self.rect.top-3])
+				screen.blit(self.shield_image, [self.rect.left, self.rect.top])
 		elif self.state == self.STATE_EXPLODING:
 			self.explosion.draw()
 		elif self.state == self.STATE_SPAWNING:
@@ -786,9 +810,9 @@ class Tank():
 		# debug sprites
 		if DEBUG_SPRITES:
 			green = (0,255,0)
-			pygame.draw.rect(screen, green, self.rect)
+			pygame.draw.rect(screen, green, self.rect, 1)
 			self.dbg_label.position = self.rect.bottomleft
-			self.dbg_label.text = str(self.rect.topleft)
+			self.dbg_label.text = str(self.rect.topleft) + " " + str(self.rect.size)
 			self.dbg_label.draw()
 
 	def explode(self):
@@ -800,6 +824,8 @@ class Tank():
 
 	def updateSuperpowers(self):
 		""" update player super powers """
+
+		self.updateSprites()
 
 		# 0 - no superpowers
 		if self.superpowers >= 0:
@@ -841,11 +867,19 @@ class Tank():
 
 		global bullets, labels
 
-		if self.state != self.STATE_ALIVE:
+		if self.state == self.STATE_SPAWNING:
+			return False
+
+		if self.state not in (self.STATE_ALIVE, self.STATE_SPAWNING):
 			gtimer.destroy(self.timer_uuid_fire)
 			return False
 
 		if self.paused:
+			return False
+
+		CHANCE_OF_FIRE = 30
+		if self.side == self.SIDE_ENEMY and random.randint(1, 100) < 100 - CHANCE_OF_FIRE:
+			print("miss")
 			return False
 
 		if not forced:
@@ -889,9 +923,11 @@ class Tank():
 			#print "Fixing position"
 			#print "Before fixing: " + str(self.rect.left) + ", " + str(self.rect.top)
 				
-			new_x = self.nearest(self.rect.left - 3, 16) + 3
-			new_y = self.nearest(self.rect.top - 3, 16) + 3
-			new_rect = pygame.Rect([new_x, new_y], [26, 26])
+			SPRITES_FIX = 0
+
+			new_x = self.nearest(self.rect.left - SPRITES_FIX, 16) + SPRITES_FIX
+			new_y = self.nearest(self.rect.top - SPRITES_FIX, 16) + SPRITES_FIX
+			new_rect = pygame.Rect([new_x, new_y], [32, 32])
 
 			collision = False
 			if new_rect.collidelist(self.level.obstacle_rects) != -1:
@@ -937,14 +973,15 @@ class Tank():
 
 		global play_sounds, sounds
 
-		if self.shielded:
+		if self.shielded and not friendly_fire:
 			return True
 
 		if not friendly_fire:
 			if not INFINITE_HEALTH_FOR_ALL:
 				self.health -= damage
+				self.updateSprites()
 
-			# restore health if inifinite armor
+			# restore health if infinite armor
 			if PLAYER_INFINITE_ARMOR > 0 and self.side == self.SIDE_PLAYER:
 				self.health += damage	
 
@@ -1003,6 +1040,8 @@ class Tank():
 class Enemy(Tank):
 
 	(TYPE_BASIC, TYPE_FAST, TYPE_POWER, TYPE_ARMOR) = range(4)
+	(DIR_UP, DIR_RIGHT, DIR_DOWN, DIR_LEFT) = range(4)
+	(FLASHING_YES, FLASHING_NO) = range(2)
 
 	def __init__(self, level, type, position = None, direction = None, filename = None):
 
@@ -1024,34 +1063,22 @@ class Enemy(Tank):
 			return
 
 		if self.type == self.TYPE_BASIC:
-			self.speed = 1
+			self.speed = DEFAULT_ENEMY_SPEED
 		elif self.type == self.TYPE_FAST:
-			self.speed = 2
+			self.speed = DEFAULT_ENEMY_SPEED + DEFAULT_ENEMY_SPEED_FAST
 		elif self.type == self.TYPE_POWER:
 			self.speed = 1
-			self.superpowers = 1
+			self.superpowers = DEFAULT_ENEMY_SPEED
 			self.updateSuperpowers()
 		elif self.type == self.TYPE_ARMOR:
-			self.speed = 1
+			self.speed = DEFAULT_ENEMY_SPEED
 			self.health = 400
 
-		images = [
-			sprites.subsurface(32*2, 0, 13*2, 15*2),
-			sprites.subsurface(48*2, 0, 13*2, 15*2),
-			sprites.subsurface(64*2, 0, 13*2, 15*2),
-			sprites.subsurface(80*2, 0, 13*2, 15*2),
-			sprites.subsurface(32*2, 16*2, 13*2, 15*2),
-			sprites.subsurface(48*2, 16*2, 13*2, 15*2),
-			sprites.subsurface(64*2, 16*2, 13*2, 15*2),
-			sprites.subsurface(80*2, 16*2, 13*2, 15*2)
-		]
-
-		self.image = images[self.type+0]
-
-		self.image_up = self.image
-		self.image_left = pygame.transform.rotate(self.image, 90)
-		self.image_down = pygame.transform.rotate(self.image, 180)
-		self.image_right = pygame.transform.rotate(self.image, 270)
+		self.image_up = self.getEnemyImage(self.DIR_UP, self.type, self.health, self.FLASHING_NO)
+		self.image_left = self.getEnemyImage(self.DIR_LEFT, self.type, self.health, self.FLASHING_NO)
+		self.image_down = self.getEnemyImage(self.DIR_DOWN, self.type, self.health, self.FLASHING_NO)
+		self.image_right = self.getEnemyImage(self.DIR_RIGHT, self.type, self.health, self.FLASHING_NO)
+		self.image = self.image_up
 
 		if self.bonus:
 			self.image1_up = self.image_up
@@ -1059,11 +1086,11 @@ class Enemy(Tank):
 			self.image1_down = self.image_down
 			self.image1_right = self.image_right
 
-			self.image2 = images[self.type+4]
-			self.image2_up = self.image2
-			self.image2_left = pygame.transform.rotate(self.image2, 90)
-			self.image2_down = pygame.transform.rotate(self.image2, 180)
-			self.image2_right = pygame.transform.rotate(self.image2, 270)
+			self.image2_up = self.getEnemyImage(self.DIR_UP, self.type, self.health, self.FLASHING_YES)
+			self.image2_left = self.getEnemyImage(self.DIR_LEFT, self.type, self.health, self.FLASHING_YES)
+			self.image2_down = self.getEnemyImage(self.DIR_DOWN, self.type, self.health, self.FLASHING_YES)
+			self.image2_right = self.getEnemyImage(self.DIR_RIGHT, self.type, self.health, self.FLASHING_YES)
+			self.image2 = self.image2_up
 
 		self.rotate(self.direction, False)
 
@@ -1080,24 +1107,50 @@ class Enemy(Tank):
 		# list of map coords where tank should go next
 		self.path = self.generatePath(self.direction)
 
-		# 1000 is duration between shots
-		self.timer_uuid_fire = gtimer.add(1000, lambda :self.fire())
+		# 100ms - 1000ms is duration between shots
+		self.timer_uuid_fire = gtimer.add(300, lambda :self.fire())
 
+		# if enemy tank picked up a bonus
 		self.bonus_aquired = None
 
 		# turn on flashing
 		if self.bonus:
 			self.timer_uuid_flash = gtimer.add(200, lambda :self.toggleFlash())
 
+	# direction 0-up, 1-right, 2-down, 3-left
+	# type 0-basic, 1-fast, 2-power, 3-armor
+	def getEnemyImage(self, direction, type, health, flashing):
+		if flashing == self.FLASHING_NO:
+			return sprites2.subsurface((((health)/100)*S_SIZE+direction)*T_SIZE, type*2*T_SIZE, 32, 32)
+		else:
+			return sprites2.subsurface((0+direction)*T_SIZE, type*2*T_SIZE, 32, 32)
+
+	def updateSprites(self):
+		self.image_up = self.getEnemyImage(self.DIR_UP, self.type, self.health, self.FLASHING_NO)
+		self.image_left = self.getEnemyImage(self.DIR_LEFT, self.type, self.health, self.FLASHING_NO)
+		self.image_down = self.getEnemyImage(self.DIR_DOWN, self.type, self.health, self.FLASHING_NO)
+		self.image_right = self.getEnemyImage(self.DIR_RIGHT, self.type, self.health, self.FLASHING_NO)
+		dir_oriented_image = [self.image_up, self.image_right, self.image_down, self.image_left]
+		self.image = dir_oriented_image[self.direction]
+
+		if self.bonus:
+			self.image1_up = self.image_up
+			self.image1_left = self.image_left
+			self.image1_down = self.image_down
+			self.image1_right = self.image_right
+
+			self.image2_up = self.getEnemyImage(self.DIR_UP, self.type, self.health, self.FLASHING_YES)
+			self.image2_left = self.getEnemyImage(self.DIR_LEFT, self.type, self.health, self.FLASHING_YES)
+			self.image2_down = self.getEnemyImage(self.DIR_DOWN, self.type, self.health, self.FLASHING_YES)
+			self.image2_right = self.getEnemyImage(self.DIR_RIGHT, self.type, self.health, self.FLASHING_YES)
+			self.image2 = dir_oriented_image[self.direction]
+			
 	def removeBonusLoad(self):
 		""" Remove bonus from enemy tank and stop flashing """
 		self.bonus = None
 		gtimer.destroy(self.timer_uuid_flash)
 
-		self.image_up = self.image1_up
-		self.image_right = self.image1_right
-		self.image_down = self.image1_down
-		self.image_left = self.image1_left
+		self.updateSprites()
 		self.rotate(self.direction, False)
 
 	def toggleFlash(self):
@@ -1143,7 +1196,6 @@ class Enemy(Tank):
 			bonuses.remove(bonus)
 
 	def getFreeSpawningPosition(self):
-
 		global players, enemies, enemy_spawn_pos_index
 
 		available_positions = [
@@ -1151,40 +1203,10 @@ class Enemy(Tank):
 			[12 * self.level.TILE_SIZE + (self.level.TILE_SIZE * 2 - self.rect.width) / 2, (self.level.TILE_SIZE * 2 - self.rect.height) / 2],
 			[24 * self.level.TILE_SIZE + (self.level.TILE_SIZE * 2 - self.rect.width) / 2,  (self.level.TILE_SIZE * 2 - self.rect.height) / 2]
 		]
-
 		enemy_spawn_pos_index += 1
 		enemy_spawn_pos_index %= 3 
 
 		return available_positions[enemy_spawn_pos_index]
-		
-		random.shuffle(available_positions)
-
-		for pos in available_positions:
-
-			enemy_rect = pygame.Rect(pos, [26, 26])
-
-			# collisions with other enemies
-			collision = False
-			for enemy in enemies:
-				if enemy_rect.colliderect(enemy.rect):
-					collision = True
-					continue
-
-			if collision:
-				continue
-
-			# collisions with players
-			collision = False
-			for player in players:
-				if enemy_rect.colliderect(player.rect):
-					collision = True
-					continue
-
-			if collision:
-				continue
-
-			return pos
-		return False
 
 	def move(self):
 		""" move enemy if possible """
@@ -1205,11 +1227,11 @@ class Enemy(Tank):
 				self.path = self.generatePath(self.direction, True)
 				return
 		elif self.direction == self.DIR_RIGHT:
-			if new_position[0] > (416 - 26):
+			if new_position[0] > (416 - 32):
 				self.path = self.generatePath(self.direction, True)
 				return
 		elif self.direction == self.DIR_DOWN:
-			if new_position[1] > (416 - 26):
+			if new_position[1] > (416 - 32):
 				self.path = self.generatePath(self.direction, True)
 				return
 		elif self.direction == self.DIR_LEFT:
@@ -1217,7 +1239,7 @@ class Enemy(Tank):
 				self.path = self.generatePath(self.direction, True)
 				return
 
-		new_rect = pygame.Rect(new_position, [26, 26])
+		new_rect = pygame.Rect(new_position, [32, 32])
 
 		# collisions with tiles
 		if new_rect.collidelist(self.level.obstacle_rects) != -1:
@@ -1350,7 +1372,7 @@ class Enemy(Tank):
 			axis_fix = self.nearest(x, 16) - x
 		axis_fix = 0
 
-		pixels = self.nearest(random.randint(1, 12) * 32, 32) + axis_fix + 3
+		pixels = self.nearest(random.randint(1, 12) * 32, 32) + axis_fix # + 3
 
 		if new_direction == self.DIR_UP:
 			for px in range(0, pixels, self.speed):
@@ -1369,11 +1391,11 @@ class Enemy(Tank):
 
 class Player(Tank):
 
-	def __init__(self, level, type, position = None, direction = None, filename = None):
+	def __init__(self, level, type, position = None, direction = None, filename = None, player_nr=1):
 
 		Tank.__init__(self, level, type, position = None, direction = None, filename = None)
 
-		global sprites
+		global sprites, sprites2
 
 		if filename == None:
 			filename = (0, 0, 16*2, 16*2)
@@ -1381,12 +1403,9 @@ class Player(Tank):
 		self.start_position = position
 		self.start_direction = direction
 
-		self.speed = 2
+		self.speed = PLAYER_DEFAULT_SPEED
 		self.lives = PLAYER_START_LIFE
-
 		self.superpowers = PLAYER_START_SUPERPOWER
-
-		# total score
 		self.score = PLAYER_START_SCORE
 
 		# store how many bonuses in this stage this player has collected
@@ -1398,8 +1417,20 @@ class Player(Tank):
 			"enemy3" : 0
 		}
 
-		self.image = sprites.subsurface(filename)
-		self.image_up = self.image;
+		if player_nr == 1:
+			player_sprite_nr = 5
+		else:
+			player_sprite_nr = 6
+
+		self.images2 = [
+			sprites2.subsurface(player_sprite_nr*S_SIZE*T_SIZE, 0, 32, 32),
+			sprites2.subsurface(player_sprite_nr*S_SIZE*T_SIZE, 2*T_SIZE, 32, 32),
+			sprites2.subsurface(player_sprite_nr*S_SIZE*T_SIZE, 4*T_SIZE, 32, 32),
+			sprites2.subsurface(player_sprite_nr*S_SIZE*T_SIZE, 6*T_SIZE, 32, 32)
+		]
+
+		self.image = sprites2.subsurface(filename)
+		self.image_up = self.image
 		self.image_left = pygame.transform.rotate(self.image, 90)
 		self.image_down = pygame.transform.rotate(self.image, 180)
 		self.image_right = pygame.transform.rotate(self.image, 270)
@@ -1408,6 +1439,17 @@ class Player(Tank):
 			self.rotate(self.DIR_UP, False)
 		else:
 			self.rotate(direction, False)
+
+	def updateSprites(self):
+		sprite_id = self.superpowers
+		if sprite_id > len(self.images2) - 1:
+			sprite_id = len(self.images2) - 1
+		self.image = self.images2[sprite_id]
+		self.image_up = self.image
+		self.image_left = pygame.transform.rotate(self.image, 90)
+		self.image_down = pygame.transform.rotate(self.image, 180)
+		self.image_right = pygame.transform.rotate(self.image, 270)
+		self.rotate(self.direction)
 
 	def move(self, direction):
 		""" move player if possible """
@@ -1436,18 +1478,18 @@ class Player(Tank):
 				return
 		elif direction == self.DIR_RIGHT:
 			new_position = [self.rect.left + self.speed, self.rect.top]
-			if new_position[0] > (416 - 26):
+			if new_position[0] > (416 - 32):
 				return
 		elif direction == self.DIR_DOWN:
 			new_position = [self.rect.left, self.rect.top + self.speed]
-			if new_position[1] > (416 - 26):
+			if new_position[1] > (416 - 32):
 				return
 		elif direction == self.DIR_LEFT:
 			new_position = [self.rect.left - self.speed, self.rect.top]
 			if new_position[0] < 0:
 				return
 
-		player_rect = pygame.Rect(new_position, [26, 26])
+		player_rect = pygame.Rect(new_position, [32, 32])
 
 		# collisions with tiles
 		if player_rect.collidelist(self.level.obstacle_rects) != -1:
@@ -1496,7 +1538,7 @@ class Game():
 
 	def __init__(self):
 
-		global screen, sprites, play_sounds, sounds, enemy_spawn_pos_index
+		global screen, sprites, sprites2, play_sounds, sounds, enemy_spawn_pos_index
 
 		# center window
 		os.environ['SDL_VIDEO_WINDOW_POS'] = 'center'
@@ -1518,10 +1560,12 @@ class Game():
 		self.clock = pygame.time.Clock()
 
 		# load sprites (funky version)
-		#sprites = pygame.transform.scale2x(pygame.image.load("images/sprites.gif"))
+		# sprites = pygame.transform.scale2x(pygame.image.load("images/sprites.gif"))
 		# load sprites (pixely version)
 		sprites = pygame.transform.scale(pygame.image.load("images/sprites.gif"), [192, 224])
 		#screen.set_colorkey((0,138,104))
+		sprites2 = pygame.transform.scale(pygame.image.load("images/sprites2.png"), [1024, 512])
+
 
 		pygame.display.set_icon(sprites.subsurface(0, 0, 13*2, 13*2))
 
@@ -1579,11 +1623,46 @@ class Game():
 
 		enemy_spawn_pos_index = 2
 
+		# fortress timer
+		self.fortress_end_timer = None
+
+		# clock timer
+		self.freeze_end_timer = None
+
+		#debug mode
+		self.debug_mode = False
+
 		del players[:]
 		del bullets[:]
 		del enemies[:]
 		del bonuses[:]
-		
+
+	def toggleDebugMode(self): 
+		global DEBUG_SPRITES, DEBUG_DRAW_MESH
+		self.debug_mode = not self.debug_mode
+		DEBUG_SPRITES = DEBUG_DRAW_MESH = self.debug_mode
+
+	def drawMesh(self):
+		""" Draw 32 x 32 mesh on screen for debugging """
+		global screen
+		blue = pygame.Color(0,0,255)
+
+		size = width, height = 416, 416
+		H_STEP, V_STEP = 32, 32
+		V_LINES = int(width / V_STEP) + 1
+		H_LINES = int(width / H_STEP + 1)
+
+		for i in range(H_LINES):
+			pygame.draw.line(screen, blue, [0, i*H_STEP], [width, i*H_STEP], 1)
+
+		for i in range(V_LINES):
+			pygame.draw.line(screen, blue, [i*V_STEP, 0], [i*V_STEP, height], 1)
+
+
+	def destroyTimer(self, timer):
+		if timer:	
+			gtimer.destroy(timer)
+	
 	def toggleFullScreen(self):
 		self.is_fullscreen = not self.is_fullscreen
 		self.setFullScreen(self.is_fullscreen)
@@ -1610,7 +1689,7 @@ class Game():
 			for player in players:
 				player.explode()
 		# hide all players for 10 seconds
-		elif bonus.bonus == bonus.BONUS_HELMET:
+		elif bonus.bonus == bonus.BONUS_HELMET or bonus.bonus == bonus.BONUS_SHIP:
 			if play_sounds:
 				sounds["bonus"].play()
 			for player in players:
@@ -1621,28 +1700,41 @@ class Game():
 				sounds["bonus"].play()
 			if not FORTRESS_FOREVER:
 				self.level.buildFortress(self.level.TILE_EMPTY)
-				gtimer.add(BONUS_FORTRESS_WALLS_TIMEOUT, lambda :self.level.buildFortress(self.level.TILE_BRICK), 1)
-		# remove 1 superpower from all players
+				self.destroyTimer(self.fortress_end_timer)
+				self.fortress_end_timer = gtimer.add(BONUS_FORTRESS_WALLS_TIMEOUT, lambda :self.level.buildFortress(self.level.TILE_BRICK), 1)
+		# increase 1 enemy superpower by 1
 		elif bonus.bonus == bonus.BONUS_STAR:
 			if play_sounds:
 				sounds["bonus"].play()
-			for player in players:
-				if player.superpowers >0:
-					player.superpowers -= 1
-					player.updateSuperpowers()
-		# remove 1 life from all players
+			# for enemy in enemies:
+				enemy.superpowers += 1
+				enemy.updateSuperpowers()
+		# increase 1 enemy superpower by 2
+		elif bonus.bonus == bonus.BONUS_PISTOL:
+			if play_sounds:
+				sounds["bonus"].play()
+			# for enemy in enemies:
+				enemy.superpowers += 2
+				enemy.type += 2
+				if enemy.type >= 3:
+					enemy.health = 400
+					enemy.type = 3
+					enemy.speed = DEFAULT_ENEMY_SPEED_FAST
+				enemy.updateSuperpowers()
+		# increase all enemy health by 100
 		elif bonus.bonus == bonus.BONUS_TANK:
 			if play_sounds:
 				sounds["life"].play()
-			for player in players:
-				if player.lives >= 2:
-					player.lives -= 1
+			# for enemy in enemies:
+			enemy.health += 200
+			enemy.updateSprites()
 		# freeze players for 10 seconds
 		elif bonus.bonus == bonus.BONUS_TIMER:
 			if play_sounds:
 				sounds["bonus"].play()
 			self.togglePlayersFreeze(True)
-			gtimer.add(BONUS_TIMER_FREEZE_TIMEOUT, lambda :self.togglePlayersFreeze(False), 1)
+			self.destroyTimer(self.freeze_end_timer)
+			self.freeze_end_timer = gtimer.add(BONUS_TIMER_FREEZE_TIMEOUT, lambda :self.togglePlayersFreeze(False), 1)
 		
 		if bonus in bonuses:
 			bonuses.remove(bonus)
@@ -1662,7 +1754,7 @@ class Game():
 			for enemy in enemies:
 				enemy.explode()
 		# shield player for 10 seconds
-		elif bonus.bonus == bonus.BONUS_HELMET:
+		elif bonus.bonus == bonus.BONUS_HELMET or bonus.bonus == bonus.BONUS_SHIP:
 			if play_sounds:
 				sounds["bonus"].play()
 			self.shieldPlayer(player, True, BONUS_PLAYER_SHIELD_TIMEOUT)
@@ -1672,12 +1764,19 @@ class Game():
 				sounds["bonus"].play()
 			self.level.buildFortress(self.level.TILE_STEEL)
 			if not FORTRESS_FOREVER:
-				gtimer.add(BONUS_FORTRESS_WALLS_TIMEOUT, lambda :self.level.buildFortress(self.level.TILE_BRICK), 1)
+				self.destroyTimer(self.fortress_end_timer)
+				self.fortress_end_timer = gtimer.add(BONUS_FORTRESS_WALLS_TIMEOUT, lambda :self.level.buildFortress(self.level.TILE_BRICK), 1)
 		# upgrade superpower
 		elif bonus.bonus == bonus.BONUS_STAR:
 			if play_sounds:
 				sounds["bonus"].play()
 			player.superpowers += 1
+			player.updateSuperpowers()
+		# upgrade superpower by 3
+		elif bonus.bonus == bonus.BONUS_PISTOL:
+			if play_sounds:
+				sounds["bonus"].play()
+			player.superpowers += 3
 			player.updateSuperpowers()
 		# add 1 life
 		elif bonus.bonus == bonus.BONUS_TANK:
@@ -1689,7 +1788,8 @@ class Game():
 			if play_sounds:
 				sounds["bonus"].play()
 			self.toggleEnemyFreeze(True)
-			gtimer.add(BONUS_TIMER_FREEZE_TIMEOUT, lambda :self.toggleEnemyFreeze(False), 1)
+			self.destroyTimer(self.freeze_end_timer)
+			self.freeze_end_timer = gtimer.add(BONUS_TIMER_FREEZE_TIMEOUT, lambda :self.toggleEnemyFreeze(False), 1)
 		
 		if bonus in bonuses:
 			bonuses.remove(bonus)
@@ -1709,7 +1809,9 @@ class Game():
 			gtimer.destroy(player.timer_uuid_shield)
 
 		if shield and duration != None:
-			gtimer.add(duration, lambda :self.shieldPlayer(player, False), 1)
+			if player.shield_end_timer:
+				gtimer.destroy(player.shield_end_timer)
+			player.shield_end_timer = gtimer.add(duration, lambda :self.shieldPlayer(player, False), 1)
 
 
 	def spawnEnemy(self):
@@ -1848,34 +1950,36 @@ class Game():
 
 		global players
 
+		
+
 		if len(players) == 0:
 			# first player
-			x = 8 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 26) / 2
-			y = 24 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 26) / 2
+			x = 8 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 32) / 2
+			y = 24 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 32) / 2
 
 			player = Player(
-				self.level, 0, [x, y], self.DIR_UP, (0, 0, 13*2, 13*2)
+				self.level, 0, [x, y], self.DIR_UP, (5*S_SIZE*T_SIZE, 0, T_SIZE, T_SIZE), 1
 			)
 			players.append(player)
 
 			# second player
 			if self.nr_of_players >= 2:
-				x = 16 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 26) / 2
-				y = 24 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 26) / 2
+				x = 16 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 32) / 2
+				y = 24 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 32) / 2
 				player = Player(
-					self.level, 0, [x, y], self.DIR_UP, (16*2, 0, 13*2, 13*2)
+					self.level, 0, [x, y], self.DIR_UP, (6*S_SIZE*T_SIZE, 0, 16*2, 16*2), 2
 				)
-				player.controls = [102, 119, 100, 115, 97]
+				player.controls = [pygame.K_l, pygame.K_w, pygame.K_d, pygame.K_s, pygame.K_a]
 				players.append(player)
 
 			# third player
 			if self.nr_of_players == 3:
-				x = 12 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 26) / 2
-				y = 21 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 26) / 2
+				x = 12 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 32) / 2
+				y = 21 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 32) / 2
 				player = Player(
-					self.level, 0, [x, y], self.DIR_UP, (16*2, 0, 13*2, 13*2)
+					self.level, 0, [x, y], self.DIR_UP, (16*2, 0, 16*2, 16*2), 3
 				)
-				player.controls = [pygame.K_l, pygame.K_y, pygame.K_j, pygame.K_h, pygame.K_g]
+				player.controls = [pygame.K_k, pygame.K_y, pygame.K_j, pygame.K_h, pygame.K_g]
 				players.append(player)
 
 		for player in players:
@@ -2056,6 +2160,9 @@ class Game():
 
 		self.drawSidebar()
 
+		if DEBUG_DRAW_MESH:
+			self.drawMesh()
+
 		pygame.display.flip()
 
 	def drawSidebar(self):
@@ -2082,23 +2189,15 @@ class Game():
 		if pygame.font.get_init():
 			text_color = pygame.Color('black')
 			for n in range(len(players)):
-				if n == 0:
-					lives_left = players[n].lives - 1
-					if lives_left < 0:
-						lives_left = 0 
-					screen.blit(self.font.render(str(n+1)+"P", False, text_color), [x+16, y+200])
-					screen.blit(self.font.render(str(lives_left), False, text_color), [x+31, y+215])
-					screen.blit(self.player_life_image, [x+17, y+215])
-				else:
-					lives_left = players[n].lives - 1
-					if lives_left < 0:
-						lives_left = 0
-					screen.blit(self.font.render(str(n+1)+"P", False, text_color), [x+16, y+240])
-					screen.blit(self.font.render(str(lives_left), False, text_color), [x+31, y+255])
-					screen.blit(self.player_life_image, [x+17, y+255])
+				lives_left = players[n].lives - 1
+				if lives_left < 0:
+					lives_left = 0 
+				screen.blit(self.font.render(str(n+1)+"P", False, text_color), [x+20, y+210+n*42])
+				screen.blit(self.font.render(str(lives_left), False, text_color), [x+35, y+227+n*42])
+				screen.blit(self.player_life_image, [x+18, y+227+n*42])
 
-			screen.blit(self.flag_image, [x+17, y+280])
-			screen.blit(self.font.render(str(self.stage), False, text_color), [x+17, y+312])
+			screen.blit(self.flag_image, [x+17, y+280+75])
+			screen.blit(self.font.render(str(self.stage), False, text_color), [x+35, y+312+75])
 
 
 	def drawIntroScreen(self, put_on_surface = True):
@@ -2249,14 +2348,13 @@ class Game():
 			enemy.paused = freeze
 		self.timefreeze = freeze
 
-	def togglePlayersFreeze(self, freeze = True):
-		""" Freeze/defreeze all players """
+	# def togglePlayersFreeze(self, freeze = True):
+	# 	""" Freeze/defreeze all players """
 
-		global players
+	# 	global players
 
-		for player in players:
-			player.paralized = freeze
-		self.timefreeze = freeze
+	# 	for player in players:
+	# 		player.paralised = freeze
 
 	def loadHiscore(self):
 		""" Load hiscore
@@ -2310,10 +2408,8 @@ class Game():
 		
 		for player in players:
 			player.paralised = freeze
-			player.paused = freeze
+			# player.paused = freeze
 
-		
-		
 	def pause(self):
 		""" Pause the game """
 		global sounds
@@ -2321,7 +2417,7 @@ class Game():
 		if not self.game_paused:
 			#print "Game paused"
 			self.game_paused = True
-			self.toggleEnemyFreeze(True)
+			# self.toggleEnemyFreeze(True)
 			pygame.mixer.stop()
 			if not DEBUG_UNFREEZE_PLAYERS_ON_PAUSE:
 				self.togglePlayersFreeze(True)
@@ -2331,7 +2427,7 @@ class Game():
 		else:
 			#print "Game unpaused"
 			self.game_paused = False
-			self.toggleEnemyFreeze(False)
+			# self.toggleEnemyFreeze(False)
 			self.togglePlayersFreeze(False)
 			sounds["bg"].play(-1)
 
@@ -2394,7 +2490,22 @@ class Game():
 
 		while self.running:
 
-			time_passed = self.clock.tick(50)
+			time_passed = self.clock.tick(GAME_FRAME_TIMING)
+
+			if self.game_paused and not DEBUG_UNFREEZE_PLAYERS_ON_PAUSE:
+				for event in pygame.event.get():
+					if event.type == pygame.QUIT:
+						quit()
+					elif event.type == pygame.KEYDOWN and not self.game_over and self.active:
+						if event.key == pygame.K_ESCAPE:
+							quit()
+						if event.key == pygame.K_RETURN:
+							self.pause()
+						if event.key == pygame.K_v:
+							self.toggleDebugMode()
+				
+				self.draw()
+				continue
 
 			for event in pygame.event.get():
 				if event.type == pygame.MOUSEBUTTONDOWN:
@@ -2408,6 +2519,10 @@ class Game():
 						quit()
 					if event.key == pygame.K_RETURN:
 						self.pause()
+					if event.key == pygame.K_n:
+						self.toggleEnemyFreeze(not self.timefreeze)
+					if event.key == pygame.K_v:
+						self.toggleDebugMode()
 					if event.key == pygame.K_f and pygame.key.get_mods() & pygame.KMOD_CTRL:
 						self.toggleFullScreen()
 					# toggle sounds
@@ -2473,13 +2588,13 @@ class Game():
 			for player in players:
 				if player.state == player.STATE_ALIVE and not self.game_over and self.active:
 					if player.pressed[0] == True:
-						player.move(self.DIR_UP);
+						player.move(self.DIR_UP)
 					elif player.pressed[1] == True:
-						player.move(self.DIR_RIGHT);
+						player.move(self.DIR_RIGHT)
 					elif player.pressed[2] == True:
-						player.move(self.DIR_DOWN);
+						player.move(self.DIR_DOWN)
 					elif player.pressed[3] == True:
-						player.move(self.DIR_LEFT);
+						player.move(self.DIR_LEFT)
 				player.update(time_passed)
 
 			for enemy in enemies:
@@ -2539,6 +2654,7 @@ if __name__ == "__main__":
 	gtimer = Timer()
 
 	sprites = None
+	sprites2 = None
 	screen = None
 	players = []
 	enemies = []
