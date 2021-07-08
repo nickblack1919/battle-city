@@ -27,6 +27,9 @@ BONUS_FORTRESS_WALLS_TIMEOUT = 15000
 BONUS_PLAYER_SHIELD_TIMEOUT = 15000
 BONUS_PLAYER_HIDDEN_TIMEOUT = 10000
 BONUS_SPAWN_TIMEOUT = 20000
+CHANCE_OF_FIRE = 50
+ENEMY_FIRE_TIMER = 500
+
 
 # GAME SPEED
 GAME_FRAME_TIMING = 50
@@ -877,9 +880,7 @@ class Tank():
 		if self.paused:
 			return False
 
-		CHANCE_OF_FIRE = 30
 		if self.side == self.SIDE_ENEMY and random.randint(1, 100) < 100 - CHANCE_OF_FIRE:
-			print("miss")
 			return False
 
 		if not forced:
@@ -1108,7 +1109,7 @@ class Enemy(Tank):
 		self.path = self.generatePath(self.direction)
 
 		# 100ms - 1000ms is duration between shots
-		self.timer_uuid_fire = gtimer.add(300, lambda :self.fire())
+		self.timer_uuid_fire = gtimer.add(ENEMY_FIRE_TIMER, lambda :self.fire())
 
 		# if enemy tank picked up a bonus
 		self.bonus_aquired = None
@@ -1174,15 +1175,27 @@ class Enemy(Tank):
 	def spawnBonus(self):
 		""" Create new bonus if needed """
 
-		global bonuses
+		global bonuses, players, enemies
 
+		if play_sounds:
+			sounds["bonusnew"].play()
+		
 		bonus = Bonus(self.level)
+
 		bonuses.append(bonus)
 		gtimer.add(300, lambda :bonus.toggleVisibility())
 		gtimer.add(BONUS_SPAWN_TIMEOUT, lambda :bonuses.remove(bonus), 1)
 
-		if play_sounds:
-			sounds["bonusnew"].play()
+		# pickup the bonus immediately it it was placed on a player
+		for player in players:
+			if player.rect.colliderect(bonus.rect) == True:
+				player.bonus = bonus
+				return
+
+		if ENEMY_PICKUP_BONUSES:
+			for enemy in enemies:
+				if enemy.rect.colliderect(bonus.rect) == True:
+					enemy.bonus_aquired = bonus
 
 	def clearAllBonuses(self):
 		global bonuses, players
@@ -2503,6 +2516,8 @@ class Game():
 							self.pause()
 						if event.key == pygame.K_v:
 							self.toggleDebugMode()
+						if event.key == pygame.K_f and pygame.key.get_mods() & pygame.KMOD_CTRL:
+							self.toggleFullScreen()
 				
 				self.draw()
 				continue
@@ -2519,7 +2534,7 @@ class Game():
 						quit()
 					if event.key == pygame.K_RETURN:
 						self.pause()
-					if event.key == pygame.K_n:
+					if event.key == pygame.K_p:
 						self.toggleEnemyFreeze(not self.timefreeze)
 					if event.key == pygame.K_v:
 						self.toggleDebugMode()
