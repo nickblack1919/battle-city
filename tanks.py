@@ -2529,15 +2529,21 @@ class Game():
 					quit()
 				elif event.type == pygame.KEYDOWN and not self.game_over and self.active:
 
-					
+					# Controls: ESC - quit, Enter - pause, p - debug enemy freeze, v - debug mesh,
+					# ctrl+f - full screen, m  - mute sounds, b - borrow life from active player
+					# toggle game quit
 					if event.key == pygame.K_ESCAPE:
 						quit()
+					# toggle pause
 					if event.key == pygame.K_RETURN:
 						self.pause()
+					# toggle debug freeze
 					if event.key == pygame.K_p:
 						self.toggleEnemyFreeze(not self.timefreeze)
+					# toggle debug mesh
 					if event.key == pygame.K_v:
 						self.toggleDebugMode()
+					# toggle full screen 	
 					if event.key == pygame.K_f and pygame.key.get_mods() & pygame.KMOD_CTRL:
 						self.toggleFullScreen()
 					# toggle sounds
