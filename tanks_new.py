@@ -1,16 +1,11 @@
 #!/usr/bin/python
 # coding=utf-8
 
-import os, pygame, time, random, uuid, sys, argparse
+import os, pygame, time, random, uuid, sys
 from pygame.locals import *
 
-# MODE
-CLASSIC_MODE = False
-EXTREME_MODE = True
-DEBUG_MODE = False
-
 # CHEATS
-START_LEVEL = 27
+START_LEVEL = 8
 FORTRESS_FOREVER = 0
 PLAYER_INFINITE_ARMOR = 0
 PLAYER_INFINITE_LIVES = False
@@ -25,24 +20,22 @@ FRIENDLY_FIRE = False
 MAX_ACTIVE_ENEMIES = 4
 MAX_ACTIVE_ENEMIES_2_PLAYERS = 10
 MAX_ACTIVE_ENEMIES_3_PLAYERS = 12
-ENEMY_SPAWN_TIMEOUT = 1000
+ENEMY_SPAWN_TIMEOUT = 1500
 LEVEL_FINISH_TIMEOUT = 4000
-BONUS_TIMER_FREEZE_TIMEOUT = 15000
+BONUS_TIMER_FREEZE_TIMEOUT = 10000
 BONUS_FORTRESS_WALLS_TIMEOUT = 15000
-BONUS_PLAYER_SHIELD_TIMEOUT = 20000
+BONUS_PLAYER_SHIELD_TIMEOUT = 15000
 BONUS_PLAYER_HIDDEN_TIMEOUT = 10000
 BONUS_SPAWN_TIMEOUT = 20000
 CHANCE_OF_FIRE = 50
 ENEMY_FIRE_TIMER = 500
-HEAD_SHIELD_WHEN_PROTECTED = True
-ENABLE_PLAYER_PROTECTION = True
 
 # GAME SPEED
 GAME_FRAME_TIMING = 50
 DEFAULT_BULLET_SPEED = 4
 PLAYER_DEFAULT_SPEED = 2
 DEFAULT_ENEMY_SPEED = 1
-DEFAULT_ENEMY_SPEED_FAST = 1
+DEFAULT_ENEMY_SPEED_FAST = 2
 
 # ENEMY
 DEFAULT_ENEMY_ARMOR_HEALTH = 600
@@ -56,46 +49,15 @@ PLAYER_START_MAX_ACTIVE_BULLETS = 1
 PLAYER_START_SHIELD_TIMEOUT = 4000
 
 # DEBUG
-DEBUG_UNFREEZE_PLAYERS_ON_PAUSE = DEBUG_MODE
-DEBUG_SPRITES = DEBUG_MODE
-DEBUG_DRAW_MESH = DEBUG_MODE
-DEBUG_COORDINATES = DEBUG_MODE
-DISABLE_LABELS = not DEBUG_MODE	# to avoid bug with delayed font loading
+DEBUG_UNFREEZE_PLAYERS_ON_PAUSE = False
+DEBUG_SPRITES = False
+DEBUG_DRAW_MESH = False
+DEBUG_COORDINATES = False
+DISABLE_LABELS = True	# to avoid bug with delayed font loading
 
 # CONSTANTS
 S_SIZE = 4
 T_SIZE = 32
-
-if CLASSIC_MODE:
-	ALLOW_MULTI_BONUS = False
-	ENEMY_PICKUP_BONUSES = False
-	BONUS_FREQ = 5
-	PLAYER_START_SUPERPOWER = 0
-	DEFAULT_ENEMY_ARMOR_HEALTH = 400
-	DEFAULT_ENEMY_SPEED_FAST = 1
-	MAX_ACTIVE_ENEMIES_2_PLAYERS = 8
-	ENEMY_SPAWN_TIMEOUT = 2000
-	ENABLE_PLAYER_PROTECTION = False
-
-if EXTREME_MODE:
-	ALLOW_MULTI_BONUS = True
-	ENEMY_PICKUP_BONUSES = True
-	BONUS_FREQ = 4
-	PLAYER_START_SUPERPOWER = 1
-	DEFAULT_ENEMY_ARMOR_HEALTH = 600
-	DEFAULT_ENEMY_SPEED_FAST = 2
-	MAX_ACTIVE_ENEMIES_2_PLAYERS = 14
-	ENEMY_SPAWN_TIMEOUT = 1000
-	ENABLE_PLAYER_PROTECTION = True
-
-# Construct the argument parser
-ap = argparse.ArgumentParser()
-
-# Add the arguments to the parser
-ap.add_argument("-l", "--level", default=START_LEVEL, required=False, help="start level")
-args = vars(ap.parse_args())
-
-START_LEVEL = int(args['level'])
 
 class myRect(pygame.Rect):
 	""" Add type property """
@@ -151,12 +113,9 @@ class Castle():
 
 		global sprites
 
-		self.protected = False
-
 		# images
 		self.img_undamaged = sprites.subsurface(0, 15*2, 16*2, 16*2)
 		self.img_destroyed = sprites.subsurface(16*2, 15*2, 16*2, 16*2)
-		self.img_protected = sprites2.subsurface((10+5)*32+4, 9*32, 16*2, 16*2)
 
 		# init position
 		self.rect = pygame.Rect(12*16, 24*16, 32, 32)
@@ -169,9 +128,6 @@ class Castle():
 		global screen
 
 		screen.blit(self.image, self.rect.topleft)
-
-		if self.protected:
-			screen.blit(self.img_protected, self.rect.topleft)
 
 		if self.state == self.STATE_EXPLODING:
 			if not self.explosion.active:
@@ -237,8 +193,8 @@ class Bonus():
 			self.BONUS_SHOVEL,
 			self.BONUS_SHOVEL,
 			self.BONUS_TANK,
-			self.BONUS_TIMER,
-			self.BONUS_PISTOL
+			self.BONUS_TIMER
+#			self.BONUS_PISTOL,
 #			self.BONUS_SHIP
 		])
 
@@ -403,28 +359,17 @@ class Bullet():
 		# check for collisions with players
 		for player in players:
 			if player.state == player.STATE_ALIVE and self.rect.colliderect(player.rect):
-				if player.bulletImpact(self.owner == self.OWNER_PLAYER, self.damage, self.owner_class, self.direction):
+				if player.bulletImpact(self.owner == self.OWNER_PLAYER, self.damage, self.owner_class):
 					self.destroy()
 					return
 
 		# check for collisions with enemies
 		for enemy in enemies:
 			if enemy.state == enemy.STATE_ALIVE and self.rect.colliderect(enemy.rect):
-				if enemy.bulletImpact(self.owner == self.OWNER_ENEMY, self.damage, self.owner_class, self.direction):
+				if enemy.bulletImpact(self.owner == self.OWNER_ENEMY, self.damage, self.owner_class):
 					self.destroy()
 					return
 
-		if castle.active and castle.protected and self.rect.colliderect(castle.rect):
-			castle.protected = False
-			self.destroy()
-			castle.rebuild()
-			self.owner_class.explode()
-			game.level.buildFortress(game.level.TILE_STEEL)
-			if not FORTRESS_FOREVER:
-				game.destroyTimer(game.fortress_end_timer)
-				game.fortress_end_timer = gtimer.add(BONUS_FORTRESS_WALLS_TIMEOUT, lambda :game.level.buildFortress(self.level.TILE_BRICK), 1)
-			return
-			
 		# check for collision with castle
 		if castle.active and self.rect.colliderect(castle.rect):
 			castle.destroy()
@@ -754,7 +699,7 @@ class Tank():
 		self.bonus = None
 
 		# navigation keys: fire, up, right, down, left
-		self.controls = [pygame.K_LCTRL, pygame.K_UP, pygame.K_RIGHT, pygame.K_DOWN, pygame.K_LEFT]
+		self.controls = [pygame.K_SPACE, pygame.K_UP, pygame.K_RIGHT, pygame.K_DOWN, pygame.K_LEFT]
 
 		# currently pressed buttons (navigation only)
 		self.pressed = [False] * 4
@@ -762,10 +707,6 @@ class Tank():
 		# visibility state
 		self.visible = True
 
-		# protected state
-		self.protected = False
-		self.protected_image = sprites2.subsurface((10+5)*32+4, 9*32, 16*2, 16*2)
-		
 		self.shield_images = [
 			# sprites.subsurface(0, 48*2, 16*2, 16*2),
 			# sprites.subsurface(16*2, 48*2, 16*2, 16*2)
@@ -790,7 +731,7 @@ class Tank():
 			self.rect = pygame.Rect(0, 0, 32, 32)
 
 		if direction == None:
-			self.direction = random.choice([self.DIR_RIGHT, self.DIR_DOWN, self.DIR_UP, self.DIR_LEFT])
+			self.direction = random.choice([self.DIR_RIGHT, self.DIR_DOWN, self.DIR_LEFT])
 		else:
 			self.direction = direction
 
@@ -864,8 +805,6 @@ class Tank():
 			screen.blit(self.image, self.rect.topleft)
 			if self.shielded:
 				screen.blit(self.shield_image, [self.rect.left, self.rect.top])
-			if self.protected:
-				screen.blit(self.protected_image, [self.rect.left, self.rect.top])
 		elif self.state == self.STATE_EXPLODING:
 			self.explosion.draw()
 		elif self.state == self.STATE_SPAWNING:
@@ -917,15 +856,11 @@ class Tank():
 		# 5 - can fire 3 bullets
 		if self.superpowers >= 5:
 			self.max_active_bullets = 3
-			if ENABLE_PLAYER_PROTECTION:
-				self.protected = True
 		
 		# 6- can clear trees, bricks and steel in 1 shot
 		if self.superpowers >= 6:
 			self.bullet_power = 4
 			
-		if self.superpowers >= 9:
-			castle.protected = True
 			
 	def fire(self, forced = False):
 		""" Shoot a bullet
@@ -1016,7 +951,7 @@ class Tank():
 			
 	def turnRandom(self):
 		""" Turn tank into random direction """
-		self.direction = random.choice([self.DIR_UP, self.DIR_DOWN, self.DIR_RIGHT, self.DIR_LEFT])
+		self.direction = random.choice([self.DIR_RIGHT, self.DIR_DOWN, self.DIR_LEFT])
 
 	def turnAround(self):
 		""" Turn tank into opposite direction """
@@ -1035,19 +970,8 @@ class Tank():
 	def nearest(self, num, base):
 		""" Round number to nearest divisible """
 		return int(round(float(num) / (base * 1.0)) * base)
-	
-	def getOppositeDirection(self, direction):
-		""" Round number to nearest divisible """
-		if direction == self.DIR_UP:
-			return self.DIR_DOWN
-		if direction == self.DIR_DOWN:
-			return self.DIR_UP
-		if direction == self.DIR_LEFT:
-			return self.DIR_RIGHT
-		if direction == self.DIR_RIGHT:
-			return self.DIR_LEFT
 
-	def bulletImpact(self, friendly_fire = False, damage = 100, tank = None, bulletDirection = DIR_UP):
+	def bulletImpact(self, friendly_fire = False, damage = 100, tank = None):
 		""" Bullet impact
 		Return True if bullet should be destroyed on impact. Only enemy friendly-fire
 		doesn't trigger bullet explosion
@@ -1057,18 +981,6 @@ class Tank():
 
 		if self.shielded and not friendly_fire:
 			return True
-
-		if self.protected:
-			if play_sounds:
-				sounds["armor"].play()
-
-			# if head collision don't do anything
-			if HEAD_SHIELD_WHEN_PROTECTED:
-				if bulletDirection == self.getOppositeDirection(self.direction):
-					return True
-			
-			#self.protected = False
-			#return True
 
 		if not friendly_fire:
 			if not INFINITE_HEALTH_FOR_ALL:
@@ -1084,7 +996,7 @@ class Tank():
 				if not INFINITE_BONUSES:
 					self.removeBonusLoad()
 
-				# If bonus already exist on screen, remove it
+				# If bonus already exit on screen, remove it
 				if len(bonuses) > 0 and not ALLOW_MULTI_BONUS:
 					self.clearAllBonuses()
 				
@@ -1145,8 +1057,6 @@ class Enemy(Tank):
 
 		# if true, do not fire
 		self.bullet_queued = False
-
-		self.persistance = 0
 
 		if len(self.level.enemies_left) % BONUS_FREQ == (BONUS_FREQ - 1):
 			self.bonus = True
@@ -1353,14 +1263,7 @@ class Enemy(Tank):
 
 		# collisions with tiles
 		if new_rect.collidelist(self.level.obstacle_rects) != -1:
-			if self.persistance < 3:
-				self.persistance += 1
-				rotate = False
-			else:
-				rotate = True
-				self.persistance = 0
-
-			self.path = self.generatePath(self.direction, rotate)
+			self.path = self.generatePath(self.direction, True)
 			return
 			
 		if not self.aquired_position:
@@ -1444,48 +1347,37 @@ class Enemy(Tank):
 		y = int(round(self.rect.top / 16))
 
 		new_direction = None
-		possible_directions = []
 
 		for direction in directions:
 			if direction == self.DIR_UP and y > 1:
 				new_pos_rect = self.rect.move(0, -8)
 				if new_pos_rect.collidelist(self.level.obstacle_rects) == -1:
-					#new_direction = direction
-					possible_directions.append(self.DIR_UP)
+					new_direction = direction
 					break
 			elif direction == self.DIR_RIGHT and x < 24:
 				new_pos_rect = self.rect.move(8, 0)
 				if new_pos_rect.collidelist(self.level.obstacle_rects) == -1:
-					#new_direction = direction
-					possible_directions.append(self.DIR_RIGHT)
+					new_direction = direction
 					break
 			elif direction == self.DIR_DOWN and y < 24:
 				new_pos_rect = self.rect.move(0, 8)
 				if new_pos_rect.collidelist(self.level.obstacle_rects) == -1:
-					#new_direction = direction
-					possible_directions.append(self.DIR_DOWN)
+					new_direction = direction
 					break
 			elif direction == self.DIR_LEFT and x > 1:
 				new_pos_rect = self.rect.move(-8, 0)
 				if new_pos_rect.collidelist(self.level.obstacle_rects) == -1:
-					#new_direction = direction
-					possible_directions.append(self.DIR_LEFT)
+					new_direction = direction
 					break
 
-		#if len(possible_directions) > 0:
-			#new_direction = random.choice(possible_directions)
-
-		# if we can go anywhere else, do a random turn
+		# if we can go anywhere else, turn around
 		if new_direction == None:
-			new_direction = random.choice([self.DIR_UP, self.DIR_DOWN, self.DIR_RIGHT, self.DIR_LEFT])
-			#print("nav izejas. griezhamies")
+			new_direction = opposite_direction
+			print("nav izejas. griezhamies")
 
 		# fix tanks position
 		if fix_direction and new_direction == self.direction:
 			fix_direction = False
-
-		if self.persistance > 1:
-			new_direction = self.direction
 
 		self.rotate(new_direction, fix_direction)
 
@@ -1500,7 +1392,7 @@ class Enemy(Tank):
 			axis_fix = self.nearest(x, 16) - x
 		axis_fix = 0
 
-		pixels = self.nearest(random.randint(1, 4) * 32, 32) + axis_fix # + 3
+		pixels = self.nearest(random.randint(1, 12) * 32, 32) + axis_fix # + 3
 
 		if new_direction == self.DIR_UP:
 			for px in range(0, pixels, self.speed):
@@ -1549,9 +1441,6 @@ class Player(Tank):
 			player_sprite_nr = 5
 		else:
 			player_sprite_nr = 6
-
-		self.protected = False
-		self.protected_image = sprites2.subsurface((10+player_sprite_nr)*32+4, 9*32, 16*2, 16*2)
 
 		self.images2 = [
 			sprites2.subsurface(player_sprite_nr*S_SIZE*T_SIZE, 0, 32, 32),
@@ -1629,14 +1518,12 @@ class Player(Tank):
 		# collisions with other players
 		for player in players:
 			if player != self and player.state == player.STATE_ALIVE and player_rect.colliderect(player.rect) == True:
-				if player.aquired_position:
-					return
+				return
 
 		# collisions with enemies
 		for enemy in enemies:
 			if player_rect.colliderect(enemy.rect) == True:
-				if enemy.aquired_position and self.aquired_position:
-					return
+				return
 
 		# collisions with bonuses
 		for bonus in bonuses:
@@ -1645,8 +1532,6 @@ class Player(Tank):
 
 		#if no collision, move player
 		self.rect.topleft = (new_position[0], new_position[1])
-		self.aquired_position = True
-
 		if DEBUG_COORDINATES:
 			print("Move center: " + str(self.rect.center))
 
@@ -1884,7 +1769,7 @@ class Game():
 			for enemy in enemies:
 				explode_count += 1
 				enemy.explode()
-				if explode_count == 12:
+				if explode_count == 4:
 					explode_count = 0
 					break
 		# shield player for 10 seconds
@@ -1984,7 +1869,6 @@ class Game():
 				"bonus" : 0, "enemy0" : 0, "enemy1" : 0, "enemy2" : 0, "enemy3" : 0
 			}
 
-		self.aquired_position = False
 		self.shieldPlayer(player, True, PLAYER_START_SHIELD_TIMEOUT)
 
 	def gameOver(self):
@@ -2582,19 +2466,11 @@ class Game():
 		else:
 			enemies_l = levels_enemies[34]
 
-		rand = random.randint(0, self.stage)
-
-		if EXTREME_MODE:
-			if add:
-				self.level.enemies_left += [0]*enemies_l[0] + [1]*(enemies_l[1] + rand) + [2]*enemies_l[2] + [3]*(enemies_l[3] + rand)
-			else:
-				self.level.enemies_left = [0]*enemies_l[0] + [1]*(enemies_l[1] + rand)+ [2]*enemies_l[2] + [3]*(enemies_l[3] + rand)
-
-		if CLASSIC_MODE:
-			self.level.enemies_left = [0]*enemies_l[0] + [1]*enemies_l[1] + [2]*enemies_l[2] + [3]*enemies_l[3]
-
+		if add:
+			self.level.enemies_left += [0]*enemies_l[0] + [1]*enemies_l[1] + [2]*enemies_l[2] + [3]*(enemies_l[3] + random.randint(0, 15))
+		else:
+			self.level.enemies_left = [0]*enemies_l[0] + [1]*enemies_l[1] + [2]*enemies_l[2] + [3]*(enemies_l[3] + random.randint(0, 15))
 		random.shuffle(self.level.enemies_left)
-
 
 
 	def nextLevel(self):
