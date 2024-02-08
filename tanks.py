@@ -754,7 +754,7 @@ class Tank():
 		self.bonus = None
 
 		# navigation keys: fire, up, right, down, left
-		self.controls = [pygame.K_LCTRL, pygame.K_UP, pygame.K_RIGHT, pygame.K_DOWN, pygame.K_LEFT]
+		self.controls = [pygame.K_z, pygame.K_UP, pygame.K_RIGHT, pygame.K_DOWN, pygame.K_LEFT]
 
 		# currently pressed buttons (navigation only)
 		self.pressed = [False] * 4
