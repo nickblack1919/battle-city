@@ -6,7 +6,8 @@ from pygame.locals import *
 
 # MODE
 CLASSIC_MODE = False
-EXTREME_MODE = True
+EXTREME_MODE = False
+GOOD_MODE = True
 DEBUG_MODE = False
 
 # CHEATS
@@ -85,6 +86,18 @@ if EXTREME_MODE:
 	DEFAULT_ENEMY_ARMOR_HEALTH = 600
 	DEFAULT_ENEMY_SPEED_FAST = 2
 	MAX_ACTIVE_ENEMIES_2_PLAYERS = 14
+	ENEMY_SPAWN_TIMEOUT = 1000
+	ENABLE_PLAYER_PROTECTION = True
+
+if GOOD_MODE:
+	ALLOW_MULTI_BONUS = True
+	ENEMY_PICKUP_BONUSES = True
+	BONUS_FREQ = 4
+	PLAYER_START_SUPERPOWER = 1
+	DEFAULT_ENEMY_ARMOR_HEALTH = 600
+	DEFAULT_ENEMY_SPEED_FAST = 2
+	MAX_ACTIVE_ENEMIES = 5
+	MAX_ACTIVE_ENEMIES_2_PLAYERS = 8
 	ENEMY_SPAWN_TIMEOUT = 1000
 	ENABLE_PLAYER_PROTECTION = True
 
@@ -754,7 +767,7 @@ class Tank():
 		self.bonus = None
 
 		# navigation keys: fire, up, right, down, left
-		self.controls = [pygame.K_z, pygame.K_UP, pygame.K_RIGHT, pygame.K_DOWN, pygame.K_LEFT]
+		self.controls = [pygame.K_j, pygame.K_w, pygame.K_d, pygame.K_s, pygame.K_a]
 
 		# currently pressed buttons (navigation only)
 		self.pressed = [False] * 4
@@ -1846,7 +1859,7 @@ class Game():
 				enemy.updateSuperpowers()
 		# increase 1 enemy superpower by 2
 		elif bonus.bonus == bonus.BONUS_PISTOL:
-			# for enemy in enemies:
+			for enemy in enemies:
 				enemy.superpowers += 2
 				enemy.type += 2
 				if enemy.type >= 3:
@@ -2564,7 +2577,8 @@ class Game():
 			self.game_paused = False
 			# self.toggleEnemyFreeze(False)
 			self.togglePlayersFreeze(False)
-			sounds["bg"].play(-1)
+			if play_sounds:
+				sounds["bg"].play(-1)
 
 	def loadLevelEnemies(self, add):
 		levels_enemies = (
@@ -2584,14 +2598,14 @@ class Game():
 
 		rand = random.randint(0, self.stage)
 
-		if EXTREME_MODE:
-			if add:
-				self.level.enemies_left += [0]*enemies_l[0] + [1]*(enemies_l[1] + rand) + [2]*enemies_l[2] + [3]*(enemies_l[3] + rand)
-			else:
-				self.level.enemies_left = [0]*enemies_l[0] + [1]*(enemies_l[1] + rand)+ [2]*enemies_l[2] + [3]*(enemies_l[3] + rand)
+		# if EXTREME_MODE:
+		# 	if add:
+		# 		self.level.enemies_left += [0]*enemies_l[0] + [1]*(enemies_l[1] + rand) + [2]*enemies_l[2] + [3]*(enemies_l[3] + rand)
+		# 	else:
+		# 		self.level.enemies_left = [0]*enemies_l[0] + [1]*(enemies_l[1] + rand)+ [2]*enemies_l[2] + [3]*(enemies_l[3] + rand)
 
-		if CLASSIC_MODE:
-			self.level.enemies_left = [0]*enemies_l[0] + [1]*enemies_l[1] + [2]*enemies_l[2] + [3]*enemies_l[3]
+		# if CLASSIC_MODE:
+		self.level.enemies_left = [0]*enemies_l[0] + [1]*enemies_l[1] + [2]*enemies_l[2] + [3]*enemies_l[3]
 
 		random.shuffle(self.level.enemies_left)
 
