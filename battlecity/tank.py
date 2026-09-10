@@ -81,6 +81,9 @@ class Tank():
 		# px left to slide on ice
 		self.slide = 0
 
+		# fractional part of movement (speed can be fractional, tanks move by whole px)
+		self.move_credit = 0.0
+
 		# frames stealth tank stays visible
 		self.reveal_frames = 0
 
@@ -519,7 +522,7 @@ class Enemy(Tank):
 		elif self.type == self.TYPE_FAST:
 			self.speed = config.DEFAULT_ENEMY_SPEED + config.DEFAULT_ENEMY_SPEED_FAST
 		elif self.type == self.TYPE_POWER:
-			self.speed = 1
+			self.speed = config.DEFAULT_ENEMY_SPEED
 			self.superpowers = 1
 			self.updateSuperpowers()
 		elif self.type == self.TYPE_ARMOR:
@@ -528,10 +531,10 @@ class Enemy(Tank):
 		elif self.type == self.TYPE_STEALTH:
 			self.speed = config.DEFAULT_ENEMY_SPEED
 		elif self.type == self.TYPE_MORTAR:
-			self.speed = 1
+			self.speed = config.DEFAULT_ENEMY_SPEED
 			self.health = 200
 		elif self.type == self.TYPE_BOSS:
-			self.speed = 1
+			self.speed = config.DEFAULT_ENEMY_SPEED
 			self.health = config.BOSS_HEALTH
 			self.superpowers = 4
 			self.updateSuperpowers()
@@ -691,7 +694,16 @@ class Enemy(Tank):
 		del state.bonuses[:]
 
 	def move(self):
-		""" move enemy if possible """
+		""" Move enemy with its speed: speed can be fractional, whole px steps are made,
+		the rest is kept for next frame """
+		self.move_credit += self.speed
+		steps = int(self.move_credit)
+		self.move_credit -= steps
+		for step in range(steps):
+			self.moveStep()
+
+	def moveStep(self):
+		""" move enemy 1 px along its path if possible """
 
 
 		if self.state != self.STATE_ALIVE or self.paused or self.paralised:
@@ -889,7 +901,7 @@ class Enemy(Tank):
 
 		# always end exactly on the target so the tank stays aligned with the grid,
 		# even if speed doesn't divide the distance
-		steps = list(range(self.speed, pixels, self.speed)) + [pixels]
+		steps = list(range(1, pixels + 1))
 
 		if new_direction == self.DIR_UP:
 			for px in steps:
@@ -974,8 +986,25 @@ class Player(Tank):
 		self.image_right = pygame.transform.rotate(self.image, 270)
 		self.rotate(self.direction)
 
-	def move(self, direction):
-		""" move player if possible """
+	def move(self, direction, px = None):
+		""" Move player if possible
+		px None: move with player's speed - speed can be fractional, whole px are moved,
+		the rest is kept for next frame
+		@return True if tank moved
+		"""
+		if px == None:
+			self.move_credit += self.speed
+			steps = int(self.move_credit)
+			self.move_credit -= steps
+			# turn even if there is no whole px to move
+			self.move(direction, 0)
+			moved = False
+			for step in range(steps):
+				if not self.move(direction, 1):
+					break
+				moved = True
+			return moved
+
 
 
 		if self.state == self.STATE_EXPLODING:
@@ -990,24 +1019,24 @@ class Player(Tank):
 		if self.direction != direction:
 			self.rotate(direction)
 
-		if self.paralised:
+		if self.paralised or px == 0:
 			return
 
 		# move player
 		if direction == self.DIR_UP:
-			new_position = [self.rect.left, self.rect.top - self.speed]
+			new_position = [self.rect.left, self.rect.top - px]
 			if new_position[1] < 0:
 				return
 		elif direction == self.DIR_RIGHT:
-			new_position = [self.rect.left + self.speed, self.rect.top]
+			new_position = [self.rect.left + px, self.rect.top]
 			if new_position[0] > (416 - 32):
 				return
 		elif direction == self.DIR_DOWN:
-			new_position = [self.rect.left, self.rect.top + self.speed]
+			new_position = [self.rect.left, self.rect.top + px]
 			if new_position[1] > (416 - 32):
 				return
 		elif direction == self.DIR_LEFT:
-			new_position = [self.rect.left - self.speed, self.rect.top]
+			new_position = [self.rect.left - px, self.rect.top]
 			if new_position[0] < 0:
 				return
 
