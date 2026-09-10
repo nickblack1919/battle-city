@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # coding=utf-8
 
-import os, pygame, time, random, uuid, sys, argparse
+import os, pygame, time, random, uuid, sys, argparse, json
 from pygame.locals import *
 
 # SDL game controller API: standard button layout for known gamepads
@@ -65,6 +65,15 @@ PLAYER_START_SCORE = 0
 PLAYER_START_MAX_ACTIVE_BULLETS = 1
 PLAYER_START_SHIELD_TIMEOUT = 4000
 PLAYER_AUTO_FIRE_DELAY = 100	# min ms between shots while fire button is held
+
+# CONTROLS: fire, up, right, down, left for players 1 and 2 (player 3 uses gamepad only)
+# can be changed on settings screen
+DEFAULT_PLAYER_CONTROLS = [
+	[pygame.K_j, pygame.K_w, pygame.K_d, pygame.K_s, pygame.K_a],
+	[pygame.K_RSHIFT, pygame.K_UP, pygame.K_RIGHT, pygame.K_DOWN, pygame.K_LEFT],
+]
+PLAYER_CONTROLS = [list(controls) for controls in DEFAULT_PLAYER_CONTROLS]
+START_FULLSCREEN = False
 
 # DEBUG
 DEBUG_UNFREEZE_PLAYERS_ON_PAUSE = DEBUG_MODE
@@ -152,11 +161,61 @@ elif GOOD_MODE:
 
 # command line arguments
 ap = argparse.ArgumentParser()
-ap.add_argument("-l", "--level", default=START_LEVEL, required=False, help="start level")
+ap.add_argument("-l", "--level", default=None, required=False, help="start level")
 ap.add_argument("-f", "--fullscreen", action="store_true", help="start in full screen mode")
 args = vars(ap.parse_args())
 
-START_LEVEL = int(args['level'])
+if args['level'] != None:
+	START_LEVEL = int(args['level'])
+
+SETTINGS_FILE = ".settings.json"
+
+def dataFile(name):
+	""" Path to file with saved data: hiscore, settings, saved game
+	BATTLE_CITY_DATA_DIR environment variable changes the directory (used by tests)
+	"""
+	return os.path.join(os.environ.get("BATTLE_CITY_DATA_DIR", ""), name)
+
+def loadSettings():
+	""" Apply settings saved on settings screen """
+	global play_sounds, START_LEVEL, START_FULLSCREEN, PLAYER_CONTROLS
+
+	try:
+		with open(dataFile(SETTINGS_FILE), "r") as f:
+			settings = json.load(f)
+	except (IOError, ValueError):
+		return
+
+	try:
+		if settings.get("preset") in PRESETS:
+			applyPreset(settings["preset"])
+		play_sounds = bool(settings.get("sound", play_sounds))
+		START_FULLSCREEN = bool(settings.get("fullscreen", START_FULLSCREEN))
+		# command line argument has priority
+		start_level = int(settings.get("start_level", START_LEVEL))
+		if args['level'] == None and 1 <= start_level <= 35:
+			START_LEVEL = start_level
+		controls = settings.get("controls")
+		if isinstance(controls, list) and len(controls) == len(PLAYER_CONTROLS) and all([isinstance(c, list) and len(c) == 5 for c in controls]):
+			PLAYER_CONTROLS = [[int(key) for key in c] for c in controls]
+	except (TypeError, ValueError, AttributeError):
+		print("Can't read settings")
+
+def saveSettings(fullscreen):
+	""" Save settings changed on settings screen """
+	settings = {
+		"preset": CURRENT_PRESET,
+		"sound": play_sounds,
+		"fullscreen": fullscreen,
+		"start_level": START_LEVEL,
+		"controls": PLAYER_CONTROLS,
+	}
+	try:
+		with open(dataFile(SETTINGS_FILE), "w") as f:
+			json.dump(settings, f, indent=1)
+	except IOError:
+		print("Can't save settings")
+
 
 class myRect(pygame.Rect):
 	""" Add type property """
@@ -1960,14 +2019,13 @@ class Game():
 		# center window
 		os.environ['SDL_VIDEO_WINDOW_POS'] = 'center'
 
-		if play_sounds:
-			pygame.mixer.pre_init(44100, -16, 1, 512)
+		pygame.mixer.pre_init(44100, -16, 1, 512)
 
 		pygame.init()
 
 		pygame.display.set_caption("Battle City")
 
-		if args['fullscreen']:
+		if args['fullscreen'] or START_FULLSCREEN:
 			self.is_fullscreen = True
 		else:
 			self.is_fullscreen = False
@@ -1989,8 +2047,8 @@ class Game():
 
 		pygame.display.set_icon(sprites.subsurface(0, 0, 13*2, 13*2))
 
-		# load sounds
-		if play_sounds:
+		# load sounds (always: sound can be switched on in settings)
+		try:
 			pygame.mixer.init(44100, -16, 1, 512)
 
 			sounds["start"] = pygame.mixer.Sound("sounds/gamestart.ogg")
@@ -2008,6 +2066,10 @@ class Game():
 			sounds["ice"] = pygame.mixer.Sound("sounds/ice.ogg")
 			sounds["life"] = pygame.mixer.Sound("sounds/life.ogg")
 			sounds["pause"] = pygame.mixer.Sound("sounds/pause.ogg")
+		except pygame.error:
+			print("Can't load sounds")
+			play_sounds = False
+			sounds.clear()
 
 		self.enemy_life_image = sprites.subsurface(81*2, 57*2, 7*2, 7*2)
 		self.player_life_image = sprites.subsurface(89*2, 56*2, 7*2, 8*2)
@@ -2041,6 +2103,9 @@ class Game():
 
 		# number of players. here is defined preselected menu value
 		self.nr_of_players = 1
+
+		# selected main menu item
+		self.menu_index = 0
 
 		enemy_spawn_pos_index = 2
 
@@ -2545,8 +2610,7 @@ class Game():
 
 	def showMenu(self):
 		""" Show game menu
-		Redraw screen only when up or down key is pressed. When enter is pressed,
-		exit from this screen and start the game with selected number of players
+		Up / down selects menu item, Enter (gamepad A / Start) activates it
 		"""
 
 		global players, screen
@@ -2559,29 +2623,27 @@ class Game():
 
 		# set current stage to 0
 		self.stage = START_LEVEL - 1
-		
+
 		self.animateIntroScreen()
 
-		main_loop = True
-		while main_loop:
+		while True:
 			time_passed = self.clock.tick(50)
 
 			# redraw every frame, otherwise menu stays invisible if display wasn't ready
 			# during intro animation (happens when switching to full screen)
 			self.flip()
 
-			# gamepad: up / down selects number of players, A / Start starts the game
+			move = 0
+			activate = False
+
 			self.updateGamepads()
 			for gamepad in self.gamepads:
-				if gamepad.pressed("down") or gamepad.pressed("up"):
-					self.nr_of_players += 1 if gamepad.pressed("down") else -1
-					if self.nr_of_players > 3:
-						self.nr_of_players = 1
-					if self.nr_of_players < 1:
-						self.nr_of_players = 3
-					self.drawIntroScreen()
+				if gamepad.pressed("down"):
+					move = 1
+				elif gamepad.pressed("up"):
+					move = -1
 				elif gamepad.pressed("fire") or gamepad.pressed("start"):
-					main_loop = False
+					activate = True
 
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
@@ -2589,27 +2651,190 @@ class Game():
 				elif event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
 						quit()
-					elif event.key == pygame.K_DOWN:
-						self.nr_of_players += 1
-						if self.nr_of_players > 3:
-							self.nr_of_players = 1
-						self.drawIntroScreen()
-					elif event.key == pygame.K_UP:
-						self.nr_of_players -= 1
-						if self.nr_of_players < 1:
-							self.nr_of_players = 3
-						self.drawIntroScreen()
-					
 					elif self.isFullScreenKey(event):
 						self.toggleFullScreen()
 						self.drawIntroScreen()
-
+					elif event.key == pygame.K_DOWN:
+						move = 1
+					elif event.key == pygame.K_UP:
+						move = -1
 					elif event.key == pygame.K_RETURN:
-						main_loop = False
-					
+						activate = True
 
-		del players[:]
-		return self.nextLevel
+			items = self.menuItems()
+
+			if move != 0:
+				self.menu_index = (self.menu_index + move) % len(items)
+				if items[self.menu_index][1] == "play":
+					self.nr_of_players = items[self.menu_index][2]
+				self.drawIntroScreen()
+
+			if activate:
+				label, action, argument = items[self.menu_index]
+				if action == "play":
+					self.nr_of_players = argument
+					self.stage = START_LEVEL - 1
+					del players[:]
+					return self.nextLevel
+				elif action == "settings":
+					self.showSettings()
+					self.drawIntroScreen()
+
+	def menuItems(self):
+		""" Main menu items: [label, action, argument] """
+		return [
+			["1 PLAYER", "play", 1],
+			["2 PLAYERS", "play", 2],
+			["3 PLAYERS", "play", 3],
+			["SETTINGS", "settings", None],
+		]
+
+	def settingsItems(self):
+		""" Settings screen items: dicts with label, value, type (and player / control for controls) """
+		items = [
+			{"label": "DIFFICULTY", "value": CURRENT_PRESET or "CUSTOM", "type": "preset"},
+			{"label": "SOUND", "value": "ON" if play_sounds else "OFF", "type": "sound"},
+			{"label": "FULL SCREEN", "value": "ON" if self.is_fullscreen else "OFF", "type": "fullscreen"},
+			{"label": "START LEVEL", "value": str(START_LEVEL), "type": "level"},
+		]
+		control_names = ["FIRE", "UP", "RIGHT", "DOWN", "LEFT"]
+		for player_nr in range(len(PLAYER_CONTROLS)):
+			for control in range(5):
+				items.append({
+					"label": "P%d %s" % (player_nr + 1, control_names[control]),
+					"value": pygame.key.name(PLAYER_CONTROLS[player_nr][control]).upper(),
+					"type": "control", "player": player_nr, "control": control
+				})
+		items.append({"label": "RESET CONTROLS", "value": "", "type": "reset"})
+		items.append({"label": "BACK", "value": "", "type": "back"})
+		return items
+
+	def showSettings(self):
+		""" Settings screen
+		Up / down - select, left / right / Enter - change value, Enter on control - press new key
+		(ESC cancels), ESC or BACK - return to menu. Settings are saved immediately.
+		"""
+
+		selected = 0
+		waiting_key = False
+
+		while True:
+			self.clock.tick(50)
+			items = self.settingsItems()
+			self.drawSettings(items, selected, waiting_key)
+
+			move = 0
+			change = 0
+
+			self.updateGamepads()
+			if not waiting_key:
+				for gamepad in self.gamepads:
+					if gamepad.pressed("down"):
+						move = 1
+					elif gamepad.pressed("up"):
+						move = -1
+					elif gamepad.pressed("right") or gamepad.pressed("fire"):
+						change = 1
+					elif gamepad.pressed("left"):
+						change = -1
+					elif gamepad.pressed("start"):
+						return
+
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					quit()
+				if event.type != pygame.KEYDOWN:
+					continue
+				if waiting_key:
+					# ESC cancels, Enter is reserved for pause
+					if event.key not in (pygame.K_ESCAPE, pygame.K_RETURN):
+						self.setControl(items[selected]["player"], items[selected]["control"], event.key)
+					waiting_key = False
+				elif event.key == pygame.K_ESCAPE:
+					return
+				elif self.isFullScreenKey(event):
+					self.toggleFullScreen()
+					saveSettings(self.is_fullscreen)
+				elif event.key == pygame.K_DOWN:
+					move = 1
+				elif event.key == pygame.K_UP:
+					move = -1
+				elif event.key == pygame.K_RIGHT:
+					change = 1
+				elif event.key == pygame.K_LEFT:
+					change = -1
+				elif event.key == pygame.K_RETURN:
+					change = 1
+
+			if move != 0:
+				selected = (selected + move) % len(items)
+			elif change != 0:
+				kind = items[selected]["type"]
+				if kind == "back":
+					return
+				elif kind == "control":
+					waiting_key = True
+				else:
+					self.changeSetting(kind, change)
+
+	def changeSetting(self, kind, change):
+		""" Change setting value and save settings """
+
+		global play_sounds, START_LEVEL, PLAYER_CONTROLS
+
+		if kind == "preset":
+			names = ["CLASSIC", "GOOD", "EXTREME"]
+			index = names.index(CURRENT_PRESET) if CURRENT_PRESET in names else -change
+			applyPreset(names[(index + change) % len(names)])
+		elif kind == "sound":
+			# sounds couldn't be loaded: nothing to switch on
+			if sounds:
+				play_sounds = not play_sounds
+				if not play_sounds:
+					pygame.mixer.stop()
+		elif kind == "fullscreen":
+			self.toggleFullScreen()
+		elif kind == "level":
+			START_LEVEL = (START_LEVEL - 1 + change) % 35 + 1
+			self.stage = START_LEVEL - 1
+		elif kind == "reset":
+			PLAYER_CONTROLS = [list(controls) for controls in DEFAULT_PLAYER_CONTROLS]
+
+		saveSettings(self.is_fullscreen)
+
+	def setControl(self, player_nr, control, key):
+		""" Assign key to player's control. Control already using this key gets the old key (swap) """
+		old_key = PLAYER_CONTROLS[player_nr][control]
+		for controls in PLAYER_CONTROLS:
+			for i in range(len(controls)):
+				if controls[i] == key:
+					controls[i] = old_key
+		PLAYER_CONTROLS[player_nr][control] = key
+		saveSettings(self.is_fullscreen)
+
+	def drawSettings(self, items, selected, waiting_key):
+		""" Draw settings screen """
+
+		global screen
+
+		screen.fill([0, 0, 0])
+		white = pygame.Color("white")
+		yellow = pygame.Color(255, 200, 0)
+
+		title = self.font.render("SETTINGS", False, white)
+		screen.blit(title, [(480 - title.get_width()) // 2, 16])
+
+		for i, item in enumerate(items):
+			y = 52 + i * 20
+			color = yellow if i == selected else white
+			if i == selected:
+				screen.blit(self.font.render(">", False, yellow), [16, y])
+			screen.blit(self.font.render(item["label"], False, color), [40, y])
+			value = "PRESS KEY" if i == selected and waiting_key else item["value"]
+			if value:
+				screen.blit(self.font.render(value[:10], False, color), [288, y])
+
+		self.flip()
 
 	def reloadPlayers(self):
 		""" Init players
@@ -2628,6 +2853,7 @@ class Game():
 			player = Player(
 				self.level, 0, [x, y], self.DIR_UP, (5*S_SIZE*T_SIZE, 0, T_SIZE, T_SIZE), 1
 			)
+			player.controls = list(PLAYER_CONTROLS[0])
 			players.append(player)
 
 			# second player
@@ -2637,7 +2863,7 @@ class Game():
 				player = Player(
 					self.level, 0, [x, y], self.DIR_UP, (6*S_SIZE*T_SIZE, 0, 16*2, 16*2), 2
 				)
-				player.controls = [pygame.K_RSHIFT, pygame.K_UP, pygame.K_RIGHT, pygame.K_DOWN, pygame.K_LEFT]
+				player.controls = list(PLAYER_CONTROLS[1])
 				players.append(player)
 
 			# third player
@@ -2908,26 +3134,21 @@ class Game():
 
 		screen.fill([0, 0, 0])
 
+		items = self.menuItems()
+		self.menu_index = min(self.menu_index, len(items) - 1)
+
 		if pygame.font.get_init():
 
 			hiscore = self.loadHiscore()
 
 			screen.blit(self.font.render("HI- "+str(hiscore), True, pygame.Color('white')), [170, 35])
 
-			screen.blit(self.font.render("1 PLAYER", True, pygame.Color('white')), [165, 250])
-			screen.blit(self.font.render("2 PLAYERS", True, pygame.Color('white')), [165, 275])
-			screen.blit(self.font.render("3 PLAYERS", True, pygame.Color('white')), [165, 300])
+			for i, item in enumerate(items):
+				screen.blit(self.font.render(item[0], True, pygame.Color('white')), [165, 240 + i * 22])
 
-			screen.blit(self.font.render("(c) 1980 1985 NAMCO LTD.", True, pygame.Color('white')), [50, 350])
-			screen.blit(self.font.render("ALL RIGHTS RESERVED", True, pygame.Color('white')), [85, 380])
-
-
-		if self.nr_of_players == 1:
-			screen.blit(self.player_image, [125, 245])
-		elif self.nr_of_players == 2:
-			screen.blit(self.player_image_green, [125, 270])
-		elif self.nr_of_players == 3:
-			screen.blit(self.player_image_green, [125, 295])
+		# selected item marker
+		marker = self.player_image if self.menu_index == 0 else self.player_image_green
+		screen.blit(marker, [125, 235 + self.menu_index * 22])
 
 		self.writeInBricks("battle", [65, 80])
 		self.writeInBricks("city", [129, 160])
@@ -3059,7 +3280,7 @@ class Game():
 		Really primitive version =] If for some reason hiscore cannot be loaded, return 20000
 		@return int
 		"""
-		filename = ".hiscore"
+		filename = dataFile(".hiscore")
 		if (not os.path.isfile(filename)):
 			return 20000
 
@@ -3081,7 +3302,7 @@ class Game():
 		@return boolean
 		"""
 		try:
-			f = open(".hiscore", "w")
+			f = open(dataFile(".hiscore"), "w")
 		except:
 			print("Can't save hi-score")
 			return False
@@ -3460,6 +3681,8 @@ if __name__ == "__main__":
 
 	play_sounds = True
 	sounds = {}
+
+	loadSettings()
 
 	game = Game()
 	castle = Castle()

@@ -9,7 +9,7 @@ every scenario runs in its own process (game uses module globals, so it can't be
 in the same process).
 """
 
-import os, sys, time, runpy, inspect, subprocess
+import os, sys, time, runpy, inspect, subprocess, tempfile
 
 GAME_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GAME_FILE = os.path.join(GAME_DIR, "tanks.py")
@@ -17,6 +17,11 @@ GAME_FILE = os.path.join(GAME_DIR, "tanks.py")
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 os.environ["SDL_AUDIODRIVER"] = "dummy"
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
+
+# hiscore, settings and saved game go to empty temporary directory, not to player's files
+if "BATTLE_CITY_DATA_DIR" not in os.environ:
+	os.environ["BATTLE_CITY_DATA_DIR"] = tempfile.mkdtemp(prefix="battle-city-test-")
+DATA_DIR = os.environ["BATTLE_CITY_DATA_DIR"]
 
 import pygame
 
@@ -79,11 +84,16 @@ def default_menu(players):
 	return menu
 
 
-def run(scenario, argv=None, players=1, menu=None, real_time=False, max_frames=5000):
-	""" Run the game with scenario, return list of (check name, passed) """
+def run(scenario, argv=None, players=1, menu=None, real_time=False, max_frames=5000, setup=None):
+	""" Run the game with scenario, return list of (check name, passed)
+	setup: function called before the game starts (e.g. to write saved files into DATA_DIR)
+	"""
 
 	ctx = Context()
 	menu = menu or default_menu(players)
+
+	if setup:
+		setup()
 
 	class FakeClock(object):
 		def tick(self, *args):
@@ -154,9 +164,13 @@ def main(scenarios):
 		sys.stdout.flush()
 		os._exit(1 if failed else 0)
 
+	# every scenario gets its own empty data directory
+	env = dict(os.environ)
+	env.pop("BATTLE_CITY_DATA_DIR", None)
+
 	exit_code = 0
 	for name in scenarios:
-		result = subprocess.run([sys.executable, sys.argv[0], name], capture_output=True, text=True)
+		result = subprocess.run([sys.executable, sys.argv[0], name], capture_output=True, text=True, env=env)
 		lines = [line for line in result.stdout.splitlines() if line.startswith(("OK", "FAIL"))]
 		print("\n".join(lines))
 		if result.returncode != 0:

@@ -129,5 +129,7 @@ dmypy.json
 .pyre/
 .DS_Store
 /.hiscore
+/.settings.json
+/.savegame
 /.vscode
 /levels/.DS_Store

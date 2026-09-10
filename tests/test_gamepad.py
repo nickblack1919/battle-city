@@ -35,8 +35,9 @@ def menu(ctx):
 		d["pads"][0].buttons = {"down": True}
 	if ctx.menu_frame == 5:
 		d["pads"][0].buttons = {}
-		ctx.check("menu: d-pad down twice selects 3 players", game.nr_of_players == 3)
+	# menu applies gamepad presses after event.get() of the frame, so check one frame later
 	if ctx.menu_frame == 6:
+		ctx.check("menu: d-pad down twice selects 3 players", game.nr_of_players == 3)
 		d["pads"][0].buttons = {"fire": True}
 	return []
 
