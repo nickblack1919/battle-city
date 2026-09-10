@@ -75,6 +75,9 @@ class Context(object):
 		self.finished = False
 		# name of the check expecting game to quit on next frame
 		self.expecting_exit = None
+		# current level object and whether players already appeared on it
+		self.level = None
+		self.level_ready = False
 
 	@property
 	def g(self):
@@ -161,6 +164,16 @@ def run(scenario, argv=None, players=1, menu=None, real_time=False, max_frames=5
 		# "STAGE N" screen: don't count its frames, so scenario frame numbers match game loop
 		if getattr(game, "stage_screen", False):
 			return []
+
+		# level start: don't count frames until players appear (spawn animation)
+		if getattr(game, "level", None) is not ctx.level:
+			ctx.level = game.level
+			ctx.level_ready = False
+		if not ctx.level_ready:
+			players = ctx.g["players"]
+			if any([player.state == player.STATE_SPAWNING for player in players]):
+				return []
+			ctx.level_ready = True
 
 		ctx.frame += 1
 		return scenario(ctx) or []

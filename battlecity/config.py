@@ -8,6 +8,17 @@ settings screen changes and saves others (.settings.json).
 import os, pygame, time, random, uuid, sys, argparse, json
 from pygame.locals import *
 
+# NES TIMING: values below are taken from NES version (disassembly), which runs at 60 fps
+NES_FPS = 60
+GAME_FRAME_TIMING = 50	# frames per second of this game
+
+def nesFrames(frames):
+	""" Duration of n NES frames in ms """
+	return int(round(frames * 1000.0 / NES_FPS))
+
+# NES pixels are 2x smaller than here: speed of 1 NES px per NES frame in px per frame of this game
+NES_PX_PER_FRAME = 2.0 * NES_FPS / GAME_FRAME_TIMING
+
 
 # MODE (presets at the end of settings override values below)
 CLASSIC_MODE = False
@@ -24,49 +35,63 @@ INFINITE_HEALTH_FOR_ALL = False	# if True overrides PLAYER_INFINITE_ARMOR
 INFINITE_BONUSES = False
 
 # GAME MECHANICS
-BONUS_FREQ = 4 # every n-th enemy tank will carry a bonus
+BONUS_FREQ = 4 # enemy tanks carrying a bonus: every n-th ...
+BONUS_TANK_OFFSET = 3	# ... when n enemies left before its spawn % BONUS_FREQ == offset (NES: 7 and 3 = 4th, 11th, 18th tank)
 ALLOW_MULTI_BONUS = True
 ENEMY_PICKUP_BONUSES = True
-FRIENDLY_FIRE = False
+FRIENDLY_FIRE = False	# 2 players: hit partner is stunned (can't move) for FRIENDLY_FIRE_STUN_TIME
+FRIENDLY_FIRE_STUN_TIME = nesFrames(267)	# NES: 200 counts, 3 of 4 frames = 4.4 s
 MAX_ACTIVE_ENEMIES = 4
 MAX_ACTIVE_ENEMIES_2_PLAYERS = 10
 MAX_ACTIVE_ENEMIES_3_PLAYERS = 12
-ENEMY_SPAWN_TIMEOUT = 1000
-LEVEL_FINISH_TIMEOUT = 4000
-BONUS_TIMER_FREEZE_TIMEOUT = 15000
-BONUS_FORTRESS_WALLS_TIMEOUT = 15000
-BONUS_PLAYER_SHIELD_TIMEOUT = 20000
+ENEMY_SPAWN_TIMEOUT = 1000	# ms between enemy spawns, None - NES formula (depends on stage and players)
+LEVEL_FINISH_TIMEOUT = nesFrames(128)	# after the last enemy is destroyed, NES: 2.1 s
+GAME_OVER_TIMEOUT = nesFrames(256)	# "game over" before scores screen, NES: 4.3 s
+BONUS_TIMER_FREEZE_TIMEOUT = nesFrames(640)	# NES: 10 x 64 frames = 10.7 s
+BONUS_FORTRESS_WALLS_TIMEOUT = nesFrames(1280)	# NES: 20 x 64 frames = 21.3 s
+FORTRESS_BLINK_TIME = nesFrames(192)	# steel walls blink steel / brick during last 3.2 s
+FORTRESS_BLINK_INTERVAL = nesFrames(16)
+BONUS_PLAYER_SHIELD_TIMEOUT = nesFrames(640)	# helmet, NES: 10.7 s
 BONUS_PLAYER_HIDDEN_TIMEOUT = 10000
-BONUS_SPAWN_TIMEOUT = 20000
+BONUS_SPAWN_TIMEOUT = 20000	# bonus disappears after n ms, 0 - stays until picked up (NES)
+BONUS_BLINK_INTERVAL = nesFrames(8)	# NES: 8 frames visible, 8 hidden
+BONUS_PICKUP_LABEL_TIME = nesFrames(50)	# "500" after bonus pickup
 BONUS_SHIP_TIMEOUT = 20000	# ship bonus: tank can drive over water
 VERSUS_BONUS_TIMEOUT = 15000	# versus mode: new random bonus every n ms
-ICE_SLIDE_DISTANCE = 16	# px tank slides on ice after movement button is released
+ICE_SLIDE_DISTANCE = 15 * 2	# px tank slides on ice after movement button is released, NES: 15 px
 BRICK_QUARTERS = True	# brick tiles consist of 4 parts, bullet destroys nearest half (like on NES)
-CHANCE_OF_FIRE = 50
-ENEMY_FIRE_TIMER = 500
+# enemy fires with CHANCE_OF_FIRE % every ENEMY_FIRE_TIMER ms. NES: 1/32 chance every frame
+ENEMY_FIRE_TIMER = 1000 // GAME_FRAME_TIMING
+CHANCE_OF_FIRE = 100.0 * NES_FPS / 32 / GAME_FRAME_TIMING
 HEAD_SHIELD_WHEN_PROTECTED = True	# protected player tank isn't hurt by bullets hitting its front
 ENABLE_PLAYER_PROTECTION = True	# player gets frontal armor at superpower 5
 
-# GAME SPEED
-GAME_FRAME_TIMING = 50
-DEFAULT_BULLET_SPEED = 4
-# tank speeds in px per frame, like on NES: there (60 fps) player moves 0.75 px per frame,
-# fast enemy 1 px, other enemies 0.5 px. Here pixels are 2x bigger and there are GAME_FRAME_TIMING fps
-NES_PX_PER_FRAME = 2.0 * 60 / GAME_FRAME_TIMING
+# bonuses which can appear (names of Bonus.BONUS_* types), repeated types are more frequent
+BONUS_TYPES = ["STAR", "STAR", "GRENADE", "GRENADE", "HELMET", "SHOVEL", "SHOVEL", "TANK", "TIMER", "PISTOL", "SHIP"]
+# NES: star and grenade 2/8, helmet, timer, shovel, tank 1/8
+NES_BONUS_TYPES = ["STAR", "STAR", "GRENADE", "GRENADE", "HELMET", "TIMER", "SHOVEL", "TANK"]
+
+# GAME SPEED (px per frame, NES values converted)
+DEFAULT_BULLET_SPEED = 2 * NES_PX_PER_FRAME	# 4.8, NES: 2 px per frame
+FAST_BULLET_SPEED = 4 * NES_PX_PER_FRAME	# 9.6, NES: 4 px - player with star, power tank
+# NES: player moves 0.75 px per frame, fast enemy 1 px, other enemies 0.5 px
 PLAYER_DEFAULT_SPEED = 0.75 * NES_PX_PER_FRAME	# 1.8
 DEFAULT_ENEMY_SPEED = 0.5 * NES_PX_PER_FRAME	# 1.2: basic, power, armor tanks
 DEFAULT_ENEMY_SPEED_FAST = 0.5 * NES_PX_PER_FRAME	# added to DEFAULT_ENEMY_SPEED for fast tank: 2.4
+GAME_OVER_TEXT_SPEED = 1 * NES_PX_PER_FRAME	# "game over" text rises 1 NES px per frame
+ENEMY_SPAWN_ANIMATION_TIME = nesFrames(56)	# flashing star before enemy appears, NES: 0.93 s
+PLAYER_SPAWN_ANIMATION_TIME = nesFrames(38)	# NES: 0.62 s
 
 # ENEMY
 DEFAULT_ENEMY_ARMOR_HEALTH = 600
 
 # PLAYER
 PLAYER_START_SUPERPOWER = 1
-PLAYER_START_LIFE = 4
+PLAYER_START_LIFE = 3	# NES: 3 (sidebar shows lives left: 2)
 PLAYER_START_HEALTH = 100
 PLAYER_START_SCORE = 0
 PLAYER_START_MAX_ACTIVE_BULLETS = 1
-PLAYER_START_SHIELD_TIMEOUT = 4000
+PLAYER_START_SHIELD_TIMEOUT = nesFrames(192)	# after (re)spawn, NES: 3 x 64 frames = 3.2 s
 PLAYER_AUTO_FIRE_DELAY = 100	# min ms between shots while fire button is held
 
 # CONTROLS: fire, up, right, down, left for players 1 and 2 (player 3 uses gamepad only)
@@ -97,6 +122,7 @@ T_SIZE = 32
 
 # NES LIKE RULES
 EXTRA_LIFE_SCORE = 20000	# extra life every n points, 0 - disabled
+EXTRA_LIFE_ONCE = False	# NES: extra life only once, at 20000
 TWO_PLAYER_KILLS_BONUS = 1000	# 2+ players: player who destroyed most tanks on stage gets these points
 ENEMY_AI_BASE_CHANCE = 30	# % chance enemy prefers directions towards player's castle
 
@@ -124,18 +150,23 @@ def emptyTrophies():
 
 # DIFFICULTY PRESETS: every preset sets all these values, so presets can be switched at runtime
 PRESETS = {
-	# close to original NES game
+	# rules of original NES game
 	"CLASSIC": {
 		"ALLOW_MULTI_BONUS": False,
 		"ENEMY_PICKUP_BONUSES": False,
-		"BONUS_FREQ": 5,
+		"BONUS_FREQ": 7,
+		"BONUS_TANK_OFFSET": 3,
+		"BONUS_SPAWN_TIMEOUT": 0,
+		"BONUS_TYPES": NES_BONUS_TYPES,
+		"FRIENDLY_FIRE": True,
+		"EXTRA_LIFE_ONCE": True,
 		"PLAYER_START_SUPERPOWER": 0,
 		"DEFAULT_ENEMY_ARMOR_HEALTH": 400,
 		"DEFAULT_ENEMY_SPEED_FAST": DEFAULT_ENEMY_SPEED_FAST,
 		"MAX_ACTIVE_ENEMIES": 4,
-		"MAX_ACTIVE_ENEMIES_2_PLAYERS": 8,
-		"MAX_ACTIVE_ENEMIES_3_PLAYERS": 10,
-		"ENEMY_SPAWN_TIMEOUT": 2000,
+		"MAX_ACTIVE_ENEMIES_2_PLAYERS": 6,
+		"MAX_ACTIVE_ENEMIES_3_PLAYERS": 8,
+		"ENEMY_SPAWN_TIMEOUT": None,
 		"ENABLE_PLAYER_PROTECTION": False,
 		"ENEMY_AI_BASE_CHANCE": 50,
 		"ENABLE_NEW_ENEMIES": False,
@@ -144,6 +175,11 @@ PRESETS = {
 		"ALLOW_MULTI_BONUS": True,
 		"ENEMY_PICKUP_BONUSES": True,
 		"BONUS_FREQ": 4,
+		"BONUS_TANK_OFFSET": 3,
+		"BONUS_SPAWN_TIMEOUT": 20000,
+		"BONUS_TYPES": BONUS_TYPES,
+		"FRIENDLY_FIRE": False,
+		"EXTRA_LIFE_ONCE": False,
 		"PLAYER_START_SUPERPOWER": 1,
 		"DEFAULT_ENEMY_ARMOR_HEALTH": 600,
 		"DEFAULT_ENEMY_SPEED_FAST": DEFAULT_ENEMY_SPEED_FAST,
@@ -159,6 +195,11 @@ PRESETS = {
 		"ALLOW_MULTI_BONUS": True,
 		"ENEMY_PICKUP_BONUSES": True,
 		"BONUS_FREQ": 4,
+		"BONUS_TANK_OFFSET": 3,
+		"BONUS_SPAWN_TIMEOUT": 20000,
+		"BONUS_TYPES": BONUS_TYPES,
+		"FRIENDLY_FIRE": False,
+		"EXTRA_LIFE_ONCE": False,
 		"PLAYER_START_SUPERPOWER": 1,
 		"DEFAULT_ENEMY_ARMOR_HEALTH": 600,
 		"DEFAULT_ENEMY_SPEED_FAST": DEFAULT_ENEMY_SPEED_FAST,

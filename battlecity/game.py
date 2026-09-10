@@ -369,6 +369,7 @@ class Game():
 		elif bonus.bonus == bonus.BONUS_SHOVEL:
 			if not config.FORTRESS_FOREVER:
 				self.level.buildFortress(self.level.TILE_EMPTY)
+				self.stopFortressBlinking()
 				self.destroyTimer(self.fortress_end_timer)
 				self.fortress_end_timer = state.gtimer.add(config.BONUS_FORTRESS_WALLS_TIMEOUT, lambda :self.level.buildFortress(self.level.TILE_BRICK), 1)
 		# increase 1 enemy superpower by 2
@@ -438,9 +439,7 @@ class Game():
 			if config.play_sounds:
 				state.sounds["bonus"].play()
 			self.level.buildFortress(self.level.TILE_STEEL)
-			if not config.FORTRESS_FOREVER:
-				self.destroyTimer(self.fortress_end_timer)
-				self.fortress_end_timer = state.gtimer.add(config.BONUS_FORTRESS_WALLS_TIMEOUT, lambda :self.level.buildFortress(self.level.TILE_BRICK), 1)
+			self.startSteelFortressTimer()
 		# upgrade superpower
 		elif bonus.bonus == bonus.BONUS_STAR:
 			if config.play_sounds:
@@ -469,7 +468,47 @@ class Game():
 		if bonus in state.bonuses:
 			state.bonuses.remove(bonus)
 
-		state.labels.append(Label(bonus.rect.topleft, "500", 500))
+		state.labels.append(Label(bonus.rect.topleft, "500", config.BONUS_PICKUP_LABEL_TIME))
+
+	def startSteelFortressTimer(self):
+		""" Fortress walls stay steel for BONUS_FORTRESS_WALLS_TIMEOUT, blink steel / brick
+		during last FORTRESS_BLINK_TIME, then become brick again (like on NES) """
+		if config.FORTRESS_FOREVER:
+			return
+		self.stopFortressBlinking()
+		self.destroyTimer(self.fortress_end_timer)
+		blink_start = max(config.BONUS_FORTRESS_WALLS_TIMEOUT - config.FORTRESS_BLINK_TIME, 1)
+		self.fortress_blink_start_timer = state.gtimer.add(blink_start, lambda :self.startFortressBlinking(), 1)
+		self.fortress_end_timer = state.gtimer.add(config.BONUS_FORTRESS_WALLS_TIMEOUT, lambda :self.endSteelFortress(), 1)
+
+	def startFortressBlinking(self):
+		self.fortress_blink_start_timer = None
+		self.fortress_blink_steel = True
+		self.fortress_blink_timer = state.gtimer.add(config.FORTRESS_BLINK_INTERVAL, lambda :self.toggleFortressBlink())
+
+	def toggleFortressBlink(self):
+		self.fortress_blink_steel = not self.fortress_blink_steel
+		self.level.buildFortress(self.level.TILE_STEEL if self.fortress_blink_steel else self.level.TILE_BRICK)
+
+	def stopFortressBlinking(self):
+		self.destroyTimer(self.fortress_blink_start_timer)
+		self.destroyTimer(self.fortress_blink_timer)
+		self.fortress_blink_start_timer = None
+		self.fortress_blink_timer = None
+
+	def endSteelFortress(self):
+		self.stopFortressBlinking()
+		self.fortress_end_timer = None
+		self.level.buildFortress(self.level.TILE_BRICK)
+
+	def enemySpawnInterval(self):
+		""" ms between enemy spawns: ENEMY_SPAWN_TIMEOUT or, if it is None, NES formula:
+		190 - 4 * stage (up to 35) - 20 in 2 player game, + 1 frames """
+		if config.ENEMY_SPAWN_TIMEOUT != None:
+			return config.ENEMY_SPAWN_TIMEOUT
+		stage = min(max(self.stage, 1), 35)
+		frames = 190 - 4 * stage - (20 if self.nr_of_players >= 2 else 0) + 1
+		return config.nesFrames(frames)
 
 	def shieldPlayer(self, player, shield = True, duration = None):
 		""" Add/remove shield
@@ -509,10 +548,11 @@ class Game():
 		@return list [x, y] or None if all positions are occupied
 		"""
 
+		# NES order: center, right, left
 		available_positions = [
-			[0, 0],
 			[12 * self.TILE_SIZE, 0],
-			[24 * self.TILE_SIZE, 0]
+			[24 * self.TILE_SIZE, 0],
+			[0, 0]
 		]
 
 		for i in range(len(available_positions)):
@@ -541,21 +581,22 @@ class Game():
 
 
 		if self.game_paused:
-			return
+			return False
 		if len(state.enemies) >= self.level.max_active_enemies:
-			return
+			return False
 		if len(self.level.enemies_left) < 1:
-			return
-		# don't spawn on top of other tanks, try again on next spawn timer
+			return False
+		# don't spawn on top of other tanks, try again later
 		position = self.getFreeSpawningPosition()
 		if position == None:
-			return
+			return False
 		enemy = Enemy(self.level, 1, position)
 
 		if self.timefreeze:
 			enemy.paused = True
 
 		state.enemies.append(enemy)
+		return True
 
 
 	def respawnPlayer(self, player, clear_scores = False, superpowers = None):
@@ -586,7 +627,7 @@ class Game():
 		self.game_over_y = 416+40
 
 		self.game_over = True
-		state.gtimer.add(3000, lambda :self.endLevel(self.showScores), 1)
+		state.gtimer.add(config.GAME_OVER_TIMEOUT, lambda :self.endLevel(self.showScores), 1)
 
 	def gameOverScreen(self):
 		""" Show game over screen """
@@ -917,8 +958,11 @@ class Game():
 		state.bonuses.append(bonus)
 		if config.play_sounds:
 			state.sounds["bonusnew"].play()
-		state.gtimer.add(max(config.BONUS_SPAWN_TIMEOUT - config.BONUS_BLINK_TIME, 1), lambda :bonus.startBlinking(), 1)
-		state.gtimer.add(config.BONUS_SPAWN_TIMEOUT, lambda :state.bonuses.remove(bonus), 1)
+		if config.BONUS_SPAWN_TIMEOUT > 0:
+			state.gtimer.add(max(config.BONUS_SPAWN_TIMEOUT - config.BONUS_BLINK_TIME, 1), lambda :bonus.startBlinking(), 1)
+			state.gtimer.add(config.BONUS_SPAWN_TIMEOUT, lambda :state.bonuses.remove(bonus), 1)
+		else:
+			bonus.startBlinking()
 
 	def versusOver(self, winner):
 		""" Versus match is over: show "game over", then result """
@@ -931,7 +975,7 @@ class Game():
 		self.versus_winner = winner
 		self.game_over_y = 416+40
 		self.game_over = True
-		state.gtimer.add(3000, lambda :self.endLevel(self.showVersusResult), 1)
+		state.gtimer.add(config.GAME_OVER_TIMEOUT, lambda :self.endLevel(self.showVersusResult), 1)
 
 	def showVersusResult(self):
 		""" Versus result screen: winner and kills. Any key / gamepad button returns to menu """
@@ -1425,7 +1469,8 @@ class Game():
 		if self.nr_of_players >= 2 and config.TWO_PLAYER_KILLS_BONUS > 0 and not self.game_over:
 			kills = [sum(player.trophies.values()) - player.trophies["bonus"] for player in state.players]
 			best_kills = max(kills)
-			if best_kills > 0 and kills.count(best_kills) == 1:
+			# NES: only player with lives left gets the bonus
+			if best_kills > 0 and kills.count(best_kills) == 1 and state.players[kills.index(best_kills)].lives > 0:
 				kills_bonus_player = kills.index(best_kills)
 				state.players[kills_bonus_player].score += config.TWO_PLAYER_KILLS_BONUS
 
@@ -1597,7 +1642,7 @@ class Game():
 
 		if self.game_over:
 			if self.game_over_y > 188:
-				self.game_over_y -= 4
+				self.game_over_y -= config.GAME_OVER_TEXT_SPEED
 			state.screen.blit(self.im_game_over, [176, self.game_over_y]) # 176=(416-64)/2
 
 		self.drawSidebar()
@@ -1974,6 +2019,8 @@ class Game():
 		self.players_frozen = False
 		self.enemies_ship = False
 		self.enemies_ship_timer = None
+		self.fortress_blink_start_timer = None
+		self.fortress_blink_timer = None
 		self.next_action = None
 
 		# set number of enemies by types (basic, fast, power, armor) according to level
@@ -1985,7 +2032,8 @@ class Game():
 
 		self.reloadPlayers()
 
-		state.gtimer.add(config.ENEMY_SPAWN_TIMEOUT, lambda :self.spawnEnemy())
+		# NES: first enemy appears immediately, then after spawn interval
+		self.spawn_timer = 0 if config.ENEMY_SPAWN_TIMEOUT == None else self.enemySpawnInterval()
 		if self.mode == "versus":
 			state.gtimer.add(config.VERSUS_BONUS_TIMEOUT, lambda :self.spawnVersusBonus())
 
@@ -2149,6 +2197,12 @@ class Game():
 							player.slide = 0
 				player.update(time_passed)
 
+			# enemy spawn timer: when no place for new enemy, it appears as soon as place is free (NES)
+			if not self.game_over and self.active:
+				self.spawn_timer -= time_passed
+				if self.spawn_timer <= 0:
+					self.spawn_timer = self.enemySpawnInterval() if self.spawnEnemy() else 0
+
 			for enemy in state.enemies[:]:
 				if enemy.state == enemy.STATE_ALIVE:
 						if enemy.bonus_aquired != None:
@@ -2167,7 +2221,11 @@ class Game():
 					if config.EXTRA_LIFE_SCORE > 0:
 						while player.score >= player.next_extra_life:
 							player.lives += 1
-							player.next_extra_life += config.EXTRA_LIFE_SCORE
+							if config.EXTRA_LIFE_ONCE:
+								# NES: only one extra life
+								player.next_extra_life = 10 ** 9
+							else:
+								player.next_extra_life += config.EXTRA_LIFE_SCORE
 							if config.play_sounds:
 								state.sounds["life"].play()
 

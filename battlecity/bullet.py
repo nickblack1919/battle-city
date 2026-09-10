@@ -56,6 +56,9 @@ class Bullet():
 
 		self.speed = speed
 
+		# fractional part of movement (speed can be fractional, bullet moves by whole px)
+		self.move_credit = 0.0
+
 		self.state = self.STATE_ACTIVE
 
 		self.dbg_label = Label(self.rect.bottomleft, str(self.rect.topleft))
@@ -86,30 +89,42 @@ class Bullet():
 		if self.state != self.STATE_ACTIVE:
 			return
 
-		""" move bullet """
+		# speed can be fractional: move whole px, keep the rest for next frame.
+		# Fast bullet moves in parts not longer than 4 px, so it doesn't fly through thin walls
+		self.move_credit += self.speed
+		# small epsilon: 4.8 * 10 is 47.999... in floating point
+		px = int(self.move_credit + 1e-9)
+		self.move_credit -= px
+		while px > 0 and self.state == self.STATE_ACTIVE:
+			part = min(px, 4)
+			px -= part
+			self.step(part)
+
+	def step(self, px):
+		""" Move bullet by px and handle collisions """
 		if self.direction == self.DIR_UP:
-			self.rect.topleft = [self.rect.left, self.rect.top - self.speed]
+			self.rect.topleft = [self.rect.left, self.rect.top - px]
 			if self.rect.top < 0:
 				if config.play_sounds and self.owner == self.OWNER_PLAYER:
 					state.sounds["steel"].play()
 				self.explode()
 				return
 		elif self.direction == self.DIR_RIGHT:
-			self.rect.topleft = [self.rect.left + self.speed, self.rect.top]
+			self.rect.topleft = [self.rect.left + px, self.rect.top]
 			if self.rect.left > (416 - self.rect.width):
 				if config.play_sounds and self.owner == self.OWNER_PLAYER:
 					state.sounds["steel"].play()
 				self.explode()
 				return
 		elif self.direction == self.DIR_DOWN:
-			self.rect.topleft = [self.rect.left, self.rect.top + self.speed]
+			self.rect.topleft = [self.rect.left, self.rect.top + px]
 			if self.rect.top > (416 - self.rect.height):
 				if config.play_sounds and self.owner == self.OWNER_PLAYER:
 					state.sounds["steel"].play()
 				self.explode()
 				return
 		elif self.direction == self.DIR_LEFT:
-			self.rect.topleft = [self.rect.left - self.speed, self.rect.top]
+			self.rect.topleft = [self.rect.left - px, self.rect.top]
 			if self.rect.left < 0:
 				if config.play_sounds and self.owner == self.OWNER_PLAYER:
 					state.sounds["steel"].play()
@@ -180,9 +195,7 @@ class Bullet():
 			if self.owner == self.OWNER_ENEMY and self.owner_class.state == self.owner_class.STATE_ALIVE:
 				self.owner_class.explode()
 			state.game.level.buildFortress(state.game.level.TILE_STEEL)
-			if not config.FORTRESS_FOREVER:
-				state.game.destroyTimer(state.game.fortress_end_timer)
-				state.game.fortress_end_timer = state.gtimer.add(config.BONUS_FORTRESS_WALLS_TIMEOUT, lambda :state.game.level.buildFortress(state.game.level.TILE_BRICK), 1)
+			state.game.startSteelFortressTimer()
 			return
 
 		# check for collision with castles (versus mode has two)

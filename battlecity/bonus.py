@@ -39,19 +39,8 @@ class Bonus():
 
 		self.rect = pygame.Rect(random.randint(0, 416-32), random.randint(0, 416-32), 32, 32)
 
-		self.bonus = random.choice([
-			self.BONUS_STAR,
-			self.BONUS_STAR,
-			self.BONUS_GRENADE,
-			self.BONUS_GRENADE,
-			self.BONUS_HELMET,
-			self.BONUS_SHOVEL,
-			self.BONUS_SHOVEL,
-			self.BONUS_TANK,
-			self.BONUS_TIMER,
-			self.BONUS_PISTOL,
-			self.BONUS_SHIP
-		])
+		# bonus types of current preset (NES set in CLASSIC)
+		self.bonus = random.choice([getattr(self, "BONUS_" + name) for name in config.BONUS_TYPES])
 
 		#self.bonus = self.BONUS_GRENADE
 
@@ -71,7 +60,7 @@ class Bonus():
 	def startBlinking(self):
 		""" Start blinking: bonus is about to disappear """
 		self.blinking = True
-		self.blink_timer = state.gtimer.add(150, lambda :self.toggleVisibility())
+		self.blink_timer = state.gtimer.add(config.BONUS_BLINK_INTERVAL, lambda :self.toggleVisibility())
 
 	def toggleVisibility(self):
 		""" Toggle bonus visibility """

@@ -53,11 +53,13 @@ Campaign and endless mode have hiscore tables: players with top 10 score enter t
 
 | Preset | |
 |---|---|
-| CLASSIC | close to NES: 4 enemies on screen, armor tank 4 hits, enemies don't pick up bonuses, no new enemies |
+| CLASSIC | NES rules: 4 enemies on screen (6 in 2 player game), armor tank 4 hits, bonus carried by 4th / 11th / 18th tank, NES bonus set, bonus stays until picked up, enemies don't pick up bonuses, friendly fire stuns partner, one extra life, NES enemy spawn intervals, no new enemies |
 | GOOD (default) | more enemies, enemies pick up bonuses, player starts with one star, new enemies |
 | EXTREME | even more enemies in 2-3 player games |
 
-All values are in `battlecity/config.py`.
+In every preset timings are taken from NES version (disassembly, converted from 60 fps): tank and bullet speeds,
+shield, helmet, shovel and clock durations, enemy fire rate, spawn animation, 3 lives. All values are in
+`battlecity/config.py`.
 
 ## Bonuses
 
@@ -75,7 +77,8 @@ All values are in `battlecity/config.py`.
 Superpowers: 1 fast bullets, 2 two bullets, 3 bullets clear grass, 4 bullets destroy steel, 5 three bullets and
 frontal armor (not in CLASSIC), 6 bullets destroy walls and fly on, 9 castle protection (absorbs one hit).
 
-Extra life every 20000 points. In 2+ player games the player who destroyed most tanks on a stage gets 1000 points.
+Extra life every 20000 points (CLASSIC: only once, like on NES). In 2+ player games the player who destroyed most
+tanks on a stage gets 1000 points, if they have lives left.
 
 ## Enemies
 

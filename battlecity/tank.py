@@ -125,7 +125,7 @@ class Tank():
 		self.timer_uuid_spawn = state.gtimer.add(100, lambda :self.toggleSpawnImage())
 
 		# duration of spawning
-		self.timer_uuid_spawn_end = state.gtimer.add(1000, lambda :self.endSpawning())
+		self.timer_uuid_spawn_end = state.gtimer.add(config.ENEMY_SPAWN_ANIMATION_TIME, lambda :self.endSpawning())
 
 		self.visibility_timer = None
 
@@ -158,6 +158,14 @@ class Tank():
 		self.state = self.STATE_ALIVE
 		state.gtimer.destroy(self.timer_uuid_spawn_end)
 
+	def startSpawning(self, duration):
+		""" Show flashing star for duration ms, then tank becomes operational """
+		state.gtimer.destroy(self.timer_uuid_spawn)
+		state.gtimer.destroy(self.timer_uuid_spawn_end)
+		self.state = self.STATE_SPAWNING
+		self.timer_uuid_spawn = state.gtimer.add(100, lambda :self.toggleSpawnImage())
+		self.timer_uuid_spawn_end = state.gtimer.add(duration, lambda :self.endSpawning())
+
 
 	def toggleSpawnImage(self):
 		""" advance to the next spawn image """
@@ -171,7 +179,8 @@ class Tank():
 
 	def toggleShieldImage(self):
 		""" advance to the next shield image """
-		if self.state != self.STATE_ALIVE:
+		# shield is given when player starts to spawn
+		if self.state not in (self.STATE_ALIVE, self.STATE_SPAWNING):
 			state.gtimer.destroy(self.timer_uuid_shield)
 			return
 		if self.shielded:
@@ -229,7 +238,7 @@ class Tank():
 
 		# 1 - faster bullets
 		if self.superpowers >= 1:
-			self.bullet_speed = 8
+			self.bullet_speed = config.FAST_BULLET_SPEED
 
 		# 2 - can fire 2 bullets
 		if self.superpowers >= 2:
@@ -276,7 +285,7 @@ class Tank():
 		if self.paused:
 			return False
 
-		if self.side == self.SIDE_ENEMY and random.randint(1, 100) < 100 - config.CHANCE_OF_FIRE:
+		if self.side == self.SIDE_ENEMY and random.random() * 100 >= config.CHANCE_OF_FIRE:
 			return False
 
 		if not forced:
@@ -476,7 +485,7 @@ class Tank():
 				return False
 			if not self.paralised:
 				self.setParalised(True)
-				self.timer_uuid_paralise = state.gtimer.add(10000, lambda :self.setParalised(False), 1)
+				self.timer_uuid_paralise = state.gtimer.add(config.FRIENDLY_FIRE_STUN_TIME, lambda :self.setParalised(False), 1)
 			return True
 
 	def setParalised(self, paralised = True):
@@ -507,7 +516,7 @@ class Enemy(Tank):
 		# how many times tank keeps pushing into obstacle before turning
 		self.persistance = 0
 
-		if len(self.level.enemies_left) % config.BONUS_FREQ == (config.BONUS_FREQ - 1):
+		if len(self.level.enemies_left) % config.BONUS_FREQ == config.BONUS_TANK_OFFSET % config.BONUS_FREQ:
 			self.bonus = True
 
 		# chose type on random
@@ -670,8 +679,12 @@ class Enemy(Tank):
 
 		state.bonuses.append(bonus)
 		# bonus blinks during last seconds before it disappears
-		state.gtimer.add(max(config.BONUS_SPAWN_TIMEOUT - config.BONUS_BLINK_TIME, 1), lambda :bonus.startBlinking(), 1)
-		state.gtimer.add(config.BONUS_SPAWN_TIMEOUT, lambda :state.bonuses.remove(bonus), 1)
+		if config.BONUS_SPAWN_TIMEOUT > 0:
+			state.gtimer.add(max(config.BONUS_SPAWN_TIMEOUT - config.BONUS_BLINK_TIME, 1), lambda :bonus.startBlinking(), 1)
+			state.gtimer.add(config.BONUS_SPAWN_TIMEOUT, lambda :state.bonuses.remove(bonus), 1)
+		else:
+			# NES: bonus stays until picked up, always blinking
+			bonus.startBlinking()
 
 		# pickup the bonus immediately it it was placed on a player
 		for player in state.players:
@@ -697,7 +710,7 @@ class Enemy(Tank):
 		""" Move enemy with its speed: speed can be fractional, whole px steps are made,
 		the rest is kept for next frame """
 		self.move_credit += self.speed
-		steps = int(self.move_credit)
+		steps = int(self.move_credit + 1e-9)
 		self.move_credit -= steps
 		for step in range(steps):
 			self.moveStep()
@@ -994,7 +1007,7 @@ class Player(Tank):
 		"""
 		if px == None:
 			self.move_credit += self.speed
-			steps = int(self.move_credit)
+			steps = int(self.move_credit + 1e-9)
 			self.move_credit -= steps
 			# turn even if there is no whole px to move
 			self.move(direction, 0)
@@ -1091,4 +1104,4 @@ class Player(Tank):
 		self.ship_timer = None
 		self.visible = True
 		self.visibility_timer = None
-		self.state = self.STATE_ALIVE
+		self.startSpawning(config.PLAYER_SPAWN_ANIMATION_TIME)
