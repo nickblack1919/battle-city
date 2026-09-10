@@ -4,14 +4,14 @@
 import os, pygame, time, random, uuid, sys, argparse
 from pygame.locals import *
 
-# MODE
+# MODE (presets at the end of settings override values below)
 CLASSIC_MODE = False
 EXTREME_MODE = False
 GOOD_MODE = True
 DEBUG_MODE = False
 
 # CHEATS
-START_LEVEL = 27
+START_LEVEL = 1
 FORTRESS_FOREVER = 0
 PLAYER_INFINITE_ARMOR = 0
 PLAYER_INFINITE_LIVES = False
@@ -35,8 +35,8 @@ BONUS_PLAYER_HIDDEN_TIMEOUT = 10000
 BONUS_SPAWN_TIMEOUT = 20000
 CHANCE_OF_FIRE = 50
 ENEMY_FIRE_TIMER = 500
-HEAD_SHIELD_WHEN_PROTECTED = True
-ENABLE_PLAYER_PROTECTION = True
+HEAD_SHIELD_WHEN_PROTECTED = True	# protected player tank isn't hurt by bullets hitting its front
+ENABLE_PLAYER_PROTECTION = True	# player gets frontal armor at superpower 5
 
 # GAME SPEED
 GAME_FRAME_TIMING = 50
@@ -55,6 +55,7 @@ PLAYER_START_HEALTH = 100
 PLAYER_START_SCORE = 0
 PLAYER_START_MAX_ACTIVE_BULLETS = 1
 PLAYER_START_SHIELD_TIMEOUT = 4000
+PLAYER_AUTO_FIRE_DELAY = 100	# min ms between shots while fire button is held
 
 # DEBUG
 DEBUG_UNFREEZE_PLAYERS_ON_PAUSE = DEBUG_MODE
@@ -101,11 +102,10 @@ if GOOD_MODE:
 	ENEMY_SPAWN_TIMEOUT = 1000
 	ENABLE_PLAYER_PROTECTION = True
 
-# Construct the argument parser
+# command line arguments
 ap = argparse.ArgumentParser()
-
-# Add the arguments to the parser
 ap.add_argument("-l", "--level", default=START_LEVEL, required=False, help="start level")
+ap.add_argument("-f", "--fullscreen", action="store_true", help="start in full screen mode")
 args = vars(ap.parse_args())
 
 START_LEVEL = int(args['level'])
@@ -140,7 +140,10 @@ class Timer(object):
 				return
 
 	def update(self, time_passed):
-		for timer in self.timers:
+		# iterate over a copy: callbacks may add or remove timers
+		for timer in self.timers[:]:
+			if timer not in self.timers:
+				continue
 			timer["time"] += time_passed
 			if timer["time"] > timer["interval"]:
 				timer["time"] -= timer["interval"]
@@ -149,11 +152,9 @@ class Timer(object):
 					self.timers.remove(timer)
 				try:
 					timer["callback"]()
-				except:
-					try:
+				except Exception:
+					if timer in self.timers:
 						self.timers.remove(timer)
-					except:
-						pass
 
 class Castle():
 	""" Player's castle/fortress """
@@ -164,11 +165,12 @@ class Castle():
 
 		global sprites
 
-		self.protected = False
-
 		# images
 		self.img_undamaged = sprites.subsurface(0, 15*2, 16*2, 16*2)
 		self.img_destroyed = sprites.subsurface(16*2, 15*2, 16*2, 16*2)
+
+		# protection (player superpower 9): absorbs one enemy hit
+		self.protected = False
 		self.img_protected = sprites2.subsurface((10+5)*32+4, 9*32, 16*2, 16*2)
 
 		# init position
@@ -393,6 +395,7 @@ class Bullet():
 							if play_sounds:
 								sounds["brick"].play()
 							self.level.mapr.remove(tile)
+							break
 
 		# check for collisions with walls. one bullet can destroy several (1 or 2)
 		# tiles but explosion remains 1
@@ -427,17 +430,19 @@ class Bullet():
 					self.destroy()
 					return
 
+		# protected castle: protection absorbs the hit, enemy shooter explodes,
+		# fortress walls temporarily become steel
 		if castle.active and castle.protected and self.rect.colliderect(castle.rect):
 			castle.protected = False
 			self.destroy()
-			castle.rebuild()
-			self.owner_class.explode()
+			if self.owner == self.OWNER_ENEMY and self.owner_class.state == self.owner_class.STATE_ALIVE:
+				self.owner_class.explode()
 			game.level.buildFortress(game.level.TILE_STEEL)
 			if not FORTRESS_FOREVER:
 				game.destroyTimer(game.fortress_end_timer)
-				game.fortress_end_timer = gtimer.add(BONUS_FORTRESS_WALLS_TIMEOUT, lambda :game.level.buildFortress(self.level.TILE_BRICK), 1)
+				game.fortress_end_timer = gtimer.add(BONUS_FORTRESS_WALLS_TIMEOUT, lambda :game.level.buildFortress(game.level.TILE_BRICK), 1)
 			return
-			
+
 		# check for collision with castle
 		if castle.active and self.rect.colliderect(castle.rect):
 			castle.destroy()
@@ -714,8 +719,14 @@ class Level():
 		for rect in obsolete:
 			self.mapr.remove(rect)
 
+		# don't wall in tanks standing on fortress tiles
+		tank_rects = [tank.rect for tank in players + enemies if tank.state == tank.STATE_ALIVE]
+
 		for pos in positions:
-			self.mapr.append(myRect(pos[0], pos[1], self.TILE_SIZE, self.TILE_SIZE, tile))
+			tile_rect = myRect(pos[0], pos[1], self.TILE_SIZE, self.TILE_SIZE, tile)
+			if tile != self.TILE_EMPTY and tile_rect.collidelist(tank_rects) != -1:
+				continue
+			self.mapr.append(tile_rect)
 
 		self.updateObstacleRects()
 
@@ -772,13 +783,17 @@ class Tank():
 		# currently pressed buttons (navigation only)
 		self.pressed = [False] * 4
 
+		# fire button is held (auto fire)
+		self.fire_pressed = False
+		self.last_fire_time = 0
+
 		# visibility state
 		self.visible = True
 
-		# protected state
+		# frontal armor (player superpower 5+)
 		self.protected = False
 		self.protected_image = sprites2.subsurface((10+5)*32+4, 9*32, 16*2, 16*2)
-		
+
 		self.shield_images = [
 			# sprites.subsurface(0, 48*2, 16*2, 16*2),
 			# sprites.subsurface(16*2, 48*2, 16*2, 16*2)
@@ -803,7 +818,7 @@ class Tank():
 			self.rect = pygame.Rect(0, 0, 32, 32)
 
 		if direction == None:
-			self.direction = random.choice([self.DIR_RIGHT, self.DIR_DOWN, self.DIR_UP, self.DIR_LEFT])
+			self.direction = random.choice([self.DIR_UP, self.DIR_RIGHT, self.DIR_DOWN, self.DIR_LEFT])
 		else:
 			self.direction = direction
 
@@ -819,6 +834,8 @@ class Tank():
 
 		self.shield_end_timer = None
 
+		self.timer_uuid_shield = None
+
 		self.dbg_label = Label(self.rect.bottomleft, str(self.rect.topleft))
 
 	def toggleVisibility(self):
@@ -830,7 +847,7 @@ class Tank():
 			gtimer.destroy(self.visibility_timer)
 
 		self.setVisibility(False)
-		self.visibility_timer = gtimer.add(duration, lambda: self.setVisibility(True))
+		self.visibility_timer = gtimer.add(duration, lambda: self.setVisibility(True), 1)
 
 
 	def setVisibility(self, visible):
@@ -910,6 +927,7 @@ class Tank():
 
 			self.bullet_power = 1
 			self.max_active_bullets = PLAYER_START_MAX_ACTIVE_BULLETS
+			self.protected = False
 
 		# 1 - faster bullets
 		if self.superpowers >= 1:
@@ -930,15 +948,18 @@ class Tank():
 		# 5 - can fire 3 bullets
 		if self.superpowers >= 5:
 			self.max_active_bullets = 3
-			if ENABLE_PLAYER_PROTECTION:
+			# frontal armor (players only)
+			if ENABLE_PLAYER_PROTECTION and self.side == self.SIDE_PLAYER:
 				self.protected = True
 		
 		# 6- can clear trees, bricks and steel in 1 shot
 		if self.superpowers >= 6:
 			self.bullet_power = 4
-			
-		if self.superpowers >= 9:
+
+		# 9 - castle protection (players only)
+		if self.superpowers >= 9 and self.side == self.SIDE_PLAYER:
 			castle.protected = True
+			
 			
 	def fire(self, forced = False):
 		""" Shoot a bullet
@@ -1015,7 +1036,7 @@ class Tank():
 				if enemy != self and new_rect.colliderect(enemy.rect):
 					collision = True
 			for player in players:
-				if player != self and new_rect.colliderect(player.rect):
+				if player != self and player.state == player.STATE_ALIVE and new_rect.colliderect(player.rect):
 					collision = True
 			if collision:
 				#print "Collision!"
@@ -1029,7 +1050,7 @@ class Tank():
 			
 	def turnRandom(self):
 		""" Turn tank into random direction """
-		self.direction = random.choice([self.DIR_UP, self.DIR_DOWN, self.DIR_RIGHT, self.DIR_LEFT])
+		self.direction = random.choice([self.DIR_UP, self.DIR_RIGHT, self.DIR_DOWN, self.DIR_LEFT])
 
 	def turnAround(self):
 		""" Turn tank into opposite direction """
@@ -1048,9 +1069,9 @@ class Tank():
 	def nearest(self, num, base):
 		""" Round number to nearest divisible """
 		return int(round(float(num) / (base * 1.0)) * base)
-	
+
 	def getOppositeDirection(self, direction):
-		""" Round number to nearest divisible """
+		""" Get direction opposite to specified one """
 		if direction == self.DIR_UP:
 			return self.DIR_DOWN
 		if direction == self.DIR_DOWN:
@@ -1071,17 +1092,12 @@ class Tank():
 		if self.shielded and not friendly_fire:
 			return True
 
-		if self.protected:
+		# frontal armor: bullet flying against tank's direction hits its front and doesn't hurt
+		if self.protected and not friendly_fire:
 			if play_sounds:
 				sounds["armor"].play()
-
-			# if head collision don't do anything
-			if HEAD_SHIELD_WHEN_PROTECTED:
-				if bulletDirection == self.getOppositeDirection(self.direction):
-					return True
-			
-			#self.protected = False
-			#return True
+			if HEAD_SHIELD_WHEN_PROTECTED and bulletDirection == self.getOppositeDirection(self.direction):
+				return True
 
 		if not friendly_fire:
 			if not INFINITE_HEALTH_FOR_ALL:
@@ -1092,12 +1108,12 @@ class Tank():
 			if PLAYER_INFINITE_ARMOR > 0 and self.side == self.SIDE_PLAYER:
 				self.health += damage	
 
-			# if Tank has a bonus display it
-			if self.bonus:
+			# if enemy tank carries a bonus display it
+			if self.side == self.SIDE_ENEMY and self.bonus:
 				if not INFINITE_BONUSES:
 					self.removeBonusLoad()
 
-				# If bonus already exist on screen, remove it
+				# If bonus already exit on screen, remove it
 				if len(bonuses) > 0 and not ALLOW_MULTI_BONUS:
 					self.clearAllBonuses()
 				
@@ -1159,6 +1175,7 @@ class Enemy(Tank):
 		# if true, do not fire
 		self.bullet_queued = False
 
+		# how many times tank keeps pushing into obstacle before turning
 		self.persistance = 0
 
 		if len(self.level.enemies_left) % BONUS_FREQ == (BONUS_FREQ - 1):
@@ -1177,7 +1194,7 @@ class Enemy(Tank):
 			self.speed = DEFAULT_ENEMY_SPEED + DEFAULT_ENEMY_SPEED_FAST
 		elif self.type == self.TYPE_POWER:
 			self.speed = 1
-			self.superpowers = DEFAULT_ENEMY_SPEED
+			self.superpowers = 1
 			self.updateSuperpowers()
 		elif self.type == self.TYPE_ARMOR:
 			self.speed = DEFAULT_ENEMY_SPEED
@@ -1204,10 +1221,8 @@ class Enemy(Tank):
 		self.rotate(self.direction, False)
 
 		if position == None:
-			self.rect.topleft = self.getFreeSpawningPosition()
-			if not self.rect.topleft:
-				self.state = self.STATE_DEAD
-				return
+			position = game.getFreeSpawningPosition() or [0, 0]
+		self.rect.topleft = position
 				
 		# when enemies are spawned they don't aquire poisiton until they find available tile
 		# until than the don't collide with other tanks
@@ -1298,7 +1313,7 @@ class Enemy(Tank):
 
 		# pickup the bonus immediately it it was placed on a player
 		for player in players:
-			if player.rect.colliderect(bonus.rect) == True:
+			if player.state == player.STATE_ALIVE and player.rect.colliderect(bonus.rect) == True:
 				player.bonus = bonus
 				return
 
@@ -1315,21 +1330,7 @@ class Enemy(Tank):
 				if player.bonus != None and player.side == player.SIDE_PLAYER:
 					player.bonus = None
 			
-		for bonus in bonuses:
-			bonuses.remove(bonus)
-
-	def getFreeSpawningPosition(self):
-		global players, enemies, enemy_spawn_pos_index
-
-		available_positions = [
-			[(self.level.TILE_SIZE * 2 - self.rect.width) / 2, (self.level.TILE_SIZE * 2 - self.rect.height) / 2],
-			[12 * self.level.TILE_SIZE + (self.level.TILE_SIZE * 2 - self.rect.width) / 2, (self.level.TILE_SIZE * 2 - self.rect.height) / 2],
-			[24 * self.level.TILE_SIZE + (self.level.TILE_SIZE * 2 - self.rect.width) / 2,  (self.level.TILE_SIZE * 2 - self.rect.height) / 2]
-		]
-		enemy_spawn_pos_index += 1
-		enemy_spawn_pos_index %= 3 
-
-		return available_positions[enemy_spawn_pos_index]
+		del bonuses[:]
 
 	def move(self):
 		""" move enemy if possible """
@@ -1378,27 +1379,35 @@ class Enemy(Tank):
 			
 		if not self.aquired_position:
 			collision = False
+			must_wait = False
 			for enemy in enemies:
-				if enemy != self and new_rect.colliderect(enemy.rect):
+				if enemy != self and enemy.state != enemy.STATE_DEAD and new_rect.colliderect(enemy.rect):
 					collision = True
+					# overlapping tanks: positioned or older tank drives away first,
+					# otherwise both would move together and never separate
+					if enemy.aquired_position or enemies.index(enemy) < enemies.index(self):
+						must_wait = True
 			for player in players:
-				if new_rect.colliderect(player.rect):
+				if player.state == player.STATE_ALIVE and new_rect.colliderect(player.rect):
 					collision = True
-			if collision:
+			if must_wait:
+				# stay in place, keep this step for next frame
+				self.path.insert(0, new_position)
+			elif collision:
 				self.rect.topleft = new_rect.topleft
 			else:
 				self.aquired_position = True
 		else:
-			# collisions with other enemies
+			# collisions with other enemies (spawning enemies are obstacles too)
 			for enemy in enemies:
-				if enemy != self and enemy.aquired_position and new_rect.colliderect(enemy.rect):
+				if enemy != self and (enemy.aquired_position or enemy.state == enemy.STATE_SPAWNING) and new_rect.colliderect(enemy.rect):
 					self.turnRandom()
 					self.path = self.generatePath(self.direction)
 					return
 
 			# collisions with players
 			for player in players:
-				if new_rect.colliderect(player.rect):
+				if player.state == player.STATE_ALIVE and new_rect.colliderect(player.rect):
 					self.turnRandom()
 					self.path = self.generatePath(self.direction)
 					return
@@ -1457,46 +1466,38 @@ class Enemy(Tank):
 		y = int(round(self.rect.top / 16))
 
 		new_direction = None
-		possible_directions = []
 
 		for direction in directions:
 			if direction == self.DIR_UP and y > 1:
 				new_pos_rect = self.rect.move(0, -8)
 				if new_pos_rect.collidelist(self.level.obstacle_rects) == -1:
-					#new_direction = direction
-					possible_directions.append(self.DIR_UP)
+					new_direction = direction
 					break
 			elif direction == self.DIR_RIGHT and x < 24:
 				new_pos_rect = self.rect.move(8, 0)
 				if new_pos_rect.collidelist(self.level.obstacle_rects) == -1:
-					#new_direction = direction
-					possible_directions.append(self.DIR_RIGHT)
+					new_direction = direction
 					break
 			elif direction == self.DIR_DOWN and y < 24:
 				new_pos_rect = self.rect.move(0, 8)
 				if new_pos_rect.collidelist(self.level.obstacle_rects) == -1:
-					#new_direction = direction
-					possible_directions.append(self.DIR_DOWN)
+					new_direction = direction
 					break
 			elif direction == self.DIR_LEFT and x > 1:
 				new_pos_rect = self.rect.move(-8, 0)
 				if new_pos_rect.collidelist(self.level.obstacle_rects) == -1:
-					#new_direction = direction
-					possible_directions.append(self.DIR_LEFT)
+					new_direction = direction
 					break
 
-		#if len(possible_directions) > 0:
-			#new_direction = random.choice(possible_directions)
-
-		# if we can go anywhere else, do a random turn
+		# if we can't go anywhere else, do a random turn
 		if new_direction == None:
 			new_direction = random.choice([self.DIR_UP, self.DIR_DOWN, self.DIR_RIGHT, self.DIR_LEFT])
-			#print("nav izejas. griezhamies")
 
 		# fix tanks position
 		if fix_direction and new_direction == self.direction:
 			fix_direction = False
 
+		# keep pushing into obstacle for a while (shoot it through) before turning
 		if self.persistance > 1:
 			new_direction = self.direction
 
@@ -1515,17 +1516,21 @@ class Enemy(Tank):
 
 		pixels = self.nearest(random.randint(1, 4) * 32, 32) + axis_fix # + 3
 
+		# always end exactly on the target so the tank stays aligned with the grid,
+		# even if speed doesn't divide the distance
+		steps = list(range(self.speed, pixels, self.speed)) + [pixels]
+
 		if new_direction == self.DIR_UP:
-			for px in range(0, pixels, self.speed):
+			for px in steps:
 				positions.append([x, y-px])
 		elif new_direction == self.DIR_RIGHT:
-			for px in range(0, pixels, self.speed):
+			for px in steps:
 				positions.append([x+px, y])
 		elif new_direction == self.DIR_DOWN:
-			for px in range(0, pixels, self.speed):
+			for px in steps:
 				positions.append([x, y+px])
 		elif new_direction == self.DIR_LEFT:
-			for px in range(0, pixels, self.speed):
+			for px in steps:
 				positions.append([x-px, y])
 
 		return positions
@@ -1563,15 +1568,18 @@ class Player(Tank):
 		else:
 			player_sprite_nr = 6
 
-		self.protected = False
-		self.protected_image = sprites2.subsurface((10+player_sprite_nr)*32+4, 9*32, 16*2, 16*2)
-
 		self.images2 = [
 			sprites2.subsurface(player_sprite_nr*S_SIZE*T_SIZE, 0, 32, 32),
 			sprites2.subsurface(player_sprite_nr*S_SIZE*T_SIZE, 2*T_SIZE, 32, 32),
 			sprites2.subsurface(player_sprite_nr*S_SIZE*T_SIZE, 4*T_SIZE, 32, 32),
 			sprites2.subsurface(player_sprite_nr*S_SIZE*T_SIZE, 6*T_SIZE, 32, 32)
 		]
+
+		self.protected = False
+		self.protected_image = sprites2.subsurface((10+player_sprite_nr)*32+4, 9*32, 16*2, 16*2)
+
+		# until player moves out of other tanks after respawn, they don't block him
+		self.aquired_position = False
 
 		self.image = sprites2.subsurface(filename)
 		self.image_up = self.image
@@ -1659,7 +1667,6 @@ class Player(Tank):
 		#if no collision, move player
 		self.rect.topleft = (new_position[0], new_position[1])
 		self.aquired_position = True
-
 		if DEBUG_COORDINATES:
 			print("Move center: " + str(self.rect.center))
 
@@ -1675,6 +1682,10 @@ class Player(Tank):
 		self.paralised = False
 		self.paused = False
 		self.pressed = [False] * 4
+		self.fire_pressed = False
+		self.aquired_position = False
+		self.visible = True
+		self.visibility_timer = None
 		self.state = self.STATE_ALIVE
 
 class Game():
@@ -1698,12 +1709,15 @@ class Game():
 
 		pygame.display.set_caption("Battle City")
 
-		if "-f" in sys.argv[1:]:
+		if args['fullscreen']:
 			self.is_fullscreen = True
 		else:
 			self.is_fullscreen = False
 
-		screen = self.setFullScreen(self.is_fullscreen)
+		self.display = self.setFullScreen(self.is_fullscreen)
+
+		# game is always drawn on this surface, then shown on display (scaled in full screen)
+		screen = pygame.Surface((480, 416)).convert()
 
 		self.clock = pygame.time.Clock()
 
@@ -1775,8 +1789,13 @@ class Game():
 		# fortress timer
 		self.fortress_end_timer = None
 
-		# clock timer
-		self.freeze_end_timer = None
+		# clock timers (enemies frozen by player bonus, players frozen by enemy bonus)
+		self.enemy_freeze_end_timer = None
+		self.players_freeze_end_timer = None
+		self.players_frozen = False
+
+		# what to show after main game loop stops
+		self.next_action = None
 
 		#debug mode
 		self.debug_mode = False
@@ -1812,17 +1831,45 @@ class Game():
 		if timer:	
 			gtimer.destroy(timer)
 	
+	def isFullScreenKey(self, event):
+		""" Ctrl+F / Cmd+F / Alt+Enter toggle full screen """
+		if event.key == pygame.K_f and event.mod & (pygame.KMOD_CTRL | pygame.KMOD_META):
+			return True
+		if event.key == pygame.K_RETURN and event.mod & pygame.KMOD_ALT:
+			return True
+		return False
+
 	def toggleFullScreen(self):
 		self.is_fullscreen = not self.is_fullscreen
-		self.setFullScreen(self.is_fullscreen)
+		try:
+			pygame.display.toggle_fullscreen()
+		except pygame.error:
+			# some video drivers don't support toggling, recreate display instead
+			try:
+				self.setFullScreen(self.is_fullscreen)
+			except pygame.error:
+				# requested mode isn't available: stay in current mode
+				self.is_fullscreen = not self.is_fullscreen
+		self.flip()
+
+	def flip(self):
+		""" Show game screen on display
+		Display works in SCALED mode: SDL scales it to window / full screen size,
+		keeps proportions and centers the picture
+		"""
+		global screen
+
+		self.display = pygame.display.get_surface()
+		self.display.blit(screen, [0, 0])
+		pygame.display.update()
 
 	def setFullScreen(self, fullScreen):
 		size = width, height = 480, 416
 
 		if fullScreen:
-			screen = pygame.display.set_mode(size, FULLSCREEN | DOUBLEBUF)
+			screen = pygame.display.set_mode(size, SCALED | FULLSCREEN)
 		else:
-			screen = pygame.display.set_mode(size, DOUBLEBUF)
+			screen = pygame.display.set_mode(size, SCALED)
 			
 		return screen
 
@@ -1865,7 +1912,7 @@ class Game():
 				if enemy.type >= 3:
 					enemy.health = 400
 					enemy.type = 3
-					enemy.speed = DEFAULT_ENEMY_SPEED_FAST
+					enemy.speed = DEFAULT_ENEMY_SPEED + DEFAULT_ENEMY_SPEED_FAST
 				enemy.updateSuperpowers()
 		# increase all enemy health by 200
 		elif bonus.bonus == bonus.BONUS_TANK:
@@ -1874,9 +1921,9 @@ class Game():
 				enemy.updateSprites()
 		# freeze players for 10 seconds
 		elif bonus.bonus == bonus.BONUS_TIMER:
-			self.togglePlayersFreeze(True)
-			self.destroyTimer(self.freeze_end_timer)
-			self.freeze_end_timer = gtimer.add(BONUS_TIMER_FREEZE_TIMEOUT, lambda :self.togglePlayersFreeze(False), 1)
+			self.setPlayersFrozen(True)
+			self.destroyTimer(self.players_freeze_end_timer)
+			self.players_freeze_end_timer = gtimer.add(BONUS_TIMER_FREEZE_TIMEOUT, lambda :self.setPlayersFrozen(False), 1)
 		
 		if bonus in bonuses:
 			bonuses.remove(bonus)
@@ -1895,6 +1942,8 @@ class Game():
 			if play_sounds:
 				sounds["explosion"].play()
 			for enemy in enemies:
+				if enemy.state not in (enemy.STATE_ALIVE, enemy.STATE_SPAWNING):
+					continue
 				explode_count += 1
 				enemy.explode()
 				if explode_count == 12:
@@ -1935,8 +1984,8 @@ class Game():
 			if play_sounds:
 				sounds["bonus"].play()
 			self.toggleEnemyFreeze(True)
-			self.destroyTimer(self.freeze_end_timer)
-			self.freeze_end_timer = gtimer.add(BONUS_TIMER_FREEZE_TIMEOUT, lambda :self.toggleEnemyFreeze(False), 1)
+			self.destroyTimer(self.enemy_freeze_end_timer)
+			self.enemy_freeze_end_timer = gtimer.add(BONUS_TIMER_FREEZE_TIMEOUT, lambda :self.toggleEnemyFreeze(False), 1)
 		
 		if bonus in bonuses:
 			bonuses.remove(bonus)
@@ -1950,16 +1999,59 @@ class Game():
 		duration: in ms. if none, do not remove shield automatically
 		"""
 		player.shielded = shield
+		# only one shield animation timer per player
+		self.destroyTimer(player.timer_uuid_shield)
+		player.timer_uuid_shield = None
 		if shield:
 			player.timer_uuid_shield = gtimer.add(100, lambda :player.toggleShieldImage())
-		else:
-			gtimer.destroy(player.timer_uuid_shield)
 
 		if shield and duration != None:
 			if player.shield_end_timer:
 				gtimer.destroy(player.shield_end_timer)
 			player.shield_end_timer = gtimer.add(duration, lambda :self.shieldPlayer(player, False), 1)
 
+
+	def delay(self, fps):
+		""" Wait like clock.tick(fps), but keep handling quit and full screen keys
+		Used on screens without their own event loop (scores)
+		"""
+		self.clock.tick(fps)
+		for event in pygame.event.get():
+			if event.type == pygame.QUIT:
+				quit()
+			elif event.type == pygame.KEYDOWN:
+				if event.key == pygame.K_ESCAPE:
+					quit()
+				elif self.isFullScreenKey(event):
+					self.toggleFullScreen()
+
+	def getFreeSpawningPosition(self):
+		""" Next enemy spawning position not occupied by any tank
+		@return list [x, y] or None if all positions are occupied
+		"""
+		global players, enemies, enemy_spawn_pos_index
+
+		available_positions = [
+			[0, 0],
+			[12 * self.TILE_SIZE, 0],
+			[24 * self.TILE_SIZE, 0]
+		]
+
+		for i in range(len(available_positions)):
+			enemy_spawn_pos_index += 1
+			enemy_spawn_pos_index %= len(available_positions)
+			position = available_positions[enemy_spawn_pos_index]
+			spawn_rect = pygame.Rect(position, [32, 32])
+
+			occupied = False
+			for tank in enemies + players:
+				if tank.state != tank.STATE_DEAD and spawn_rect.colliderect(tank.rect):
+					occupied = True
+					break
+			if not occupied:
+				return position
+
+		return None
 
 	def spawnEnemy(self):
 		""" Spawn new enemy if needed
@@ -1977,7 +2069,11 @@ class Game():
 			return
 		if len(self.level.enemies_left) < 1:
 			return
-		enemy = Enemy(self.level, 1)
+		# don't spawn on top of other tanks, try again on next spawn timer
+		position = self.getFreeSpawningPosition()
+		if position == None:
+			return
+		enemy = Enemy(self.level, 1, position)
 
 		if self.timefreeze:
 			enemy.paused = True
@@ -1988,7 +2084,8 @@ class Game():
 	def respawnPlayer(self, player, clear_scores = False, superpowers = PLAYER_START_SUPERPOWER):
 		""" Respawn player """
 		player.reset()
-		
+		player.paralised = self.players_frozen
+
 		player.superpowers = superpowers
 		player.updateSuperpowers()
 
@@ -1997,7 +2094,6 @@ class Game():
 				"bonus" : 0, "enemy0" : 0, "enemy1" : 0, "enemy2" : 0, "enemy3" : 0
 			}
 
-		self.aquired_position = False
 		self.shieldPlayer(player, True, PLAYER_START_SHIELD_TIMEOUT)
 
 	def gameOver(self):
@@ -2014,7 +2110,7 @@ class Game():
 		self.game_over_y = 416+40
 
 		self.game_over = True
-		gtimer.add(3000, lambda :self.showScores(), 1)
+		gtimer.add(3000, lambda :self.endLevel(self.showScores), 1)
 
 	def gameOverScreen(self):
 		""" Show game over screen """
@@ -2028,10 +2124,11 @@ class Game():
 
 		self.writeInBricks("game", [125, 140])
 		self.writeInBricks("over", [125, 220])
-		pygame.display.flip()
+		self.flip()
 
 		while 1:
 			time_passed = self.clock.tick(50)
+			self.flip()
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					quit()
@@ -2039,8 +2136,7 @@ class Game():
 					if event.key == pygame.K_ESCAPE:
 						quit()
 					if event.key == pygame.K_RETURN:
-						self.showMenu()
-						return
+						return self.showMenu
 
 	def showMenu(self):
 		""" Show game menu
@@ -2065,6 +2161,10 @@ class Game():
 		while main_loop:
 			time_passed = self.clock.tick(50)
 
+			# redraw every frame, otherwise menu stays invisible if display wasn't ready
+			# during intro animation (happens when switching to full screen)
+			self.flip()
+
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					quit()
@@ -2082,14 +2182,16 @@ class Game():
 							self.nr_of_players = 3
 						self.drawIntroScreen()
 					
+					elif self.isFullScreenKey(event):
+						self.toggleFullScreen()
+						self.drawIntroScreen()
+
 					elif event.key == pygame.K_RETURN:
 						main_loop = False
 					
-					elif event.key == pygame.K_f and pygame.key.get_mods() & pygame.KMOD_CTRL:
-						self.toggleFullScreen()
 
 		del players[:]
-		self.nextLevel()
+		return self.nextLevel
 
 	def reloadPlayers(self):
 		""" Init players
@@ -2117,7 +2219,7 @@ class Game():
 				player = Player(
 					self.level, 0, [x, y], self.DIR_UP, (6*S_SIZE*T_SIZE, 0, 16*2, 16*2), 2
 				)
-				player.controls = [pygame.K_l, pygame.K_w, pygame.K_d, pygame.K_s, pygame.K_a]
+				player.controls = [pygame.K_RSHIFT, pygame.K_UP, pygame.K_RIGHT, pygame.K_DOWN, pygame.K_LEFT]
 				players.append(player)
 
 			# third player
@@ -2127,7 +2229,8 @@ class Game():
 				player = Player(
 					self.level, 0, [x, y], self.DIR_UP, (16*2, 0, 16*2, 16*2), 3
 				)
-				player.controls = [pygame.K_k, pygame.K_y, pygame.K_j, pygame.K_h, pygame.K_g]
+				# temporary keys until gamepad support: fire Y, move T/F/G/H
+				player.controls = [pygame.K_y, pygame.K_t, pygame.K_h, pygame.K_g, pygame.K_f]
 				players.append(player)
 
 		for player in players:
@@ -2152,11 +2255,9 @@ class Game():
 		hiscore = self.loadHiscore()
 
 		# update hiscore if needed
-		if players[0].score > hiscore:
-			hiscore = players[0].score
-			self.saveHiscore(hiscore)
-		if self.nr_of_players == 2 and players[1].score > hiscore:
-			hiscore = players[1].score
+		best_score = max([player.score for player in players])
+		if best_score > hiscore:
+			hiscore = best_score
 			self.saveHiscore(hiscore)
 
 		img_tanks = [
@@ -2189,7 +2290,7 @@ class Game():
 		#player 1 global score
 		screen.blit(self.font.render(str(players[0].score).rjust(8), False, pink), [25, 125])
 
-		if self.nr_of_players == 2:
+		if self.nr_of_players >= 2:
 			screen.blit(self.font.render("II-PLAYER", False, purple), [310, 95])
 
 			#player 2 global score
@@ -2199,7 +2300,7 @@ class Game():
 		for i in range(4):
 			screen.blit(img_tanks[i], [226, 160+(i*45)])
 			screen.blit(img_arrows[0], [206, 168+(i*45)])
-			if self.nr_of_players == 2:
+			if self.nr_of_players >= 2:
 				screen.blit(img_arrows[1], [258, 168+(i*45)])
 
 		screen.blit(self.font.render("TOTAL", False, white), [70, 335])
@@ -2207,9 +2308,9 @@ class Game():
 		# total underline
 		pygame.draw.line(screen, white, [170, 330], [307, 330], 4)
 
-		pygame.display.flip()
+		self.flip()
 
-		self.clock.tick(2)
+		self.delay(2)
 
 		interval = 6
 
@@ -2231,10 +2332,10 @@ class Game():
 				screen.blit(self.font.render(str((n-1) * (i+1) * 100).rjust(4)+" PTS", False, black), [25, 168+(i*45)])
 				# print new total points per enemy
 				screen.blit(self.font.render(str(n * (i+1) * 100).rjust(4)+" PTS", False, white), [25, 168+(i*45)])
-				pygame.display.flip()
-				self.clock.tick(interval)
+				self.flip()
+				self.delay(interval)
 
-			if self.nr_of_players == 2:
+			if self.nr_of_players >= 2:
 				tanks = players[1].trophies["enemy"+str(i)]
 
 				for n in range(tanks+1):
@@ -2248,28 +2349,33 @@ class Game():
 					screen.blit(self.font.render(str((n-1) * (i+1) * 100).rjust(4)+" PTS", False, black), [325, 168+(i*45)])
 					screen.blit(self.font.render(str(n * (i+1) * 100).rjust(4)+" PTS", False, white), [325, 168+(i*45)])
 
-					pygame.display.flip()
-					self.clock.tick(interval)
+					self.flip()
+					self.delay(interval)
 
-			self.clock.tick(interval-2)
+			self.delay(interval-2)
 
 		# total tanks
 		tanks = sum([i for i in players[0].trophies.values()]) - players[0].trophies["bonus"]
 		screen.blit(self.font.render(str(tanks).rjust(2), False, white), [170, 335])
-		if self.nr_of_players == 2:
+		if self.nr_of_players >= 2:
 			tanks = sum([i for i in players[1].trophies.values()]) - players[1].trophies["bonus"]
 			screen.blit(self.font.render(str(tanks).rjust(2), False, white), [277, 335])
 
-		pygame.display.flip()
+		# third player: only total score, there is no room for detailed table
+		if self.nr_of_players == 3:
+			screen.blit(self.font.render("III-PLAYER", False, purple), [25, 375])
+			screen.blit(self.font.render(str(players[2].score).rjust(8), False, pink), [325, 375])
+
+		self.flip()
 
 		# do nothing for 2 seconds
-		self.clock.tick(1)
-		self.clock.tick(1)
+		self.delay(1)
+		self.delay(1)
 
 		if self.game_over:
-			self.gameOverScreen()
+			return self.gameOverScreen
 		else:
-			self.nextLevel()
+			return self.nextLevel
 
 
 	def draw(self):
@@ -2311,7 +2417,7 @@ class Game():
 		if DEBUG_DRAW_MESH:
 			self.drawMesh()
 
-		pygame.display.flip()
+		self.flip()
 
 	def drawSidebar(self):
 
@@ -2324,14 +2430,19 @@ class Game():
 		xpos = x + 16
 		ypos = y + 16
 
-		# draw enemy lives
-		for n in range(len(self.level.enemies_left)):
+		# draw enemy lives (limited so icons don't overlap players' lives)
+		max_icons = 20
+		for n in range(min(len(self.level.enemies_left), max_icons)):
 			screen.blit(self.enemy_life_image, [xpos, ypos])
 			if n % 2 == 1:
 				xpos = x + 16
 				ypos+= 17
 			else:
 				xpos += 17
+
+		hidden_enemies = len(self.level.enemies_left) - max_icons
+		if hidden_enemies > 0 and pygame.font.get_init():
+			screen.blit(self.font.render("+"+str(hidden_enemies), False, pygame.Color('black')), [x+4, ypos])
 
 		# players' lives
 		if pygame.font.get_init():
@@ -2383,7 +2494,7 @@ class Game():
 		self.writeInBricks("city", [129, 160])
 
 		if put_on_surface:
-			pygame.display.flip()
+			self.flip()
 
 	def animateIntroScreen(self):
 		""" Slide intro (menu) screen from bottom to top
@@ -2408,11 +2519,11 @@ class Game():
 						break
 
 			screen.blit(screen_cp, [0, y])
-			pygame.display.flip()
+			self.flip()
 			y -= 5
 
 		screen.blit(screen_cp, [0, 0])
-		pygame.display.flip()
+		self.flip()
 
 
 	def chunks(self, l, n):
@@ -2513,8 +2624,12 @@ class Game():
 		if (not os.path.isfile(filename)):
 			return 20000
 
-		f = open(filename, "r")
-		hiscore = int(f.read())
+		try:
+			with open(filename, "r") as f:
+				hiscore = int(f.read())
+		except (IOError, ValueError):
+			print("Can't read hi-score")
+			return 20000
 
 		if hiscore > 19999 and hiscore < 1000000:
 			return hiscore
@@ -2546,10 +2661,30 @@ class Game():
 		if play_sounds:
 			sounds["bg"].stop()
 
-		gtimer.add(LEVEL_FINISH_TIMEOUT, lambda :self.showScores(), 1)
+		gtimer.add(LEVEL_FINISH_TIMEOUT, lambda :self.endLevel(self.showScores), 1)
 
 		print("Stage "+str(self.stage)+" completed")
-		
+
+	def endLevel(self, next_action):
+		""" Stop main game loop and schedule next screen
+		Screens are switched from main loop (not from timer callbacks) to avoid recursion
+		"""
+		self.next_action = next_action
+		self.running = False
+
+	def playerFire(self, player):
+		""" Fire player's bullet if bullet quota allows it """
+		if player.fire():
+			player.last_fire_time = pygame.time.get_ticks()
+			if play_sounds:
+				sounds["fire"].play()
+
+	def setPlayersFrozen(self, freeze = True):
+		""" Freeze/defreeze players by enemy timer bonus """
+		self.players_frozen = freeze
+		if not self.game_paused:
+			self.togglePlayersFreeze(freeze)
+
 	def togglePlayersFreeze(self, freeze = True):
 		""" Freeze/defreeze all players """
 		global players
@@ -2576,7 +2711,13 @@ class Game():
 			#print "Game unpaused"
 			self.game_paused = False
 			# self.toggleEnemyFreeze(False)
-			self.togglePlayersFreeze(False)
+			# keep players frozen if enemy timer bonus is still active
+			self.togglePlayersFreeze(self.players_frozen)
+			# keys could be pressed/released during pause
+			keys = pygame.key.get_pressed()
+			for player in players:
+				player.fire_pressed = bool(keys[player.controls[0]])
+				player.pressed = [bool(keys[key]) for key in player.controls[1:]]
 			if play_sounds:
 				sounds["bg"].play(-1)
 
@@ -2596,19 +2737,12 @@ class Game():
 		else:
 			enemies_l = levels_enemies[34]
 
-		rand = random.randint(0, self.stage)
-
-		# if EXTREME_MODE:
-		# 	if add:
-		# 		self.level.enemies_left += [0]*enemies_l[0] + [1]*(enemies_l[1] + rand) + [2]*enemies_l[2] + [3]*(enemies_l[3] + rand)
-		# 	else:
-		# 		self.level.enemies_left = [0]*enemies_l[0] + [1]*(enemies_l[1] + rand)+ [2]*enemies_l[2] + [3]*(enemies_l[3] + rand)
-
-		# if CLASSIC_MODE:
-		self.level.enemies_left = [0]*enemies_l[0] + [1]*enemies_l[1] + [2]*enemies_l[2] + [3]*enemies_l[3]
-
+		level_enemies = [0]*enemies_l[0] + [1]*enemies_l[1] + [2]*enemies_l[2] + [3]*enemies_l[3]
+		if add:
+			self.level.enemies_left += level_enemies
+		else:
+			self.level.enemies_left = level_enemies
 		random.shuffle(self.level.enemies_left)
-
 
 
 	def nextLevel(self):
@@ -2626,6 +2760,11 @@ class Game():
 		self.stage += 1
 		self.level = Level(self.stage)
 		self.timefreeze = False
+		self.enemy_freeze_end_timer = None
+		self.players_freeze_end_timer = None
+		self.fortress_end_timer = None
+		self.players_frozen = False
+		self.next_action = None
 
 		# set number of enemies by types (basic, fast, power, armor) according to level
 		self.loadLevelEnemies(False)
@@ -2663,12 +2802,12 @@ class Game():
 					elif event.type == pygame.KEYDOWN and not self.game_over and self.active:
 						if event.key == pygame.K_ESCAPE:
 							quit()
-						if event.key == pygame.K_RETURN:
+						if self.isFullScreenKey(event):
+							self.toggleFullScreen()
+						elif event.key == pygame.K_RETURN:
 							self.pause()
 						if event.key == pygame.K_v:
 							self.toggleDebugMode()
-						if event.key == pygame.K_f and pygame.key.get_mods() & pygame.KMOD_CTRL:
-							self.toggleFullScreen()
 				
 				self.draw()
 				continue
@@ -2678,15 +2817,21 @@ class Game():
 					pass
 				elif event.type == pygame.QUIT:
 					quit()
+				# ESC works always, also during "game over" animation
+				elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+					quit()
 				elif event.type == pygame.KEYDOWN and not self.game_over and self.active:
 
 					# Controls: ESC - quit, Enter - pause, p - debug enemy freeze, v - debug mesh,
-					# ctrl+f - full screen, m  - mute sounds, b - borrow life from active player
+					# ctrl+f / cmd+f / alt+enter - full screen, m  - mute sounds, b - borrow life from active player
 					# toggle game quit
 					if event.key == pygame.K_ESCAPE:
 						quit()
+					# toggle full screen
+					if self.isFullScreenKey(event):
+						self.toggleFullScreen()
 					# toggle pause
-					if event.key == pygame.K_RETURN:
+					elif event.key == pygame.K_RETURN:
 						self.pause()
 					# toggle debug freeze
 					if event.key == pygame.K_p:
@@ -2694,11 +2839,8 @@ class Game():
 					# toggle debug mesh
 					if event.key == pygame.K_v:
 						self.toggleDebugMode()
-					# toggle full screen 	
-					if event.key == pygame.K_f and pygame.key.get_mods() & pygame.KMOD_CTRL:
-						self.toggleFullScreen()
 					# toggle sounds
-					elif event.key == pygame.K_m:
+					if event.key == pygame.K_m:
 						play_sounds = not play_sounds
 						if not play_sounds:
 							pygame.mixer.stop()
@@ -2722,6 +2864,7 @@ class Game():
 									dead_player.lives += 1
 									dead_player.superpowers = PLAYER_START_SUPERPOWER
 									self.respawnPlayer(dead_player)
+									break
 
 					for player in players:
 						if player.state == player.STATE_ALIVE:
@@ -2731,8 +2874,8 @@ class Game():
 								pass
 							else:
 								if index == 0:
-									if player.fire() and play_sounds:
-										sounds["fire"].play()
+									player.fire_pressed = True
+									self.playerFire(player)
 								elif index == 1:
 									player.pressed[0] = True
 								elif index == 2:
@@ -2749,7 +2892,9 @@ class Game():
 							except:
 								pass
 							else:
-								if index == 1:
+								if index == 0:
+									player.fire_pressed = False
+								elif index == 1:
 									player.pressed[0] = False
 								elif index == 2:
 									player.pressed[1] = False
@@ -2760,6 +2905,10 @@ class Game():
 
 			for player in players:
 				if player.state == player.STATE_ALIVE and not self.game_over and self.active:
+					# auto fire while fire button is held: shoot as soon as a bullet slot is free
+					if player.fire_pressed and pygame.time.get_ticks() - player.last_fire_time >= PLAYER_AUTO_FIRE_DELAY:
+						self.playerFire(player)
+
 					if player.pressed[0] == True:
 						player.move(self.DIR_UP)
 					elif player.pressed[1] == True:
@@ -2770,7 +2919,7 @@ class Game():
 						player.move(self.DIR_LEFT)
 				player.update(time_passed)
 
-			for enemy in enemies:
+			for enemy in enemies[:]:
 				if enemy.state == enemy.STATE_ALIVE:
 						if enemy.bonus_aquired != None:
 							self.triggerEnemyBonus(enemy.bonus_aquired, enemy)
@@ -2801,17 +2950,17 @@ class Game():
 							if total_lives <= 0:
 									self.gameOver()
 
-			for bullet in bullets:
+			for bullet in bullets[:]:
 				if bullet.state == bullet.STATE_REMOVED:
 					bullets.remove(bullet)
 				else:
 					bullet.update()
 
-			for bonus in bonuses:
+			for bonus in bonuses[:]:
 				if bonus.active == False:
 					bonuses.remove(bonus)
 
-			for label in labels:
+			for label in labels[:]:
 				if not label.active:
 					labels.remove(label)
 
@@ -2822,6 +2971,8 @@ class Game():
 			gtimer.update(time_passed)
 
 			self.draw()
+
+		return self.next_action
 
 if __name__ == "__main__":
 
@@ -2841,4 +2992,8 @@ if __name__ == "__main__":
 
 	game = Game()
 	castle = Castle()
-	game.showMenu()
+
+	# each screen returns the next one to show
+	action = game.showMenu
+	while action:
+		action = action()
