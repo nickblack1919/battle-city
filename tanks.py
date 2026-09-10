@@ -80,39 +80,72 @@ SHOW_EFFECT_TIMERS = True	# bars showing time left for shield, freeze and fortre
 S_SIZE = 4
 T_SIZE = 32
 
+# NES LIKE RULES
+EXTRA_LIFE_SCORE = 20000	# extra life every n points, 0 - disabled
+TWO_PLAYER_KILLS_BONUS = 1000	# 2+ players: player who destroyed most tanks on stage gets these points
+ENEMY_AI_BASE_CHANCE = 30	# % chance enemy prefers directions towards player's castle
+
+# DIFFICULTY PRESETS: every preset sets all these values, so presets can be switched at runtime
+PRESETS = {
+	# close to original NES game
+	"CLASSIC": {
+		"ALLOW_MULTI_BONUS": False,
+		"ENEMY_PICKUP_BONUSES": False,
+		"BONUS_FREQ": 5,
+		"PLAYER_START_SUPERPOWER": 0,
+		"DEFAULT_ENEMY_ARMOR_HEALTH": 400,
+		"DEFAULT_ENEMY_SPEED_FAST": 1,
+		"MAX_ACTIVE_ENEMIES": 4,
+		"MAX_ACTIVE_ENEMIES_2_PLAYERS": 8,
+		"MAX_ACTIVE_ENEMIES_3_PLAYERS": 10,
+		"ENEMY_SPAWN_TIMEOUT": 2000,
+		"ENABLE_PLAYER_PROTECTION": False,
+		"ENEMY_AI_BASE_CHANCE": 50,
+	},
+	"GOOD": {
+		"ALLOW_MULTI_BONUS": True,
+		"ENEMY_PICKUP_BONUSES": True,
+		"BONUS_FREQ": 4,
+		"PLAYER_START_SUPERPOWER": 1,
+		"DEFAULT_ENEMY_ARMOR_HEALTH": 600,
+		"DEFAULT_ENEMY_SPEED_FAST": 2,
+		"MAX_ACTIVE_ENEMIES": 5,
+		"MAX_ACTIVE_ENEMIES_2_PLAYERS": 8,
+		"MAX_ACTIVE_ENEMIES_3_PLAYERS": 12,
+		"ENEMY_SPAWN_TIMEOUT": 1000,
+		"ENABLE_PLAYER_PROTECTION": True,
+		"ENEMY_AI_BASE_CHANCE": 30,
+	},
+	"EXTREME": {
+		"ALLOW_MULTI_BONUS": True,
+		"ENEMY_PICKUP_BONUSES": True,
+		"BONUS_FREQ": 4,
+		"PLAYER_START_SUPERPOWER": 1,
+		"DEFAULT_ENEMY_ARMOR_HEALTH": 600,
+		"DEFAULT_ENEMY_SPEED_FAST": 2,
+		"MAX_ACTIVE_ENEMIES": 4,
+		"MAX_ACTIVE_ENEMIES_2_PLAYERS": 14,
+		"MAX_ACTIVE_ENEMIES_3_PLAYERS": 16,
+		"ENEMY_SPAWN_TIMEOUT": 1000,
+		"ENABLE_PLAYER_PROTECTION": True,
+		"ENEMY_AI_BASE_CHANCE": 30,
+	},
+}
+
+CURRENT_PRESET = None
+
+def applyPreset(name):
+	""" Set game settings from difficulty preset: CLASSIC, GOOD or EXTREME """
+	global CURRENT_PRESET
+	globals().update(PRESETS[name])
+	CURRENT_PRESET = name
+
 if CLASSIC_MODE:
-	ALLOW_MULTI_BONUS = False
-	ENEMY_PICKUP_BONUSES = False
-	BONUS_FREQ = 5
-	PLAYER_START_SUPERPOWER = 0
-	DEFAULT_ENEMY_ARMOR_HEALTH = 400
-	DEFAULT_ENEMY_SPEED_FAST = 1
-	MAX_ACTIVE_ENEMIES_2_PLAYERS = 8
-	ENEMY_SPAWN_TIMEOUT = 2000
-	ENABLE_PLAYER_PROTECTION = False
-
-if EXTREME_MODE:
-	ALLOW_MULTI_BONUS = True
-	ENEMY_PICKUP_BONUSES = True
-	BONUS_FREQ = 4
-	PLAYER_START_SUPERPOWER = 1
-	DEFAULT_ENEMY_ARMOR_HEALTH = 600
-	DEFAULT_ENEMY_SPEED_FAST = 2
-	MAX_ACTIVE_ENEMIES_2_PLAYERS = 14
-	ENEMY_SPAWN_TIMEOUT = 1000
-	ENABLE_PLAYER_PROTECTION = True
-
-if GOOD_MODE:
-	ALLOW_MULTI_BONUS = True
-	ENEMY_PICKUP_BONUSES = True
-	BONUS_FREQ = 4
-	PLAYER_START_SUPERPOWER = 1
-	DEFAULT_ENEMY_ARMOR_HEALTH = 600
-	DEFAULT_ENEMY_SPEED_FAST = 2
-	MAX_ACTIVE_ENEMIES = 5
-	MAX_ACTIVE_ENEMIES_2_PLAYERS = 8
-	ENEMY_SPAWN_TIMEOUT = 1000
-	ENABLE_PLAYER_PROTECTION = True
+	applyPreset("CLASSIC")
+elif EXTREME_MODE:
+	applyPreset("EXTREME")
+elif GOOD_MODE:
+	applyPreset("GOOD")
 
 # command line arguments
 ap = argparse.ArgumentParser()
@@ -1512,6 +1545,18 @@ class Enemy(Tank):
 			directions.insert(0, direction)
 			directions.append(opposite_direction)
 
+		# sometimes prefer directions towards player's castle
+		if random.randint(1, 100) <= ENEMY_AI_BASE_CHANCE:
+			towards = []
+			if castle.rect.centery > self.rect.centery:
+				towards.append(self.DIR_DOWN)
+			if castle.rect.centerx > self.rect.centerx + 16:
+				towards.append(self.DIR_RIGHT)
+			elif castle.rect.centerx < self.rect.centerx - 16:
+				towards.append(self.DIR_LEFT)
+			random.shuffle(towards)
+			directions = towards + [d for d in directions if d not in towards]
+
 		# at first, work with general units (steps) not px
 		x = int(round(self.rect.left / 16))
 		y = int(round(self.rect.top / 16))
@@ -1604,6 +1649,9 @@ class Player(Tank):
 		self.lives = PLAYER_START_LIFE
 		self.superpowers = PLAYER_START_SUPERPOWER
 		self.score = PLAYER_START_SCORE
+
+		# score for next extra life
+		self.next_extra_life = EXTRA_LIFE_SCORE
 
 		# store how many bonuses in this stage this player has collected
 		self.trophies = {
@@ -2331,12 +2379,13 @@ class Game():
 		enemies.append(enemy)
 
 
-	def respawnPlayer(self, player, clear_scores = False, superpowers = PLAYER_START_SUPERPOWER):
+	def respawnPlayer(self, player, clear_scores = False, superpowers = None):
 		""" Respawn player """
 		player.reset()
 		player.paralised = self.players_frozen
 
-		player.superpowers = superpowers
+		# default is read at call time: preset can change it
+		player.superpowers = PLAYER_START_SUPERPOWER if superpowers == None else superpowers
 		player.updateSuperpowers()
 
 		if clear_scores:
@@ -2523,6 +2572,15 @@ class Game():
 			for sound in sounds:
 				sounds[sound].stop()
 
+		# 2+ players: player who destroyed most tanks on this stage gets bonus points (like on NES)
+		kills_bonus_player = None
+		if self.nr_of_players >= 2 and TWO_PLAYER_KILLS_BONUS > 0 and not self.game_over:
+			kills = [sum([player.trophies["enemy" + str(i)] for i in range(4)]) for player in players]
+			best_kills = max(kills)
+			if best_kills > 0 and kills.count(best_kills) == 1:
+				kills_bonus_player = kills.index(best_kills)
+				players[kills_bonus_player].score += TWO_PLAYER_KILLS_BONUS
+
 		hiscore = self.loadHiscore()
 
 		# update hiscore if needed
@@ -2632,10 +2690,18 @@ class Game():
 			tanks = sum([i for i in players[1].trophies.values()]) - players[1].trophies["bonus"]
 			screen.blit(self.font.render(str(tanks).rjust(2), False, white), [277, 335])
 
-		# third player: only total score, there is no room for detailed table
+		# third player: short table, there is no room for detailed one
 		if self.nr_of_players == 3:
 			screen.blit(self.font.render("III-PLAYER", False, purple), [25, 375])
 			screen.blit(self.font.render(str(players[2].score).rjust(8), False, pink), [325, 375])
+			kills = [players[2].trophies["enemy" + str(i)] for i in range(4)]
+			kills_text = "KILLS " + " ".join([str(k) for k in kills]) + " = " + str(sum(kills))
+			screen.blit(self.font.render(kills_text, False, white), [25, 395])
+
+		if kills_bonus_player != None:
+			player_names = ["I", "II", "III"]
+			bonus_text = self.font.render(player_names[kills_bonus_player] + "-PLAYER BONUS " + str(TWO_PLAYER_KILLS_BONUS), False, white)
+			screen.blit(bonus_text, [(480 - bonus_text.get_width()) // 2, 355])
 
 		self.flip()
 
@@ -3223,6 +3289,14 @@ class Game():
 
 			if not self.game_over and self.active:
 				for player in players:
+					# extra life every EXTRA_LIFE_SCORE points
+					if EXTRA_LIFE_SCORE > 0:
+						while player.score >= player.next_extra_life:
+							player.lives += 1
+							player.next_extra_life += EXTRA_LIFE_SCORE
+							if play_sounds:
+								sounds["life"].play()
+
 					if player.state == player.STATE_ALIVE:
 						if player.bonus != None and player.side == player.SIDE_PLAYER:
 							self.triggerBonus(player.bonus, player)
