@@ -40,6 +40,7 @@ BONUS_PLAYER_SHIELD_TIMEOUT = 20000
 BONUS_PLAYER_HIDDEN_TIMEOUT = 10000
 BONUS_SPAWN_TIMEOUT = 20000
 BONUS_SHIP_TIMEOUT = 20000	# ship bonus: tank can drive over water
+VERSUS_BONUS_TIMEOUT = 15000	# versus mode: new random bonus every n ms
 ICE_SLIDE_DISTANCE = 16	# px tank slides on ice after movement button is released
 BRICK_QUARTERS = True	# brick tiles consist of 4 parts, bullet destroys nearest half (like on NES)
 CHANCE_OF_FIRE = 50
@@ -295,6 +296,9 @@ class Castle():
 		# init position
 		self.rect = pygame.Rect(12*16, 24*16, 32, 32)
 
+		# index of player owning the castle (versus mode has castle for each player)
+		self.owner = 0
+
 		# start w/ undamaged and shiny castle
 		self.rebuild()
 
@@ -390,6 +394,11 @@ class Bonus():
 		global screen
 		if self.visible:
 			screen.blit(self.image, self.rect.topleft)
+
+	def setType(self, bonus_type):
+		""" Change bonus type and image """
+		self.bonus = bonus_type
+		self.image = sprites2.subsurface((7*S_SIZE+2)*T_SIZE, 32*(self.bonus+1), 32, 32)
 
 	def startBlinking(self):
 		""" Start blinking: bonus is about to disappear """
@@ -550,7 +559,9 @@ class Bullet():
 		# check for collisions with players
 		for player in players:
 			if player.state == player.STATE_ALIVE and self.rect.colliderect(player.rect):
-				if player.bulletImpact(self.owner == self.OWNER_PLAYER, self.damage, self.owner_class, self.direction):
+				# versus: other player's bullet is hostile
+				friendly_fire = self.owner == self.OWNER_PLAYER and (game.mode != "versus" or self.owner_class is player)
+				if player.bulletImpact(friendly_fire, self.damage, self.owner_class, self.direction):
 					self.destroy()
 					return
 
@@ -574,11 +585,12 @@ class Bullet():
 				game.fortress_end_timer = gtimer.add(BONUS_FORTRESS_WALLS_TIMEOUT, lambda :game.level.buildFortress(game.level.TILE_BRICK), 1)
 			return
 
-		# check for collision with castle
-		if castle.active and self.rect.colliderect(castle.rect):
-			castle.destroy()
-			self.destroy()
-			return
+		# check for collision with castles (versus mode has two)
+		for target in game.castles():
+			if target.active and self.rect.colliderect(target.rect):
+				target.destroy()
+				self.destroy()
+				return
 
 	def nearestCollisions(self, rects, collisions):
 		""" Keep only tiles in the row (column) nearest to the bullet
@@ -723,9 +735,11 @@ class Level():
 
 		self.obstacle_rects = []
 
-		level_nr = 1 if level_nr == None else level_nr%35
-		if level_nr == 0:
-			level_nr = 35
+		# named levels (e.g. "versus") are loaded as is
+		if not isinstance(level_nr, str):
+			level_nr = 1 if level_nr == None else level_nr%35
+			if level_nr == 0:
+				level_nr = 35
 
 		self.loadLevel(level_nr)
 
@@ -852,7 +866,7 @@ class Level():
 
 		global castle
 
-		self.removable_rects = [castle.rect]
+		self.removable_rects = game.castleRects()
 
 		for tile in self.mapr:
 			if tile.type == self.TILE_GRASS:
@@ -864,10 +878,10 @@ class Level():
 
 		global castle
 
-		self.obstacle_rects = [castle.rect]
+		self.obstacle_rects = game.castleRects()
 
 		# same without water (for tanks with ship)
-		self.land_obstacle_rects = [castle.rect]
+		self.land_obstacle_rects = game.castleRects()
 
 		self.water_rects = []
 		self.ice_rects = []
@@ -1155,7 +1169,7 @@ class Tank():
 			self.bullet_power = 4
 
 		# 9 - castle protection (players only)
-		if self.superpowers >= 9 and self.side == self.SIDE_PLAYER:
+		if self.superpowers >= 9 and self.side == self.SIDE_PLAYER and game.mode != "versus":
 			castle.protected = True
 			
 			
@@ -1344,6 +1358,10 @@ class Tank():
 					# big explosion
 					if self.type == self.TYPE_ARMOR:
 						game.shake(8)
+
+				# versus: count kills of the other player
+				if self.side == self.SIDE_PLAYER and tank != None and tank is not self and tank.side == self.SIDE_PLAYER:
+					tank.versus_kills += 1
 
 				self.explode()
 				if self.side == self.SIDE_PLAYER:
@@ -1781,6 +1799,9 @@ class Player(Tank):
 		# score for next extra life
 		self.next_extra_life = EXTRA_LIFE_SCORE
 
+		# versus: how many times this player destroyed the other one
+		self.versus_kills = 0
+
 		# store how many bonuses in this stage this player has collected
 		self.trophies = {
 			"bonus" : 0,
@@ -2114,6 +2135,9 @@ class Game():
 		self.mode = "campaign"
 		self.first_stage = 1
 
+		# versus: index of winning player
+		self.versus_winner = None
+
 		# players' score, lives and superpowers from saved game (applied when players are created)
 		self.loaded_players_stats = None
 
@@ -2316,6 +2340,8 @@ class Game():
 		screen.fill([99, 99, 99])
 		if self.mode == "endless":
 			title = "WAVE " + str(self.stage - self.first_stage + 1)
+		elif self.mode == "versus":
+			title = "VERSUS"
 		else:
 			title = "STAGE " + str(self.stage)
 		text = self.font.render(title, False, pygame.Color("black"))
@@ -2695,6 +2721,13 @@ class Game():
 					self.stage = START_LEVEL - 1
 					del players[:]
 					return self.nextLevel
+				elif action == "versus":
+					self.mode = "versus"
+					self.nr_of_players = 2
+					self.stage = 0
+					self.versus_winner = None
+					del players[:]
+					return self.nextLevel
 				elif action == "endless":
 					self.mode = "endless"
 					self.nr_of_players = argument
@@ -2710,6 +2743,74 @@ class Game():
 				elif action == "settings":
 					self.showSettings()
 					self.drawIntroScreen()
+
+	def castles(self):
+		""" Player's castle, in versus mode also castle of player 2 """
+		return [target for target in (castle, castle2) if target != None]
+
+	def castleRects(self):
+		return [target.rect for target in self.castles()]
+
+	def spawnVersusBonus(self):
+		""" Versus: random bonus useful in players' duel """
+		if self.game_paused or self.game_over:
+			return
+		bonus = Bonus(self.level)
+		bonus.setType(random.choice([bonus.BONUS_STAR, bonus.BONUS_HELMET, bonus.BONUS_TANK, bonus.BONUS_SHIP]))
+		bonuses.append(bonus)
+		if play_sounds:
+			sounds["bonusnew"].play()
+		gtimer.add(max(BONUS_SPAWN_TIMEOUT - BONUS_BLINK_TIME, 1), lambda :bonus.startBlinking(), 1)
+		gtimer.add(BONUS_SPAWN_TIMEOUT, lambda :bonuses.remove(bonus), 1)
+
+	def versusOver(self, winner):
+		""" Versus match is over: show "game over", then result """
+		if self.game_over:
+			return
+		if play_sounds:
+			for sound in sounds:
+				sounds[sound].stop()
+			sounds["gameover"].play()
+		self.versus_winner = winner
+		self.game_over_y = 416+40
+		self.game_over = True
+		gtimer.add(3000, lambda :self.endLevel(self.showVersusResult), 1)
+
+	def showVersusResult(self):
+		""" Versus result screen: winner and kills. Any key / gamepad button returns to menu """
+		global screen
+
+		self.running = False
+		del gtimer.timers[:]
+
+		screen.fill([0, 0, 0])
+		white = pygame.Color("white")
+		yellow = pygame.Color(255, 200, 0)
+
+		def center(text, y, color):
+			surface = self.font.render(text, False, color)
+			screen.blit(surface, [(480 - surface.get_width()) // 2, y])
+
+		center(["I", "II"][self.versus_winner] + "-PLAYER WINS", 150, yellow)
+		center("KILLS  I: %d  II: %d" % (players[0].versus_kills, players[1].versus_kills), 200, white)
+		center("ENTER - MENU", 300, white)
+
+		for frame in range(10000 // 20):
+			self.flip()
+			self.clock.tick(50)
+			self.updateGamepads()
+			for gamepad in self.gamepads:
+				if gamepad.pressed("fire") or gamepad.pressed("start"):
+					return self.showMenu
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					quit()
+				elif event.type == pygame.KEYDOWN:
+					if event.key == pygame.K_ESCAPE:
+						quit()
+					return self.showMenu
+
+		return self.showMenu
 
 	def loadHiscores(self):
 		""" Hiscore tables with names
@@ -2941,6 +3042,7 @@ class Game():
 			items.append(["CONTINUE", "continue", None])
 		items.append(["ENDLESS 1P", "endless", 1])
 		items.append(["ENDLESS 2P", "endless", 2])
+		items.append(["VERSUS", "versus", 2])
 		items.append(["SETTINGS", "settings", None])
 		return items
 
@@ -3115,8 +3217,13 @@ class Game():
 			if self.nr_of_players >= 2:
 				x = 16 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 32) / 2
 				y = 24 * self.TILE_SIZE + (self.TILE_SIZE * 2 - 32) / 2
+				direction = self.DIR_UP
+				# versus: player 2 starts at the top, next to own castle
+				if self.mode == "versus":
+					y = 0
+					direction = self.DIR_DOWN
 				player = Player(
-					self.level, 0, [x, y], self.DIR_UP, (6*S_SIZE*T_SIZE, 0, 16*2, 16*2), 2
+					self.level, 0, [x, y], direction, (6*S_SIZE*T_SIZE, 0, 16*2, 16*2), 2
 				)
 				player.controls = list(PLAYER_CONTROLS[1])
 				players.append(player)
@@ -3313,7 +3420,8 @@ class Game():
 
 		self.level.draw([self.level.TILE_EMPTY, self.level.TILE_BRICK, self.level.TILE_STEEL, self.level.TILE_FROZE, self.level.TILE_WATER])
 
-		castle.draw()
+		for target in self.castles():
+			target.draw()
 
 		for enemy in enemies:
 			enemy.draw()
@@ -3665,6 +3773,10 @@ class Game():
 
 		level_enemies = [0]*enemies_l[0] + [1]*enemies_l[1] + [2]*enemies_l[2] + [3]*enemies_l[3]
 
+		# versus: players fight each other, no enemies
+		if self.mode == "versus":
+			level_enemies = []
+
 		# endless mode: every wave has more fast and armor tanks
 		if self.mode == "endless":
 			wave = self.stage - self.first_stage
@@ -3679,18 +3791,25 @@ class Game():
 	def nextLevel(self):
 		""" Start next level """
 
-		global castle, players, bullets, bonuses, play_sounds, sounds
+		global castle, castle2, players, bullets, bonuses, play_sounds, sounds
 
 		del bullets[:]
 		del enemies[:]
 		del bonuses[:]
 		del labels[:]
 		castle.rebuild()
+
+		# versus: second castle at the top for player 2
+		castle2 = None
+		if self.mode == "versus":
+			castle2 = Castle()
+			castle2.rect.topleft = (12 * self.TILE_SIZE, 0)
+			castle2.owner = 1
 		del gtimer.timers[:]
 
 		# load level
 		self.stage += 1
-		self.level = Level(self.stage)
+		self.level = Level("versus" if self.mode == "versus" else self.stage)
 
 		self.showStageScreen()
 		self.timefreeze = False
@@ -3712,6 +3831,8 @@ class Game():
 		self.reloadPlayers()
 
 		gtimer.add(ENEMY_SPAWN_TIMEOUT, lambda :self.spawnEnemy())
+		if self.mode == "versus":
+			gtimer.add(VERSUS_BONUS_TIMEOUT, lambda :self.spawnVersusBonus())
 
 		# if True, start "game over" animation
 		self.game_over = False
@@ -3905,6 +4026,9 @@ class Game():
 						if player.lives > 0:
 							player.superpowers = PLAYER_START_SUPERPOWER
 							self.respawnPlayer(player)
+						elif self.mode == "versus":
+							# versus: player without lives loses
+							self.versusOver(1 - players.index(player))
 						else:
 							total_lives = 0
 							for plr in players:
@@ -3927,7 +4051,13 @@ class Game():
 					labels.remove(label)
 
 			if not self.game_over:
-				if not castle.active:
+				if self.mode == "versus":
+					# destroyed castle loses
+					for target in self.castles():
+						if not target.active:
+							self.versusOver(1 - target.owner)
+							break
+				elif not castle.active:
 					self.gameOver()
 
 			gtimer.update(time_passed)
@@ -3956,6 +4086,7 @@ if __name__ == "__main__":
 
 	game = Game()
 	castle = Castle()
+	castle2 = None
 
 	# each screen returns the next one to show
 	action = game.showMenu
