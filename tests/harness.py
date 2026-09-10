@@ -113,6 +113,10 @@ def run(scenario, argv=None, players=1, menu=None, real_time=False, max_frames=5
 			ctx.menu_frame += 1
 			return menu(ctx) or []
 
+		# "STAGE N" screen: don't count its frames, so scenario frame numbers match game loop
+		if getattr(game, "stage_screen", False):
+			return []
+
 		ctx.frame += 1
 		return scenario(ctx) or []
 

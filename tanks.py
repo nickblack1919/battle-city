@@ -68,7 +68,13 @@ DEBUG_UNFREEZE_PLAYERS_ON_PAUSE = DEBUG_MODE
 DEBUG_SPRITES = DEBUG_MODE
 DEBUG_DRAW_MESH = DEBUG_MODE
 DEBUG_COORDINATES = DEBUG_MODE
-DISABLE_LABELS = not DEBUG_MODE	# to avoid bug with delayed font loading
+DISABLE_LABELS = False	# score popups ("100", "500")
+
+# EFFECTS
+BONUS_BLINK_TIME = 5000	# bonus blinks during last ms before it disappears
+SCREEN_SHAKE = True	# shake screen on big explosions
+STAGE_SCREEN_TIME = 1500	# grey "STAGE N" screen before level, 0 - don't show
+SHOW_EFFECT_TIMERS = True	# bars showing time left for shield, freeze and fortress walls
 
 # CONSTANTS
 S_SIZE = 4
@@ -145,6 +151,15 @@ class Timer(object):
 				self.timers.remove(timer)
 				return
 
+	def remaining(self, uuid_nr):
+		""" Time left until timer fires
+		@return [remaining ms, interval ms] or None if there is no such timer
+		"""
+		for timer in self.timers:
+			if timer["uuid"] == uuid_nr:
+				return [timer["interval"] - timer["time"], timer["interval"]]
+		return None
+
 	def update(self, time_passed):
 		# iterate over a copy: callbacks may add or remove timers
 		for timer in self.timers[:]:
@@ -213,6 +228,8 @@ class Castle():
 		if play_sounds:
 			sounds["boom"].play()
 
+		game.shake(25)
+
 		self.state = self.STATE_EXPLODING
 		self.explosion = Explosion(self.rect.topleft)
 		self.image = self.img_destroyed
@@ -244,8 +261,10 @@ class Bonus():
 		# bonus lives only for a limited period of time
 		self.active = True
 
-		# blinking state
+		# blinking state (blinks only before disappearing)
 		self.visible = True
+		self.blinking = False
+		self.blink_timer = None
 
 		self.rect = pygame.Rect(random.randint(0, 416-32), random.randint(0, 416-32), 32, 32)
 
@@ -274,8 +293,16 @@ class Bonus():
 		if self.visible:
 			screen.blit(self.image, self.rect.topleft)
 
+	def startBlinking(self):
+		""" Start blinking: bonus is about to disappear """
+		self.blinking = True
+		self.blink_timer = gtimer.add(150, lambda :self.toggleVisibility())
+
 	def toggleVisibility(self):
 		""" Toggle bonus visibility """
+		if self not in bonuses:
+			gtimer.destroy(self.blink_timer)
+			return
 		self.visible = not self.visible
 
 class Bullet():
@@ -466,6 +493,16 @@ class Bullet():
 		self.state = self.STATE_REMOVED
 
 class Label():
+
+	# shared font: loading font for every label is slow
+	font = None
+
+	@staticmethod
+	def getFont():
+		if Label.font == None:
+			Label.font = pygame.font.Font("fonts/prstart.ttf", 8)
+		return Label.font
+
 	def __init__(self, position, text = "", duration = None):
 
 		self.position = position
@@ -474,8 +511,6 @@ class Label():
 
 		self.text = text
 
-		if not DISABLE_LABELS:
-			self.font = pygame.font.SysFont("Arial", 10)
 
 		if duration != None:
 			gtimer.add(duration, lambda :self.destroy(), 1)
@@ -484,7 +519,7 @@ class Label():
 		""" draw label """
 		global screen
 		if not DISABLE_LABELS: 
-			screen.blit(self.font.render(self.text, False, (200,200,200)), [self.position[0]+4, self.position[1]+8])
+			screen.blit(Label.getFont().render(self.text, False, (255,255,255)), [self.position[0]+4, self.position[1]+12])
 
 	def destroy(self):
 		self.active = False
@@ -1145,6 +1180,10 @@ class Tank():
 
 					labels.append(Label(self.rect.topleft, str(points), 500))
 
+					# big explosion
+					if self.type == self.TYPE_ARMOR:
+						game.shake(8)
+
 				self.explode()
 				if self.side == self.SIDE_PLAYER:
 					if play_sounds:
@@ -1319,7 +1358,8 @@ class Enemy(Tank):
 		bonus = Bonus(self.level)
 
 		bonuses.append(bonus)
-		gtimer.add(300, lambda :bonus.toggleVisibility())
+		# bonus blinks during last seconds before it disappears
+		gtimer.add(max(BONUS_SPAWN_TIMEOUT - BONUS_BLINK_TIME, 1), lambda :bonus.startBlinking(), 1)
 		gtimer.add(BONUS_SPAWN_TIMEOUT, lambda :bonuses.remove(bonus), 1)
 
 		# pickup the bonus immediately it it was placed on a player
@@ -1898,6 +1938,12 @@ class Game():
 		#debug mode
 		self.debug_mode = False
 
+		# frames left to shake the screen
+		self.shake_frames = 0
+
+		# True while "STAGE N" screen is shown
+		self.stage_screen = False
+
 		# connected gamepads (opened in updateGamepads)
 		self.gamepads = []
 		self.gamepad_count = 0
@@ -2005,8 +2051,66 @@ class Game():
 		global screen
 
 		self.display = pygame.display.get_surface()
-		self.display.blit(screen, [0, 0])
+
+		if self.shake_frames > 0:
+			self.shake_frames -= 1
+			offset = [random.randint(-3, 3), random.randint(-3, 3)]
+			self.display.fill([0, 0, 0])
+			self.display.blit(screen, offset)
+		else:
+			self.display.blit(screen, [0, 0])
+
 		pygame.display.update()
+
+	def shake(self, frames):
+		""" Shake screen for some frames """
+		if SCREEN_SHAKE:
+			self.shake_frames = max(self.shake_frames, frames)
+
+	def drawEffectTimers(self):
+		""" Bars with time left: shield above players, enemy freeze (top edge, blue),
+		players freeze (bottom edge, red), steel fortress walls (above castle) """
+
+		global screen
+
+		if not SHOW_EFFECT_TIMERS:
+			return
+
+		def bar(timer_uuid, rect, color):
+			remaining = gtimer.remaining(timer_uuid) if timer_uuid else None
+			if remaining == None:
+				return
+			width = int(rect[2] * float(remaining[0]) / remaining[1])
+			pygame.draw.rect(screen, color, [rect[0], rect[1], max(width, 1), rect[3]])
+
+		for player in players:
+			if player.state == player.STATE_ALIVE and player.shielded:
+				bar(player.shield_end_timer, [player.rect.left, player.rect.top - 4, 32, 2], (120, 200, 255))
+
+		if self.timefreeze:
+			bar(self.enemy_freeze_end_timer, [0, 0, 416, 3], (80, 160, 255))
+		if self.players_frozen:
+			bar(self.players_freeze_end_timer, [0, 413, 416, 3], (255, 80, 80))
+		bar(self.fortress_end_timer, [176, 362, 64, 2], (200, 200, 200))
+
+	def showStageScreen(self):
+		""" Grey "STAGE N" screen before level starts, like on NES """
+
+		global screen
+
+		if STAGE_SCREEN_TIME <= 0:
+			return
+
+		self.stage_screen = True
+		screen.fill([99, 99, 99])
+		text = self.font.render("STAGE " + str(self.stage), False, pygame.Color("black"))
+		screen.blit(text, [(416 - text.get_width()) // 2, (416 - text.get_height()) // 2])
+
+		for i in range(STAGE_SCREEN_TIME // 20):
+			self.flip()
+			self.delay(50)
+
+		self.stage_screen = False
 
 	def setFullScreen(self, fullScreen):
 		size = width, height = 480, 416
@@ -2086,6 +2190,7 @@ class Game():
 		if bonus.bonus == bonus.BONUS_GRENADE:
 			if play_sounds:
 				sounds["explosion"].play()
+			self.shake(12)
 			for enemy in enemies:
 				if enemy.state not in (enemy.STATE_ALIVE, enemy.STATE_SPAWNING):
 					continue
@@ -2569,7 +2674,9 @@ class Game():
 			bonus.draw()
 
 		self.level.draw([self.level.TILE_GRASS])
-		
+
+		self.drawEffectTimers()
+
 		if self.game_paused:
 			screen.blit(self.im_pause, [176, 188])
 
@@ -2920,12 +3027,15 @@ class Game():
 		del bullets[:]
 		del enemies[:]
 		del bonuses[:]
+		del labels[:]
 		castle.rebuild()
 		del gtimer.timers[:]
 
 		# load level
 		self.stage += 1
 		self.level = Level(self.stage)
+
+		self.showStageScreen()
 		self.timefreeze = False
 		self.enemy_freeze_end_timer = None
 		self.players_freeze_end_timer = None
