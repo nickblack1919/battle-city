@@ -170,6 +170,8 @@ if args['level'] != None:
 
 SETTINGS_FILE = ".settings.json"
 SAVEGAME_FILE = ".savegame"
+HISCORES_FILE = ".hiscores.json"
+HISCORES_COUNT = 10	# entries in hiscore table
 
 def dataFile(name):
 	""" Path to file with saved data: hiscore, settings, saved game
@@ -2108,6 +2110,10 @@ class Game():
 		# selected main menu item
 		self.menu_index = 0
 
+		# game mode: campaign (stages with score screens) or endless (waves until game over)
+		self.mode = "campaign"
+		self.first_stage = 1
+
 		# players' score, lives and superpowers from saved game (applied when players are created)
 		self.loaded_players_stats = None
 
@@ -2308,7 +2314,11 @@ class Game():
 
 		self.stage_screen = True
 		screen.fill([99, 99, 99])
-		text = self.font.render("STAGE " + str(self.stage), False, pygame.Color("black"))
+		if self.mode == "endless":
+			title = "WAVE " + str(self.stage - self.first_stage + 1)
+		else:
+			title = "STAGE " + str(self.stage)
+		text = self.font.render(title, False, pygame.Color("black"))
 		screen.blit(text, [(416 - text.get_width()) // 2, (416 - text.get_height()) // 2])
 
 		for i in range(STAGE_SCREEN_TIME // 20):
@@ -2591,6 +2601,9 @@ class Game():
 
 		screen.fill([0, 0, 0])
 
+		self.recordHiscores()
+
+		screen.fill([0, 0, 0])
 		self.writeInBricks("game", [125, 140])
 		self.writeInBricks("over", [125, 220])
 		self.flip()
@@ -2677,8 +2690,16 @@ class Game():
 			if activate:
 				label, action, argument = items[self.menu_index]
 				if action == "play":
+					self.mode = "campaign"
 					self.nr_of_players = argument
 					self.stage = START_LEVEL - 1
+					del players[:]
+					return self.nextLevel
+				elif action == "endless":
+					self.mode = "endless"
+					self.nr_of_players = argument
+					self.stage = START_LEVEL - 1
+					self.first_stage = START_LEVEL
 					del players[:]
 					return self.nextLevel
 				elif action == "continue":
@@ -2689,6 +2710,165 @@ class Game():
 				elif action == "settings":
 					self.showSettings()
 					self.drawIntroScreen()
+
+	def loadHiscores(self):
+		""" Hiscore tables with names
+		@return {"campaign": [[name, score], ...], "endless": [...]}, best score first
+		"""
+		tables = {"campaign": [], "endless": []}
+		try:
+			with open(dataFile(HISCORES_FILE), "r") as f:
+				data = json.load(f)
+			for mode in tables:
+				tables[mode] = [[str(entry[0])[:3], int(entry[1])] for entry in data.get(mode, [])][:HISCORES_COUNT]
+		except (IOError, ValueError, TypeError, AttributeError, IndexError):
+			pass
+		return tables
+
+	def saveHiscores(self, tables):
+		try:
+			with open(dataFile(HISCORES_FILE), "w") as f:
+				json.dump(tables, f, indent=1)
+		except IOError:
+			print("Can't save hiscores")
+
+	def qualifiesForHiscores(self, table, score):
+		return score > 0 and (len(table) < HISCORES_COUNT or score > table[-1][1])
+
+	def recordHiscores(self):
+		""" After game over players with good score enter their names, then hiscore table is shown """
+		tables = self.loadHiscores()
+		if self.mode not in tables:
+			return
+		table = tables[self.mode]
+
+		entered = False
+		for player_nr, player in enumerate(players):
+			if self.qualifiesForHiscores(table, player.score):
+				table.append([self.enterName(player_nr, player.score), player.score])
+				# stable sort: earlier entry with the same score stays higher
+				table.sort(key=lambda entry: -entry[1])
+				del table[HISCORES_COUNT:]
+				entered = True
+
+		if entered:
+			self.saveHiscores(tables)
+			self.showHiscores(self.mode, 5000)
+
+	def enterName(self, player_nr, score):
+		""" Arcade style name entry
+		up / down - change letter, left / right - move cursor, letter keys - type, Enter / fire - done
+		@return string 3 characters
+		"""
+		letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 "
+		name = [0, 0, 0]
+		position = 0
+
+		while True:
+			self.clock.tick(50)
+			self.drawNameEntry(player_nr, score, "".join([letters[i] for i in name]), position)
+
+			change = 0
+			move = 0
+			done = False
+
+			self.updateGamepads()
+			for gamepad in self.gamepads:
+				if gamepad.pressed("up"):
+					change = 1
+				elif gamepad.pressed("down"):
+					change = -1
+				elif gamepad.pressed("right"):
+					move = 1
+				elif gamepad.pressed("left"):
+					move = -1
+				elif gamepad.pressed("fire") or gamepad.pressed("start"):
+					done = True
+
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					quit()
+				if event.type != pygame.KEYDOWN:
+					continue
+				if event.key == pygame.K_ESCAPE:
+					quit()
+				elif self.isFullScreenKey(event):
+					self.toggleFullScreen()
+				elif event.key == pygame.K_RETURN:
+					done = True
+				elif event.key == pygame.K_UP:
+					change = 1
+				elif event.key == pygame.K_DOWN:
+					change = -1
+				elif event.key == pygame.K_RIGHT:
+					move = 1
+				elif event.key in (pygame.K_LEFT, pygame.K_BACKSPACE):
+					move = -1
+				elif event.unicode and event.unicode.upper() in letters:
+					name[position] = letters.index(event.unicode.upper())
+					move = 1
+
+			name[position] = (name[position] + change) % len(letters)
+			position = max(0, min(len(name) - 1, position + move))
+
+			if done:
+				return "".join([letters[i] for i in name])
+
+	def drawNameEntry(self, player_nr, score, name, position):
+		global screen
+
+		screen.fill([0, 0, 0])
+		white = pygame.Color("white")
+		yellow = pygame.Color(255, 200, 0)
+
+		def center(text, y, color):
+			surface = self.font.render(text, False, color)
+			screen.blit(surface, [(480 - surface.get_width()) // 2, y])
+
+		center("NEW HIGH SCORE", 80, yellow)
+		center(["I", "II", "III"][player_nr] + "-PLAYER  " + str(score), 120, white)
+		center("ENTER YOUR NAME", 180, white)
+
+		# big letters with cursor under current one
+		x = (480 - 3 * 40) // 2
+		for i, letter in enumerate(name):
+			surface = pygame.transform.scale(self.font.render(letter, False, white), [32, 32])
+			screen.blit(surface, [x + i * 40, 220])
+			if i == position:
+				pygame.draw.rect(screen, yellow, [x + i * 40, 256, 32, 4])
+
+		center("ENTER - DONE", 320, white)
+		self.flip()
+
+	def showHiscores(self, mode, duration):
+		""" Show hiscore table for duration ms or until key / gamepad button is pressed """
+		global screen
+
+		table = self.loadHiscores().get(mode, [])
+		screen.fill([0, 0, 0])
+		white = pygame.Color("white")
+		yellow = pygame.Color(255, 200, 0)
+
+		title = self.font.render("HIGH SCORES - " + mode.upper(), False, yellow)
+		screen.blit(title, [(480 - title.get_width()) // 2, 40])
+		for i, entry in enumerate(table):
+			row = "%2d. %-3s %8d" % (i + 1, entry[0], entry[1])
+			screen.blit(self.font.render(row, False, white), [96, 90 + i * 28])
+
+		for frame in range(duration // 20):
+			self.flip()
+			self.clock.tick(50)
+			self.updateGamepads()
+			for gamepad in self.gamepads:
+				if gamepad.pressed("fire") or gamepad.pressed("start"):
+					return
+			for event in pygame.event.get():
+				if event.type == pygame.QUIT:
+					quit()
+				elif event.type == pygame.KEYDOWN:
+					if event.key == pygame.K_ESCAPE:
+						quit()
+					return
 
 	def saveGame(self):
 		""" Save progress after completed stage: stage, number of players, preset,
@@ -2736,6 +2916,7 @@ class Game():
 
 		if data.get("preset") in PRESETS:
 			applyPreset(data["preset"])
+		self.mode = "campaign"
 		self.stage = stage
 		self.nr_of_players = nr_of_players
 		self.loaded_players_stats = stats
@@ -2758,6 +2939,8 @@ class Game():
 		# game saved after completed stage
 		if os.path.isfile(dataFile(SAVEGAME_FILE)):
 			items.append(["CONTINUE", "continue", None])
+		items.append(["ENDLESS 1P", "endless", 1])
+		items.append(["ENDLESS 2P", "endless", 2])
 		items.append(["SETTINGS", "settings", None])
 		return items
 
@@ -3226,11 +3409,11 @@ class Game():
 			screen.blit(self.font.render("HI- "+str(hiscore), True, pygame.Color('white')), [170, 35])
 
 			for i, item in enumerate(items):
-				screen.blit(self.font.render(item[0], True, pygame.Color('white')), [165, 240 + i * 22])
+				screen.blit(self.font.render(item[0], True, pygame.Color('white')), [165, 228 + i * 20])
 
 		# selected item marker
 		marker = self.player_image if self.menu_index == 0 else self.player_image_green
-		screen.blit(marker, [125, 235 + self.menu_index * 22])
+		screen.blit(marker, [125, 223 + self.menu_index * 20])
 
 		self.writeInBricks("battle", [65, 80])
 		self.writeInBricks("city", [129, 160])
@@ -3403,7 +3586,7 @@ class Game():
 		if play_sounds:
 			sounds["bg"].stop()
 
-		gtimer.add(LEVEL_FINISH_TIMEOUT, lambda :self.endLevel(self.showScores), 1)
+		gtimer.add(LEVEL_FINISH_TIMEOUT, lambda :self.endLevel(self.nextLevel if self.mode == "endless" else self.showScores), 1)
 
 		print("Stage "+str(self.stage)+" completed")
 
@@ -3481,6 +3664,11 @@ class Game():
 			enemies_l = levels_enemies[34]
 
 		level_enemies = [0]*enemies_l[0] + [1]*enemies_l[1] + [2]*enemies_l[2] + [3]*enemies_l[3]
+
+		# endless mode: every wave has more fast and armor tanks
+		if self.mode == "endless":
+			wave = self.stage - self.first_stage
+			level_enemies += [1] * (wave // 2) + [3] * (wave // 3)
 		if add:
 			self.level.enemies_left += level_enemies
 		else:

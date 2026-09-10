@@ -34,8 +34,15 @@ def settings_menu(ctx):
 		25: [K.K_RETURN],			# start game
 	}
 
-	if f == 4:
-		ctx.check("menu has SETTINGS item", game.menuItems()[3][1] == "settings")
+	if f == 2:
+		# menu may have more items before SETTINGS: start 3 items above it
+		labels = [item[0] for item in game.menuItems()]
+		game.menu_index = labels.index("SETTINGS") - 3
+	if f == 5:
+		ctx.check("down arrow selects SETTINGS item", game.menuItems()[game.menu_index][1] == "settings")
+	if f == 22:
+		# 3 items below 1 PLAYER, so 3 presses up select it
+		game.menu_index = 3
 	if f == 6:
 		ctx.check("Enter on SETTINGS opens settings screen", ctx.in_function("showSettings"))
 		ctx.check("default preset GOOD", g["CURRENT_PRESET"] == "GOOD")
