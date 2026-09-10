@@ -138,9 +138,13 @@ class Bullet():
 		rects = self.level.obstacle_rects
 		collisions = [] if self.over_walls else self.nearestCollisions(rects, self.rect.collidelistall(rects))
 		if collisions != []:
+			# castle rect has no tile type
+			hit_bricks = [rects[i] for i in collisions if getattr(rects[i], "type", None) == self.level.TILE_BRICK]
 			for i in collisions:
 				if self.level.hitTile(rects[i].topleft, self.power, self.owner == self.OWNER_PLAYER):
 					has_collided = True
+			if hit_bricks:
+				self.destroyBrickStrip(hit_bricks[0])
 		if has_collided:
 			self.explode()
 			return
@@ -187,6 +191,20 @@ class Bullet():
 				target.destroy()
 				self.destroy()
 				return
+
+	def destroyBrickStrip(self, tile):
+		""" Destroy bricks in the hit row as wide as a tank (centered on the bullet),
+		so a tank driving straight and firing always clears its way """
+		if self.direction in (self.DIR_UP, self.DIR_DOWN):
+			strip = pygame.Rect(self.rect.centerx - 16, tile.top, 32, tile.height)
+		else:
+			strip = pygame.Rect(tile.left, self.rect.centery - 16, tile.width, 32)
+
+		bricks = [brick for brick in self.level.mapr if brick.type == self.level.TILE_BRICK and brick.colliderect(strip)]
+		for brick in bricks:
+			self.level.mapr.remove(brick)
+		if bricks:
+			self.level.updateObstacleRects()
 
 	def nearestCollisions(self, rects, collisions):
 		""" Keep only tiles in the row (column) nearest to the bullet

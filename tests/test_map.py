@@ -32,7 +32,19 @@ def brick_quarters(ctx):
 			break
 	after = len(bricks_in(level, area, level.TILE_BRICK))
 	ctx.check("brick row under bullet exists (%d quarters)" % before, before == 8)
-	ctx.check("bullet destroys only nearest half of bricks (%d -> %d)" % (before, after), after == 6)
+	ctx.check("bullet destroys nearest row of bricks as wide as tank (%d -> %d)" % (before, after), after == 4)
+
+	# tank driving straight and firing clears its way: columns 2-3, rows 17-23 of level 1
+	path = pygame.Rect(32, 272, 32, 112)
+	for shot in range(40):
+		if not bricks_in(level, path, level.TILE_BRICK):
+			break
+		bullet = Bullet(level, [32, 392], Bullet.DIR_UP)
+		for i in range(40):
+			bullet.update()
+			if bullet.state != bullet.STATE_ACTIVE:
+				break
+	ctx.check("shots in straight line clear whole tank-wide path (%d shots)" % shot, not bricks_in(level, path, level.TILE_BRICK))
 
 	# fortress: steel, then bricks again - no overlapping tiles
 	level.buildFortress(level.TILE_STEEL)
