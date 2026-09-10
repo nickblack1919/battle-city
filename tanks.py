@@ -4,6 +4,12 @@
 import os, pygame, time, random, uuid, sys, argparse
 from pygame.locals import *
 
+# SDL game controller API: standard button layout for known gamepads
+try:
+	from pygame._sdl2 import controller as sdl_controller
+except ImportError:
+	sdl_controller = None
+
 # MODE (presets at the end of settings override values below)
 CLASSIC_MODE = False
 EXTREME_MODE = False
@@ -786,6 +792,11 @@ class Tank():
 		# fire button is held (auto fire)
 		self.fire_pressed = False
 		self.last_fire_time = 0
+
+		# gamepad assigned to this tank and its state: up, right, down, left / fire
+		self.gamepad = None
+		self.pad_pressed = [False] * 4
+		self.pad_fire = False
 
 		# visibility state
 		self.visible = True
@@ -1688,6 +1699,93 @@ class Player(Tank):
 		self.visibility_timer = None
 		self.state = self.STATE_ALIVE
 
+class Gamepad():
+	""" Gamepad state reader
+	Known gamepads are read through SDL game controller API (d-pad, left stick, A/B/X/Y, Start),
+	other devices as plain joystick (hat 0, axes 0-1, buttons 0-3 fire, 7 or 9 start)
+	"""
+
+	# stick deflection needed to move
+	AXIS_THRESHOLD = 0.5
+
+	def __init__(self, index = None):
+		""" index None creates gamepad without device (used by tests) """
+		self.controller = None
+		self.joystick = None
+		self.state = {}
+		self.prev = {}
+
+		if index == None:
+			return
+		if sdl_controller != None and sdl_controller.is_controller(index):
+			self.controller = sdl_controller.Controller(index)
+		else:
+			self.joystick = pygame.joystick.Joystick(index)
+			self.joystick.init()
+
+	def read(self):
+		""" Read raw device state
+		@return dict with booleans: up, right, down, left, fire, start
+		"""
+		up = right = down = left = fire = start = False
+		x = y = 0.0
+
+		if self.controller != None:
+			c = self.controller
+			up = c.get_button(pygame.CONTROLLER_BUTTON_DPAD_UP)
+			right = c.get_button(pygame.CONTROLLER_BUTTON_DPAD_RIGHT)
+			down = c.get_button(pygame.CONTROLLER_BUTTON_DPAD_DOWN)
+			left = c.get_button(pygame.CONTROLLER_BUTTON_DPAD_LEFT)
+			x = c.get_axis(pygame.CONTROLLER_AXIS_LEFTX) / 32768.0
+			y = c.get_axis(pygame.CONTROLLER_AXIS_LEFTY) / 32768.0
+			fire_buttons = (pygame.CONTROLLER_BUTTON_A, pygame.CONTROLLER_BUTTON_B, pygame.CONTROLLER_BUTTON_X, pygame.CONTROLLER_BUTTON_Y)
+			fire = any([c.get_button(button) for button in fire_buttons])
+			start = c.get_button(pygame.CONTROLLER_BUTTON_START)
+		elif self.joystick != None:
+			j = self.joystick
+			if j.get_numhats() > 0:
+				hat_x, hat_y = j.get_hat(0)
+				up, down = hat_y > 0, hat_y < 0
+				right, left = hat_x > 0, hat_x < 0
+			if j.get_numaxes() >= 2:
+				x, y = j.get_axis(0), j.get_axis(1)
+			buttons = j.get_numbuttons()
+			fire = any([j.get_button(button) for button in range(min(buttons, 4))])
+			start = any([j.get_button(button) for button in (7, 9) if button < buttons])
+
+		# left stick: only dominant axis counts (tanks can't move diagonally)
+		if abs(x) > abs(y):
+			right = right or x > self.AXIS_THRESHOLD
+			left = left or x < -self.AXIS_THRESHOLD
+		else:
+			down = down or y > self.AXIS_THRESHOLD
+			up = up or y < -self.AXIS_THRESHOLD
+
+		return {
+			"up": bool(up), "right": bool(right), "down": bool(down), "left": bool(left),
+			"fire": bool(fire), "start": bool(start)
+		}
+
+	def update(self):
+		""" Read new state, remember previous one (call once per frame) """
+		self.prev = self.state
+		try:
+			self.state = self.read()
+		except pygame.error:
+			# device was disconnected
+			self.state = {}
+
+	def held(self, name):
+		return self.state.get(name, False)
+
+	def pressed(self, name):
+		""" True only on the frame button was pressed """
+		return self.held(name) and not self.prev.get(name, False)
+
+	def directions(self):
+		""" @return [up, right, down, left] """
+		return [self.held("up"), self.held("right"), self.held("down"), self.held("left")]
+
 class Game():
 
 	# direction constants
@@ -1800,6 +1898,10 @@ class Game():
 		#debug mode
 		self.debug_mode = False
 
+		# connected gamepads (opened in updateGamepads)
+		self.gamepads = []
+		self.gamepad_count = 0
+
 		del players[:]
 		del bullets[:]
 		del enemies[:]
@@ -1826,6 +1928,49 @@ class Game():
 		for i in range(V_LINES):
 			pygame.draw.line(screen, blue, [i*V_STEP, 0], [i*V_STEP, height], 1)
 
+
+	def updateGamepads(self):
+		""" Open newly connected gamepads, read state of all gamepads (call once per frame) """
+		count = pygame.joystick.get_count()
+		if count != self.gamepad_count:
+			self.gamepad_count = count
+			self.gamepads = []
+			if sdl_controller != None:
+				sdl_controller.init()
+			for index in range(count):
+				try:
+					self.gamepads.append(Gamepad(index))
+				except pygame.error:
+					pass
+			self.assignGamepads()
+
+		for gamepad in self.gamepads:
+			gamepad.update()
+
+	def assignGamepads(self):
+		""" Give gamepads to players: players without keyboard controls (P3) first, then P1, P2 """
+		for player in players:
+			player.gamepad = None
+		ordered = [player for player in players if not player.controls] + [player for player in players if player.controls]
+		for gamepad, player in zip(self.gamepads, ordered):
+			player.gamepad = gamepad
+
+	def applyGamepads(self):
+		""" Gamepad controls in game: movement, fire (auto fire while held), Start - pause """
+		for gamepad in self.gamepads:
+			if gamepad.pressed("start") and not self.game_over and self.active:
+				self.pause()
+				break
+
+		for player in players:
+			if player.gamepad == None:
+				player.pad_pressed = [False] * 4
+				player.pad_fire = False
+				continue
+			player.pad_pressed = player.gamepad.directions()
+			player.pad_fire = player.gamepad.held("fire")
+			if player.gamepad.pressed("fire") and player.state == player.STATE_ALIVE and not self.game_over and self.active:
+				self.playerFire(player)
 
 	def destroyTimer(self, timer):
 		if timer:	
@@ -2129,6 +2274,12 @@ class Game():
 		while 1:
 			time_passed = self.clock.tick(50)
 			self.flip()
+
+			# gamepad A / Start returns to menu
+			self.updateGamepads()
+			for gamepad in self.gamepads:
+				if gamepad.pressed("fire") or gamepad.pressed("start"):
+					return self.showMenu
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
 					quit()
@@ -2164,6 +2315,19 @@ class Game():
 			# redraw every frame, otherwise menu stays invisible if display wasn't ready
 			# during intro animation (happens when switching to full screen)
 			self.flip()
+
+			# gamepad: up / down selects number of players, A / Start starts the game
+			self.updateGamepads()
+			for gamepad in self.gamepads:
+				if gamepad.pressed("down") or gamepad.pressed("up"):
+					self.nr_of_players += 1 if gamepad.pressed("down") else -1
+					if self.nr_of_players > 3:
+						self.nr_of_players = 1
+					if self.nr_of_players < 1:
+						self.nr_of_players = 3
+					self.drawIntroScreen()
+				elif gamepad.pressed("fire") or gamepad.pressed("start"):
+					main_loop = False
 
 			for event in pygame.event.get():
 				if event.type == pygame.QUIT:
@@ -2229,13 +2393,15 @@ class Game():
 				player = Player(
 					self.level, 0, [x, y], self.DIR_UP, (16*2, 0, 16*2, 16*2), 3
 				)
-				# temporary keys until gamepad support: fire Y, move T/F/G/H
-				player.controls = [pygame.K_y, pygame.K_t, pygame.K_h, pygame.K_g, pygame.K_f]
+				# third player uses gamepad only
+				player.controls = []
 				players.append(player)
 
 		for player in players:
 			player.level = self.level
 			self.respawnPlayer(player, True, player.superpowers)
+
+		self.assignGamepads()
 
 	def showScores(self):
 		""" Show level scores """
@@ -2716,8 +2882,9 @@ class Game():
 			# keys could be pressed/released during pause
 			keys = pygame.key.get_pressed()
 			for player in players:
-				player.fire_pressed = bool(keys[player.controls[0]])
-				player.pressed = [bool(keys[key]) for key in player.controls[1:]]
+				if player.controls:
+					player.fire_pressed = bool(keys[player.controls[0]])
+					player.pressed = [bool(keys[key]) for key in player.controls[1:]]
 			if play_sounds:
 				sounds["bg"].play(-1)
 
@@ -2794,6 +2961,7 @@ class Game():
 		while self.running:
 
 			time_passed = self.clock.tick(GAME_FRAME_TIMING)
+			self.updateGamepads()
 
 			if self.game_paused and not DEBUG_UNFREEZE_PLAYERS_ON_PAUSE:
 				for event in pygame.event.get():
@@ -2809,6 +2977,12 @@ class Game():
 						if event.key == pygame.K_v:
 							self.toggleDebugMode()
 				
+				# gamepad Start unpauses
+				for gamepad in self.gamepads:
+					if gamepad.pressed("start"):
+						self.pause()
+						break
+
 				self.draw()
 				continue
 
@@ -2903,19 +3077,25 @@ class Game():
 								elif index == 4:
 									player.pressed[3] = False
 
+			self.applyGamepads()
+
 			for player in players:
 				if player.state == player.STATE_ALIVE and not self.game_over and self.active:
+					# keyboard or gamepad
+					pressed = [player.pressed[i] or player.pad_pressed[i] for i in range(4)]
+					fire_pressed = player.fire_pressed or player.pad_fire
+
 					# auto fire while fire button is held: shoot as soon as a bullet slot is free
-					if player.fire_pressed and pygame.time.get_ticks() - player.last_fire_time >= PLAYER_AUTO_FIRE_DELAY:
+					if fire_pressed and pygame.time.get_ticks() - player.last_fire_time >= PLAYER_AUTO_FIRE_DELAY:
 						self.playerFire(player)
 
-					if player.pressed[0] == True:
+					if pressed[0]:
 						player.move(self.DIR_UP)
-					elif player.pressed[1] == True:
+					elif pressed[1]:
 						player.move(self.DIR_RIGHT)
-					elif player.pressed[2] == True:
+					elif pressed[2]:
 						player.move(self.DIR_DOWN)
-					elif player.pressed[3] == True:
+					elif pressed[3]:
 						player.move(self.DIR_LEFT)
 				player.update(time_passed)
 
