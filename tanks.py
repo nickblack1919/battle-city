@@ -169,6 +169,7 @@ if args['level'] != None:
 	START_LEVEL = int(args['level'])
 
 SETTINGS_FILE = ".settings.json"
+SAVEGAME_FILE = ".savegame"
 
 def dataFile(name):
 	""" Path to file with saved data: hiscore, settings, saved game
@@ -2107,6 +2108,9 @@ class Game():
 		# selected main menu item
 		self.menu_index = 0
 
+		# players' score, lives and superpowers from saved game (applied when players are created)
+		self.loaded_players_stats = None
+
 		enemy_spawn_pos_index = 2
 
 		# fortress timer
@@ -2566,6 +2570,7 @@ class Game():
 		global play_sounds, sounds
 
 		print("Game Over")
+		self.deleteSavedGame()
 		if play_sounds:
 			for sound in sounds:
 				sounds[sound].stop()
@@ -2676,18 +2681,85 @@ class Game():
 					self.stage = START_LEVEL - 1
 					del players[:]
 					return self.nextLevel
+				elif action == "continue":
+					if self.loadGame():
+						del players[:]
+						return self.nextLevel
+					self.drawIntroScreen()
 				elif action == "settings":
 					self.showSettings()
 					self.drawIntroScreen()
 
+	def saveGame(self):
+		""" Save progress after completed stage: stage, number of players, preset,
+		players' score, lives and superpowers
+		"""
+		data = {
+			"stage": self.stage,
+			"nr_of_players": self.nr_of_players,
+			"preset": CURRENT_PRESET,
+			"players": [{
+				"score": player.score,
+				"lives": player.lives,
+				"superpowers": player.superpowers,
+				"next_extra_life": player.next_extra_life
+			} for player in players],
+		}
+		try:
+			with open(dataFile(SAVEGAME_FILE), "w") as f:
+				json.dump(data, f, indent=1)
+		except IOError:
+			print("Can't save game")
+
+	def loadGame(self):
+		""" Load saved progress, game continues from the stage after saved one
+		@return boolean Whether game was loaded
+		"""
+		try:
+			with open(dataFile(SAVEGAME_FILE), "r") as f:
+				data = json.load(f)
+			stage = int(data["stage"])
+			nr_of_players = int(data["nr_of_players"])
+			stats = [{
+				"score": int(player["score"]),
+				"lives": int(player["lives"]),
+				"superpowers": int(player["superpowers"]),
+				"next_extra_life": int(player.get("next_extra_life", EXTRA_LIFE_SCORE))
+			} for player in data["players"]]
+		except (IOError, ValueError, KeyError, TypeError, AttributeError):
+			print("Can't load saved game")
+			return False
+
+		if nr_of_players not in (1, 2, 3) or len(stats) != nr_of_players or stage < 0:
+			print("Saved game is broken")
+			return False
+
+		if data.get("preset") in PRESETS:
+			applyPreset(data["preset"])
+		self.stage = stage
+		self.nr_of_players = nr_of_players
+		self.loaded_players_stats = stats
+		return True
+
+	def deleteSavedGame(self):
+		""" Saved game is useless after game over """
+		try:
+			os.remove(dataFile(SAVEGAME_FILE))
+		except OSError:
+			pass
+
 	def menuItems(self):
 		""" Main menu items: [label, action, argument] """
-		return [
+		items = [
 			["1 PLAYER", "play", 1],
 			["2 PLAYERS", "play", 2],
 			["3 PLAYERS", "play", 3],
-			["SETTINGS", "settings", None],
 		]
+		# game saved after completed stage
+		if os.path.isfile(dataFile(SAVEGAME_FILE)):
+			items.append(["CONTINUE", "continue", None])
+		items.append(["SETTINGS", "settings", None])
+		return items
 
 	def settingsItems(self):
 		""" Settings screen items: dicts with label, value, type (and player / control for controls) """
@@ -2877,6 +2949,15 @@ class Game():
 				player.controls = []
 				players.append(player)
 
+		# continue saved game
+		if self.loaded_players_stats:
+			for player, stats in zip(players, self.loaded_players_stats):
+				player.score = stats["score"]
+				player.lives = stats["lives"]
+				player.superpowers = stats["superpowers"]
+				player.next_extra_life = stats["next_extra_life"]
+			self.loaded_players_stats = None
+
 		for player in players:
 			player.level = self.level
 			self.respawnPlayer(player, True, player.superpowers)
@@ -3038,6 +3119,7 @@ class Game():
 		if self.game_over:
 			return self.gameOverScreen
 		else:
+			self.saveGame()
 			return self.nextLevel
 
 
