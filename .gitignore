@@ -131,5 +131,7 @@ dmypy.json
 /.hiscore
 /.settings.json
 /.savegame
+/.hiscores.json
+/custom_levels/
 /.vscode
 /levels/.DS_Store
