@@ -14,6 +14,9 @@ import os, sys, time, runpy, inspect, subprocess, tempfile
 GAME_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GAME_FILE = os.path.join(GAME_DIR, "tanks.py")
 
+# tanks.py imports battlecity package from game directory
+sys.path.insert(0, GAME_DIR)
+
 os.environ["SDL_VIDEODRIVER"] = "dummy"
 os.environ["SDL_AUDIODRIVER"] = "dummy"
 os.environ["PYGAME_HIDE_SUPPORT_PROMPT"] = "1"
@@ -24,6 +27,38 @@ if "BATTLE_CITY_DATA_DIR" not in os.environ:
 DATA_DIR = os.environ["BATTLE_CITY_DATA_DIR"]
 
 import pygame
+
+
+class GameNamespace(object):
+	""" Looks names up in battlecity.state, battlecity.config and other battlecity modules;
+	assignment changes the value in the module that has it """
+
+	def modules(self):
+		names = ["battlecity.state", "battlecity.config"]
+		names += sorted([name for name in sys.modules if name.startswith("battlecity.") and name not in names])
+		return [sys.modules[name] for name in names if name in sys.modules]
+
+	def __getitem__(self, name):
+		for module in self.modules():
+			if hasattr(module, name):
+				return getattr(module, name)
+		raise KeyError(name)
+
+	def __setitem__(self, name, value):
+		for module in self.modules():
+			if hasattr(module, name):
+				setattr(module, name, value)
+				return
+		raise KeyError(name)
+
+	def __contains__(self, name):
+		return any([hasattr(module, name) for module in self.modules()])
+
+	def get(self, name, default=None):
+		try:
+			return self[name]
+		except KeyError:
+			return default
 
 
 class Context(object):
@@ -43,8 +78,8 @@ class Context(object):
 
 	@property
 	def g(self):
-		""" Game module globals """
-		return sys.modules["__main__"].__dict__
+		""" Game names: shared objects, settings and classes from battlecity modules """
+		return GameNamespace()
 
 	@property
 	def game(self):
