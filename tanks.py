@@ -39,6 +39,9 @@ BONUS_FORTRESS_WALLS_TIMEOUT = 15000
 BONUS_PLAYER_SHIELD_TIMEOUT = 20000
 BONUS_PLAYER_HIDDEN_TIMEOUT = 10000
 BONUS_SPAWN_TIMEOUT = 20000
+BONUS_SHIP_TIMEOUT = 20000	# ship bonus: tank can drive over water
+ICE_SLIDE_DISTANCE = 16	# px tank slides on ice after movement button is released
+BRICK_QUARTERS = True	# brick tiles consist of 4 parts, bullet destroys nearest half (like on NES)
 CHANCE_OF_FIRE = 50
 ENEMY_FIRE_TIMER = 500
 HEAD_SHIELD_WHEN_PROTECTED = True	# protected player tank isn't hurt by bullets hitting its front
@@ -311,8 +314,8 @@ class Bonus():
 			self.BONUS_SHOVEL,
 			self.BONUS_TANK,
 			self.BONUS_TIMER,
-			self.BONUS_PISTOL
-#			self.BONUS_SHIP
+			self.BONUS_PISTOL,
+			self.BONUS_SHIP
 		])
 
 		#self.bonus = self.BONUS_GRENADE
@@ -466,7 +469,7 @@ class Bullet():
 		# check for collisions with walls. one bullet can destroy several (1 or 2)
 		# tiles but explosion remains 1
 		rects = self.level.obstacle_rects
-		collisions = self.rect.collidelistall(rects)
+		collisions = self.nearestCollisions(rects, self.rect.collidelistall(rects))
 		if collisions != []:
 			for i in collisions:
 				if self.level.hitTile(rects[i].topleft, self.power, self.owner == self.OWNER_PLAYER):
@@ -514,6 +517,25 @@ class Bullet():
 			castle.destroy()
 			self.destroy()
 			return
+
+	def nearestCollisions(self, rects, collisions):
+		""" Keep only tiles in the row (column) nearest to the bullet
+		Fast bullet can overlap two rows of brick quarters, but should destroy only one
+		"""
+		if len(collisions) < 2:
+			return collisions
+
+		if self.direction == self.DIR_UP:
+			key, best = (lambda rect: rect.bottom), max
+		elif self.direction == self.DIR_DOWN:
+			key, best = (lambda rect: rect.top), min
+		elif self.direction == self.DIR_LEFT:
+			key, best = (lambda rect: rect.right), max
+		else:
+			key, best = (lambda rect: rect.left), min
+
+		nearest = best([key(rects[i]) for i in collisions])
+		return [i for i in collisions if key(rects[i]) == nearest]
 
 	def explode(self):
 		""" start bullets's explosion """
@@ -711,7 +733,7 @@ class Level():
 		for row in data:
 			for ch in row:
 				if ch == "#":
-					self.mapr.append(myRect(x, y, self.TILE_SIZE, self.TILE_SIZE, self.TILE_BRICK))
+					self.addBrick(x, y)
 				elif ch == "@":
 					self.mapr.append(myRect(x, y, self.TILE_SIZE, self.TILE_SIZE, self.TILE_STEEL))
 				elif ch == "~":
@@ -726,6 +748,20 @@ class Level():
 		return True
 
 
+	def addBrick(self, x, y):
+		""" Add brick tile: 4 quarters 8x8 (BRICK_QUARTERS) or one 16x16 tile """
+		if BRICK_QUARTERS:
+			half = self.TILE_SIZE // 2
+			for dx in (0, half):
+				for dy in (0, half):
+					self.mapr.append(myRect(x + dx, y + dy, half, half, self.TILE_BRICK))
+		else:
+			self.mapr.append(myRect(x, y, self.TILE_SIZE, self.TILE_SIZE, self.TILE_BRICK))
+
+	def obstacleRectsFor(self, can_swim = False):
+		""" Tiles tank can't drive through: water isn't an obstacle for tank with ship """
+		return self.land_obstacle_rects if can_swim else self.obstacle_rects
+
 	def draw(self, tiles = None):
 		""" Draw specified map on top of existing surface """
 
@@ -737,7 +773,8 @@ class Level():
 		for tile in self.mapr:
 			if tile.type in tiles:
 				if tile.type == self.TILE_BRICK:
-					screen.blit(self.tile_brick, tile.topleft)
+					# brick quarter: draw matching part of brick image
+					screen.blit(self.tile_brick, tile.topleft, [tile.left % self.TILE_SIZE, tile.top % self.TILE_SIZE, tile.width, tile.height])
 				elif tile.type == self.TILE_STEEL:
 					screen.blit(self.tile_steel, tile.topleft)
 				elif tile.type == self.TILE_WATER:
@@ -767,9 +804,21 @@ class Level():
 
 		self.obstacle_rects = [castle.rect]
 
+		# same without water (for tanks with ship)
+		self.land_obstacle_rects = [castle.rect]
+
+		self.water_rects = []
+		self.ice_rects = []
+
 		for tile in self.mapr:
-			if tile.type in (self.TILE_BRICK, self.TILE_STEEL, self.TILE_WATER):
+			if tile.type in (self.TILE_BRICK, self.TILE_STEEL):
 				self.obstacle_rects.append(tile)
+				self.land_obstacle_rects.append(tile)
+			elif tile.type == self.TILE_WATER:
+				self.obstacle_rects.append(tile)
+				self.water_rects.append(tile)
+			elif tile.type == self.TILE_FROZE:
+				self.ice_rects.append(tile)
 
 	def buildFortress(self, tile):
 		""" Build walls around castle made from tile """
@@ -785,22 +834,21 @@ class Level():
 			(13*self.TILE_SIZE, 23*self.TILE_SIZE)
 		]
 
-		obsolete = []
+		cells = [pygame.Rect(pos, (self.TILE_SIZE, self.TILE_SIZE)) for pos in positions]
 
-		for i, rect in enumerate(self.mapr):
-			if rect.topleft in positions:
-				obsolete.append(rect)
-		for rect in obsolete:
-			self.mapr.remove(rect)
+		# remove whole tiles and brick quarters in fortress cells
+		self.mapr = [rect for rect in self.mapr if rect.collidelist(cells) == -1]
 
 		# don't wall in tanks standing on fortress tiles
 		tank_rects = [tank.rect for tank in players + enemies if tank.state == tank.STATE_ALIVE]
 
-		for pos in positions:
-			tile_rect = myRect(pos[0], pos[1], self.TILE_SIZE, self.TILE_SIZE, tile)
-			if tile != self.TILE_EMPTY and tile_rect.collidelist(tank_rects) != -1:
+		for cell in cells:
+			if tile == self.TILE_EMPTY or cell.collidelist(tank_rects) != -1:
 				continue
-			self.mapr.append(tile_rect)
+			if tile == self.TILE_BRICK:
+				self.addBrick(cell.left, cell.top)
+			else:
+				self.mapr.append(myRect(cell.left, cell.top, self.TILE_SIZE, self.TILE_SIZE, tile))
 
 		self.updateObstacleRects()
 
@@ -868,6 +916,13 @@ class Tank():
 
 		# visibility state
 		self.visible = True
+
+		# ship bonus: can drive over water
+		self.ship = False
+		self.ship_timer = None
+
+		# px left to slide on ice
+		self.slide = 0
 
 		# frontal armor (player superpower 5+)
 		self.protected = False
@@ -975,6 +1030,8 @@ class Tank():
 				screen.blit(self.shield_image, [self.rect.left, self.rect.top])
 			if self.protected:
 				screen.blit(self.protected_image, [self.rect.left, self.rect.top])
+			if self.ship:
+				pygame.draw.rect(screen, (60, 140, 255), self.rect, 1)
 		elif self.state == self.STATE_EXPLODING:
 			self.explosion.draw()
 		elif self.state == self.STATE_SPAWNING:
@@ -1109,7 +1166,7 @@ class Tank():
 			new_rect = pygame.Rect([new_x, new_y], [32, 32])
 
 			collision = False
-			if new_rect.collidelist(self.level.obstacle_rects) != -1:
+			if new_rect.collidelist(self.level.obstacleRectsFor(self.canSwim())) != -1:
 				collision = True
 			for enemy in enemies:
 				if enemy != self and new_rect.colliderect(enemy.rect):
@@ -1148,6 +1205,15 @@ class Tank():
 	def nearest(self, num, base):
 		""" Round number to nearest divisible """
 		return int(round(float(num) / (base * 1.0)) * base)
+
+	def canSwim(self):
+		""" Tank can drive over water: ship bonus is active or tank is still on water
+		(ship ended while on water - let the tank drive out) """
+		ship = self.ship if self.side == self.SIDE_PLAYER else game.enemies_ship
+		return ship or self.rect.collidelist(self.level.water_rects) != -1
+
+	def onIce(self):
+		return self.rect.collidelist(self.level.ice_rects) != -1
 
 	def getOppositeDirection(self, direction):
 		""" Get direction opposite to specified one """
@@ -1450,7 +1516,7 @@ class Enemy(Tank):
 		new_rect = pygame.Rect(new_position, [32, 32])
 
 		# collisions with tiles
-		if new_rect.collidelist(self.level.obstacle_rects) != -1:
+		if new_rect.collidelist(self.level.obstacleRectsFor(self.canSwim())) != -1:
 			if self.persistance < 3:
 				self.persistance += 1
 				rotate = False
@@ -1566,22 +1632,22 @@ class Enemy(Tank):
 		for direction in directions:
 			if direction == self.DIR_UP and y > 1:
 				new_pos_rect = self.rect.move(0, -8)
-				if new_pos_rect.collidelist(self.level.obstacle_rects) == -1:
+				if new_pos_rect.collidelist(self.level.obstacleRectsFor(self.canSwim())) == -1:
 					new_direction = direction
 					break
 			elif direction == self.DIR_RIGHT and x < 24:
 				new_pos_rect = self.rect.move(8, 0)
-				if new_pos_rect.collidelist(self.level.obstacle_rects) == -1:
+				if new_pos_rect.collidelist(self.level.obstacleRectsFor(self.canSwim())) == -1:
 					new_direction = direction
 					break
 			elif direction == self.DIR_DOWN and y < 24:
 				new_pos_rect = self.rect.move(0, 8)
-				if new_pos_rect.collidelist(self.level.obstacle_rects) == -1:
+				if new_pos_rect.collidelist(self.level.obstacleRectsFor(self.canSwim())) == -1:
 					new_direction = direction
 					break
 			elif direction == self.DIR_LEFT and x > 1:
 				new_pos_rect = self.rect.move(-8, 0)
-				if new_pos_rect.collidelist(self.level.obstacle_rects) == -1:
+				if new_pos_rect.collidelist(self.level.obstacleRectsFor(self.canSwim())) == -1:
 					new_direction = direction
 					break
 
@@ -1743,7 +1809,7 @@ class Player(Tank):
 		player_rect = pygame.Rect(new_position, [32, 32])
 
 		# collisions with tiles
-		if player_rect.collidelist(self.level.obstacle_rects) != -1:
+		if player_rect.collidelist(self.level.obstacleRectsFor(self.canSwim())) != -1:
 			return
 
 		# collisions with other players
@@ -1769,6 +1835,8 @@ class Player(Tank):
 		if DEBUG_COORDINATES:
 			print("Move center: " + str(self.rect.center))
 
+		return True
+
 
 	def reset(self):
 		""" reset player """
@@ -1783,6 +1851,10 @@ class Player(Tank):
 		self.pressed = [False] * 4
 		self.fire_pressed = False
 		self.aquired_position = False
+		self.slide = 0
+		self.ship = False
+		gtimer.destroy(self.ship_timer)
+		self.ship_timer = None
 		self.visible = True
 		self.visibility_timer = None
 		self.state = self.STATE_ALIVE
@@ -1986,6 +2058,10 @@ class Game():
 		#debug mode
 		self.debug_mode = False
 
+		# enemies picked up ship bonus: they can drive over water
+		self.enemies_ship = False
+		self.enemies_ship_timer = None
+
 		# frames left to shake the screen
 		self.shake_frames = 0
 
@@ -2110,6 +2186,16 @@ class Game():
 
 		pygame.display.update()
 
+	def endShip(self, player):
+		""" Ship bonus time is over (player still on water can drive out) """
+		player.ship = False
+		player.ship_timer = None
+
+	def setEnemiesShip(self, ship):
+		self.enemies_ship = ship
+		if not ship:
+			self.enemies_ship_timer = None
+
 	def shake(self, frames):
 		""" Shake screen for some frames """
 		if SCREEN_SHAKE:
@@ -2134,6 +2220,8 @@ class Game():
 		for player in players:
 			if player.state == player.STATE_ALIVE and player.shielded:
 				bar(player.shield_end_timer, [player.rect.left, player.rect.top - 4, 32, 2], (120, 200, 255))
+			if player.state == player.STATE_ALIVE and player.ship:
+				bar(player.ship_timer, [player.rect.left, player.rect.top - 7, 32, 2], (60, 140, 255))
 
 		if self.timefreeze:
 			bar(self.enemy_freeze_end_timer, [0, 0, 416, 3], (80, 160, 255))
@@ -2187,7 +2275,12 @@ class Game():
 				sounds["start"].play()
 
 		# hide all players for 10 seconds
-		elif bonus.bonus == bonus.BONUS_HELMET or bonus.bonus == bonus.BONUS_SHIP:
+		# all enemies can drive over water for some time
+		elif bonus.bonus == bonus.BONUS_SHIP:
+			self.setEnemiesShip(True)
+			self.destroyTimer(self.enemies_ship_timer)
+			self.enemies_ship_timer = gtimer.add(BONUS_SHIP_TIMEOUT, lambda :self.setEnemiesShip(False), 1)
+		elif bonus.bonus == bonus.BONUS_HELMET:
 			for player in players:
 				player.hideTank(BONUS_PLAYER_HIDDEN_TIMEOUT)
 		# remove walls from fortress for 10 seconds
@@ -2248,7 +2341,14 @@ class Game():
 					explode_count = 0
 					break
 		# shield player for 10 seconds
-		elif bonus.bonus == bonus.BONUS_HELMET or bonus.bonus == bonus.BONUS_SHIP:
+		# player can drive over water for some time
+		elif bonus.bonus == bonus.BONUS_SHIP:
+			if play_sounds:
+				sounds["bonus"].play()
+			player.ship = True
+			self.destroyTimer(player.ship_timer)
+			player.ship_timer = gtimer.add(BONUS_SHIP_TIMEOUT, lambda :self.endShip(player), 1)
+		elif bonus.bonus == bonus.BONUS_HELMET:
 			if play_sounds:
 				sounds["bonus"].play()
 			self.shieldPlayer(player, True, BONUS_PLAYER_SHIELD_TIMEOUT)
@@ -3107,6 +3207,8 @@ class Game():
 		self.players_freeze_end_timer = None
 		self.fortress_end_timer = None
 		self.players_frozen = False
+		self.enemies_ship = False
+		self.enemies_ship_timer = None
 		self.next_action = None
 
 		# set number of enemies by types (basic, fast, power, armor) according to level
@@ -3265,14 +3367,19 @@ class Game():
 					if fire_pressed and pygame.time.get_ticks() - player.last_fire_time >= PLAYER_AUTO_FIRE_DELAY:
 						self.playerFire(player)
 
-					if pressed[0]:
-						player.move(self.DIR_UP)
-					elif pressed[1]:
-						player.move(self.DIR_RIGHT)
-					elif pressed[2]:
-						player.move(self.DIR_DOWN)
-					elif pressed[3]:
-						player.move(self.DIR_LEFT)
+					if True in pressed:
+						# first pressed in order: up, right, down, left
+						direction = [self.DIR_UP, self.DIR_RIGHT, self.DIR_DOWN, self.DIR_LEFT][pressed.index(True)]
+						player.move(direction)
+						# on ice tank keeps sliding after button is released
+						player.slide = ICE_SLIDE_DISTANCE if player.onIce() else 0
+					elif player.slide > 0:
+						if player.slide == ICE_SLIDE_DISTANCE and play_sounds:
+							sounds["ice"].play()
+						if player.move(player.direction):
+							player.slide -= player.speed
+						else:
+							player.slide = 0
 				player.update(time_passed)
 
 			for enemy in enemies[:]:
