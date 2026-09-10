@@ -49,8 +49,10 @@ def endless(ctx):
 
 			game.stage = 5
 			game.loadLevelEnemies(False)
-			# stage 5 table: 20 tanks; wave 5 (4 waves after first): +2 fast, +1 armor
-			ctx.check("waves get harder (%d tanks)" % len(game.level.enemies_left), len(game.level.enemies_left) == 23)
+			# stage 5 table: 20 tanks; wave 5 (4 waves after first): +2 fast, +1 armor (boss not counted)
+			boss_type = getattr(g["Enemy"], "TYPE_BOSS", None)
+			tanks = [t for t in game.level.enemies_left if t != boss_type]
+			ctx.check("waves get harder (%d tanks)" % len(tanks), len(tanks) == 23)
 			ctx.finish()
 
 

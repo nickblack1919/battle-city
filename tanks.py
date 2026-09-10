@@ -98,6 +98,28 @@ EXTRA_LIFE_SCORE = 20000	# extra life every n points, 0 - disabled
 TWO_PLAYER_KILLS_BONUS = 1000	# 2+ players: player who destroyed most tanks on stage gets these points
 ENEMY_AI_BASE_CHANCE = 30	# % chance enemy prefers directions towards player's castle
 
+# NEW ENEMIES (disabled in CLASSIC preset)
+ENABLE_NEW_ENEMIES = True
+NEW_ENEMIES_FROM_STAGE = 5	# stealth and mortar tanks appear from this stage (wave)
+BOSS_EVERY_STAGES = 5	# boss is the last enemy of every n-th stage (wave)
+BOSS_HEALTH = 2000
+BOSS_BONUS_EVERY = 500	# boss drops a bonus every n damage
+STEALTH_ALPHA = 40	# stealth tank transparency (0-255) while hidden
+STEALTH_REVEAL_FRAMES = 30	# stealth tank is visible for n frames after firing or being hit
+
+# enemy types: basic, fast, power, armor, stealth, mortar, boss
+ENEMY_POINTS = [100, 200, 300, 400, 300, 400, 2000]
+# new types reuse sprites of original types with color tint
+ENEMY_SPRITE_TYPES = [0, 1, 2, 3, 1, 2, 3]
+ENEMY_TINTS = {4: (150, 150, 255), 5: (255, 110, 110), 6: (255, 215, 90)}
+
+def emptyTrophies():
+	""" Player's stage statistics: bonuses and destroyed tanks of every type """
+	trophies = {"bonus": 0}
+	for enemy_type in range(len(ENEMY_POINTS)):
+		trophies["enemy" + str(enemy_type)] = 0
+	return trophies
+
 # DIFFICULTY PRESETS: every preset sets all these values, so presets can be switched at runtime
 PRESETS = {
 	# close to original NES game
@@ -114,6 +136,7 @@ PRESETS = {
 		"ENEMY_SPAWN_TIMEOUT": 2000,
 		"ENABLE_PLAYER_PROTECTION": False,
 		"ENEMY_AI_BASE_CHANCE": 50,
+		"ENABLE_NEW_ENEMIES": False,
 	},
 	"GOOD": {
 		"ALLOW_MULTI_BONUS": True,
@@ -128,6 +151,7 @@ PRESETS = {
 		"ENEMY_SPAWN_TIMEOUT": 1000,
 		"ENABLE_PLAYER_PROTECTION": True,
 		"ENEMY_AI_BASE_CHANCE": 30,
+		"ENABLE_NEW_ENEMIES": True,
 	},
 	"EXTREME": {
 		"ALLOW_MULTI_BONUS": True,
@@ -142,6 +166,7 @@ PRESETS = {
 		"ENEMY_SPAWN_TIMEOUT": 1000,
 		"ENABLE_PLAYER_PROTECTION": True,
 		"ENEMY_AI_BASE_CHANCE": 30,
+		"ENABLE_NEW_ENEMIES": True,
 	},
 }
 
@@ -431,6 +456,9 @@ class Bullet():
 		self.owner = None
 		self.owner_class = None
 
+		# mortar shells fly over walls
+		self.over_walls = False
+
 		# 1-regular everyday normal bullet
 		# 2-can destroy steel
 		self.power = power
@@ -540,7 +568,7 @@ class Bullet():
 		# check for collisions with walls. one bullet can destroy several (1 or 2)
 		# tiles but explosion remains 1
 		rects = self.level.obstacle_rects
-		collisions = self.nearestCollisions(rects, self.rect.collidelistall(rects))
+		collisions = [] if self.over_walls else self.nearestCollisions(rects, self.rect.collidelistall(rects))
 		if collisions != []:
 			for i in collisions:
 				if self.level.hitTile(rects[i].topleft, self.power, self.owner == self.OWNER_PLAYER):
@@ -1000,6 +1028,9 @@ class Tank():
 		# px left to slide on ice
 		self.slide = 0
 
+		# frames stealth tank stays visible
+		self.reveal_frames = 0
+
 		# frontal armor (player superpower 5+)
 		self.protected = False
 		self.protected_image = sprites2.subsurface((10+5)*32+4, 9*32, 16*2, 16*2)
@@ -1214,6 +1245,16 @@ class Tank():
 
 		bullet.owner_class = self
 		bullets.append(bullet)
+
+		# enemy specials: mortar shells fly over walls, stealth tank shows itself when firing
+		if self.side == self.SIDE_ENEMY:
+			if self.type == Enemy.TYPE_MORTAR:
+				bullet.over_walls = True
+				bullet.image = bullet.image.copy()
+				bullet.image.fill((255, 90, 90), special_flags=pygame.BLEND_RGB_MULT)
+			elif self.type == Enemy.TYPE_STEALTH:
+				self.reveal_frames = STEALTH_REVEAL_FRAMES
+
 		return True
 
 	def rotate(self, direction, fix_position = True):
@@ -1324,6 +1365,10 @@ class Tank():
 			if not INFINITE_HEALTH_FOR_ALL:
 				self.health -= damage
 				self.updateSprites()
+				self.reveal_frames = STEALTH_REVEAL_FRAMES
+				# boss drops a bonus every BOSS_BONUS_EVERY damage
+				if self.side == self.SIDE_ENEMY and self.type == Enemy.TYPE_BOSS and 0 < self.health and self.health % BOSS_BONUS_EVERY == 0:
+					self.spawnBonus()
 
 			# restore health if infinite armor
 			if PLAYER_INFINITE_ARMOR > 0 and self.side == self.SIDE_PLAYER:
@@ -1348,7 +1393,7 @@ class Tank():
 			elif self.health < 1:
 				if self.side == self.SIDE_ENEMY:
 					tank.trophies["enemy" + str(self.type)] += 1
-					points = (self.type + 1) * 100
+					points = ENEMY_POINTS[self.type]
 					tank.score += points
 					if play_sounds:
 						sounds["explosion"].play()
@@ -1358,6 +1403,8 @@ class Tank():
 					# big explosion
 					if self.type == self.TYPE_ARMOR:
 						game.shake(8)
+					elif self.type == self.TYPE_BOSS:
+						game.shake(25)
 
 				# versus: count kills of the other player
 				if self.side == self.SIDE_PLAYER and tank != None and tank is not self and tank.side == self.SIDE_PLAYER:
@@ -1391,7 +1438,7 @@ class Tank():
 
 class Enemy(Tank):
 
-	(TYPE_BASIC, TYPE_FAST, TYPE_POWER, TYPE_ARMOR) = range(4)
+	(TYPE_BASIC, TYPE_FAST, TYPE_POWER, TYPE_ARMOR, TYPE_STEALTH, TYPE_MORTAR, TYPE_BOSS) = range(7)
 	(DIR_UP, DIR_RIGHT, DIR_DOWN, DIR_LEFT) = range(4)
 	(FLASHING_YES, FLASHING_NO) = range(2)
 
@@ -1428,6 +1475,17 @@ class Enemy(Tank):
 		elif self.type == self.TYPE_ARMOR:
 			self.speed = DEFAULT_ENEMY_SPEED
 			self.health = DEFAULT_ENEMY_ARMOR_HEALTH
+		elif self.type == self.TYPE_STEALTH:
+			self.speed = DEFAULT_ENEMY_SPEED
+		elif self.type == self.TYPE_MORTAR:
+			self.speed = 1
+			self.health = 200
+		elif self.type == self.TYPE_BOSS:
+			self.speed = 1
+			self.health = BOSS_HEALTH
+			self.superpowers = 4
+			self.updateSuperpowers()
+			self.max_active_bullets = 3
 
 		self.image_up = self.getEnemyImage(self.DIR_UP, self.type, self.health, self.FLASHING_NO)
 		self.image_left = self.getEnemyImage(self.DIR_LEFT, self.type, self.health, self.FLASHING_NO)
@@ -1473,12 +1531,35 @@ class Enemy(Tank):
 	# direction 0-up, 1-right, 2-down, 3-left
 	# type 0-basic, 1-fast, 2-power, 3-armor
 	def getEnemyImage(self, direction, type, health, flashing):
-		if health > 400:
-			health = 400
+		""" Sprite for enemy type, direction and health; new types are tinted sprites of original types """
+		sprite_type = ENEMY_SPRITE_TYPES[type]
+		health = max(0, min(int(health), 400))
 		if flashing == self.FLASHING_NO:
-			return sprites2.subsurface((((health)/100)*S_SIZE+direction)*T_SIZE, type*2*T_SIZE, 32, 32)
+			image = sprites2.subsurface(((health // 100) * S_SIZE + direction) * T_SIZE, sprite_type * 2 * T_SIZE, 32, 32)
 		else:
-			return sprites2.subsurface((0+direction)*T_SIZE, type*2*T_SIZE, 32, 32)
+			image = sprites2.subsurface(direction * T_SIZE, sprite_type * 2 * T_SIZE, 32, 32)
+		tint = ENEMY_TINTS.get(type)
+		if tint:
+			image = image.copy()
+			image.fill(tint, special_flags=pygame.BLEND_RGB_MULT)
+		return image
+
+	def draw(self):
+		""" Stealth tank is almost invisible until it fires or gets hit, boss has health bar """
+		global screen
+
+		if self.type == self.TYPE_STEALTH and self.state == self.STATE_ALIVE and not self.bonus and self.reveal_frames <= 0:
+			if self.visible:
+				image = self.image.copy()
+				image.set_alpha(STEALTH_ALPHA)
+				screen.blit(image, self.rect.topleft)
+			return
+
+		Tank.draw(self)
+
+		if self.type == self.TYPE_BOSS and self.state == self.STATE_ALIVE:
+			width = int(32 * max(self.health, 0) / float(BOSS_HEALTH))
+			pygame.draw.rect(screen, (255, 60, 60), [self.rect.left, self.rect.top - 4, max(width, 1), 3])
 
 	def updateSprites(self):
 		self.image_up = self.getEnemyImage(self.DIR_UP, self.type, self.health, self.FLASHING_NO)
@@ -1656,6 +1737,8 @@ class Enemy(Tank):
 
 	def update(self, time_passed):
 		Tank.update(self, time_passed)
+		if self.reveal_frames > 0:
+			self.reveal_frames -= 1
 		if self.state == self.STATE_ALIVE and not self.paused:
 			self.move()
 
@@ -1803,13 +1886,7 @@ class Player(Tank):
 		self.versus_kills = 0
 
 		# store how many bonuses in this stage this player has collected
-		self.trophies = {
-			"bonus" : 0,
-			"enemy0" : 0,
-			"enemy1" : 0,
-			"enemy2" : 0,
-			"enemy3" : 0
-		}
+		self.trophies = emptyTrophies()
 
 		if player_nr == 1:
 			player_sprite_nr = 5
@@ -2594,9 +2671,7 @@ class Game():
 		player.updateSuperpowers()
 
 		if clear_scores:
-			player.trophies = {
-				"bonus" : 0, "enemy0" : 0, "enemy1" : 0, "enemy2" : 0, "enemy3" : 0
-			}
+			player.trophies = emptyTrophies()
 
 		self.shieldPlayer(player, True, PLAYER_START_SHIELD_TIMEOUT)
 
@@ -3272,7 +3347,7 @@ class Game():
 		# 2+ players: player who destroyed most tanks on this stage gets bonus points (like on NES)
 		kills_bonus_player = None
 		if self.nr_of_players >= 2 and TWO_PLAYER_KILLS_BONUS > 0 and not self.game_over:
-			kills = [sum([player.trophies["enemy" + str(i)] for i in range(4)]) for player in players]
+			kills = [sum(player.trophies.values()) - player.trophies["bonus"] for player in players]
 			best_kills = max(kills)
 			if best_kills > 0 and kills.count(best_kills) == 1:
 				kills_bonus_player = kills.index(best_kills)
@@ -3781,11 +3856,25 @@ class Game():
 		if self.mode == "endless":
 			wave = self.stage - self.first_stage
 			level_enemies += [1] * (wave // 2) + [3] * (wave // 3)
+		# new enemies: some basic tanks become stealth tanks, some power tanks become mortars
+		level_number = self.stage - self.first_stage + 1 if self.mode == "endless" else self.stage
+		new_enemies = ENABLE_NEW_ENEMIES and self.mode != "versus"
+		if new_enemies and level_number >= NEW_ENEMIES_FROM_STAGE:
+			for old_type, new_type, count in ((Enemy.TYPE_BASIC, Enemy.TYPE_STEALTH, 3), (Enemy.TYPE_POWER, Enemy.TYPE_MORTAR, 2)):
+				for i in range(len(level_enemies)):
+					if count > 0 and level_enemies[i] == old_type:
+						level_enemies[i] = new_type
+						count -= 1
+
 		if add:
 			self.level.enemies_left += level_enemies
 		else:
 			self.level.enemies_left = level_enemies
 		random.shuffle(self.level.enemies_left)
+
+		# enemies are taken from the end of the list: boss comes last
+		if new_enemies and not add and level_number % BOSS_EVERY_STAGES == 0:
+			self.level.enemies_left.insert(0, Enemy.TYPE_BOSS)
 
 
 	def nextLevel(self):
