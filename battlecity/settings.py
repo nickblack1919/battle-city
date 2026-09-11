@@ -38,6 +38,7 @@ class SettingsMixin():
 		items.append({"label": "AUTO FIRE", "value": "ON" if config.AUTO_FIRE else "OFF", "type": "autofire"})
 		items.append({"label": "ENEMY AI", "value": config.ENEMY_AI, "type": "ai"})
 		items.append({"label": "LANGUAGE", "value": config.LANGUAGE, "type": "lang"})
+		items.append({"label": "CRT FILTER", "value": config.CRT_FILTER, "type": "crt"})
 		for player_nr in range(len(config.GAMEPAD_ASSIGN)):
 			assign = config.GAMEPAD_ASSIGN[player_nr]
 			value = assign if assign in ("AUTO", "OFF") else "PAD %d" % (assign + 1)
@@ -166,6 +167,10 @@ class SettingsMixin():
 			index = lang.LANGUAGES.index(config.LANGUAGE) if config.LANGUAGE in lang.LANGUAGES else 0
 			config.LANGUAGE = lang.LANGUAGES[(index + change) % len(lang.LANGUAGES)]
 			self.prerenderTexts()
+		elif kind == "crt":
+			names = config.CRT_MODES
+			index = names.index(config.CRT_FILTER) if config.CRT_FILTER in names else 0
+			config.CRT_FILTER = names[(index + change) % len(names)]
 		elif kind == "ai":
 			names = config.ENEMY_AI_TYPES
 			index = names.index(config.ENEMY_AI) if config.ENEMY_AI in names else 0

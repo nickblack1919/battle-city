@@ -6,7 +6,7 @@ import pygame
 from pygame.locals import *
 from sys import exit as quit	# builtin quit() is missing in Mac app (PyInstaller)
 
-from battlecity import config, lang, state
+from battlecity import config, crt, lang, state
 from battlecity.bonus import Bonus
 from battlecity.castle import Castle
 from battlecity.effects import Label
@@ -373,7 +373,14 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			self.display.fill([0, 0, 0])
 			self.display.blit(state.screen, offset)
 		else:
-			self.display.blit(state.screen, [0, 0])
+			offset = [0, 0]
+			self.display.blit(state.screen, offset)
+
+		# CRT filter draws over display only, game screen stays unchanged
+		if config.CRT_FILTER != "OFF":
+			if not hasattr(self, "crt_filter"):
+				self.crt_filter = crt.CRTFilter()
+			self.crt_filter.apply(self.display, state.screen, offset, config.CRT_FILTER)
 
 		pygame.display.update()
 

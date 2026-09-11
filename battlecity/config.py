@@ -178,6 +178,10 @@ ENEMY_AI = "CLASSIC"
 # interface language: EN or RU (settings screen)
 LANGUAGE = "EN"
 
+# CRT (old TV) filter over the picture: OFF, SOFT or STRONG (settings screen)
+CRT_MODES = ["OFF", "SOFT", "STRONG"]
+CRT_FILTER = "OFF"
+
 # GAMEPADS (settings screen): gamepad of players 1-3: "AUTO", "OFF" or gamepad number from 0;
 # fire / start button numbers, None - default buttons (A, B, X, Y fire, Start)
 GAMEPAD_ASSIGN = ["AUTO", "AUTO", "AUTO"]
@@ -328,7 +332,7 @@ def levelFile(level_nr):
 def loadSettings():
 	""" Apply settings saved on settings screen """
 	global play_sounds, START_LEVEL, START_FULLSCREEN, PLAYER_CONTROLS, AUTO_FIRE, ENEMY_AI
-	global GAMEPAD_ASSIGN, GAMEPAD_FIRE_BUTTON, GAMEPAD_START_BUTTON, LANGUAGE
+	global GAMEPAD_ASSIGN, GAMEPAD_FIRE_BUTTON, GAMEPAD_START_BUTTON, LANGUAGE, CRT_FILTER
 
 	try:
 		with open(dataFile(SETTINGS_FILE), "r") as f:
@@ -349,6 +353,8 @@ def loadSettings():
 		ENEMY_AI = settings["enemy_ai"]
 	if settings.get("language") in ("EN", "RU"):
 		LANGUAGE = settings["language"]
+	if settings.get("crt") in CRT_MODES:
+		CRT_FILTER = settings["crt"]
 	play_sounds = bool(settings.get("sound", play_sounds))
 	START_FULLSCREEN = bool(settings.get("fullscreen", START_FULLSCREEN))
 
@@ -395,6 +401,7 @@ def saveSettings(fullscreen):
 		"auto_fire": AUTO_FIRE,
 		"enemy_ai": ENEMY_AI,
 		"language": LANGUAGE,
+		"crt": CRT_FILTER,
 		"gamepads": GAMEPAD_ASSIGN,
 		"pad_fire": GAMEPAD_FIRE_BUTTON,
 		"pad_start": GAMEPAD_START_BUTTON,

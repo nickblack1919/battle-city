@@ -53,7 +53,8 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
   shoots bricks on its way and aims at a target in line of fire after a short reaction time; armor tanks go to the
   castle, fast tanks hunt players, other tanks take turns), gamepads: which gamepad every player uses (AUTO, OFF or gamepad number) and gamepad fire /
   start buttons (Enter, then press the gamepad button; left arrow - default buttons), language (EN / RU; Russian
-  text uses pygame default font, the game font has no Cyrillic letters).
+  text uses pygame default font, the game font has no Cyrillic letters), CRT filter (OFF / SOFT / STRONG - old TV
+  look: scanlines, darker edges and rounded corners, STRONG adds light horizontal glow; the game picture itself is not changed).
 - **DEMO** - after 20 seconds in the menu without input the computer plays a 2 player game; any key returns to menu.
 
 Campaign and endless mode have hiscore tables for every difficulty preset: players with top 10 score enter their names after game over.
