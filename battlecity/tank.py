@@ -1,7 +1,7 @@
 # coding=utf-8
 """ Battle City: tanks: player and enemies """
 
-import os, random, uuid, sys, json
+import os, random, uuid, sys, json, heapq
 import pygame
 from pygame.locals import *
 
@@ -344,7 +344,7 @@ class Tank():
 		if self.paused:
 			return False
 
-		if self.side == self.SIDE_ENEMY and random.random() * 100 >= config.CHANCE_OF_FIRE:
+		if self.side == self.SIDE_ENEMY and not self.wantsFire():
 			return False
 
 		if not forced:
@@ -647,7 +647,15 @@ class Enemy(Tank):
 		self.nes_px = 0
 		self.nes_wait = 0
 		self.nes_turn = False
-		if config.ENEMY_AI == "NES":
+		# SMART AI: path (cells), moves to next path update, moves blocked by tank, moves driving at random, frames target seen
+		self.smart_path = None
+		self.smart_timer = 0
+		self.smart_blocked = 0
+		self.smart_wander = 0
+		self.smart_seen = 0
+		self.smart_role = None
+		self.smart_blocked_by = None
+		if config.ENEMY_AI in ("NES", "SMART"):
 			# NES: new enemy drives down
 			self.rotate(self.DIR_DOWN, False)
 
@@ -783,11 +791,14 @@ class Enemy(Tank):
 		self.move_credit += self.speed
 		steps = int(self.move_credit + 1e-9)
 		self.move_credit -= steps
-		if config.ENEMY_AI == "NES":
+		if config.ENEMY_AI in ("NES", "SMART"):
 			self.nes_px += steps
 			while self.nes_px >= 2:
 				self.nes_px -= 2
-				self.moveStepNes()
+				if config.ENEMY_AI == "SMART":
+					self.moveStepSmart()
+				else:
+					self.moveStepNes()
 			return
 		for step in range(steps):
 			# NES: tank on 8 px grid sometimes spends a move choosing direction
@@ -947,12 +958,31 @@ class Enemy(Tank):
 			self.chooseNesGoal()
 			return
 
+		if self.stepForward() in ("edge", "wall", "brick", "tank"):
+			if random.randint(0, 3):
+				self.nes_wait = 2
+			elif aligned:
+				self.nes_turn = True
+			else:
+				self.rotate((self.direction + 2) % 4, False)
+
+	def stepForward(self):
+		""" Move 2 px (one NES px) in current direction
+		@return "moved", "waiting" (just spawned tank waits for older one), or what blocks: "edge", "wall", "brick", "tank"
+		"""
 		dx, dy = [(0, -2), (2, 0), (0, 2), (-2, 0)][self.direction]
 		new_rect = self.rect.move(dx, dy)
 
-		blocked = not pygame.Rect(0, 0, 416, 416).contains(new_rect) or tilesBlock(self.level, new_rect, self.direction, self.canSwim())
+		if not pygame.Rect(0, 0, 416, 416).contains(new_rect):
+			return "edge"
+		if tilesBlock(self.level, new_rect, self.direction, self.canSwim()):
+			bricks = [tile for tile in self.level.mapr if tile.type == self.level.TILE_BRICK]
+			for cx, cy in frontCells(new_rect, self.direction):
+				if pygame.Rect(cx * CELL, cy * CELL, CELL, CELL).collidelist(bricks) != -1:
+					return "brick"
+			return "wall"
 
-		if not blocked and not self.aquired_position:
+		if not self.aquired_position:
 			# just spawned: drive through tanks until free
 			collision = False
 			for enemy in state.enemies:
@@ -960,26 +990,16 @@ class Enemy(Tank):
 					collision = True
 					# overlapping tanks: positioned or older tank drives away first
 					if enemy.aquired_position or state.enemies.index(enemy) < state.enemies.index(self):
-						return
+						return "waiting"
 			for player in state.players:
 				if player.state == player.STATE_ALIVE and new_rect.colliderect(player.rect):
 					collision = True
 			if not collision:
 				self.aquired_position = True
-		elif not blocked:
+		else:
 			for tank in state.enemies + state.players:
 				if tank != self and tank.state == tank.STATE_ALIVE and getattr(tank, "aquired_position", True) and tankBlocks(new_rect, self.direction, tank):
-					blocked = True
-					break
-
-		if blocked:
-			if random.randint(0, 3):
-				self.nes_wait = 2
-			elif aligned:
-				self.nes_turn = True
-			else:
-				self.rotate((self.direction + 2) % 4, False)
-			return
+					return "tank"
 
 		if config.ENEMY_PICKUP_BONUSES:
 			for bonus in state.bonuses:
@@ -987,6 +1007,284 @@ class Enemy(Tank):
 					self.bonus_aquired = bonus
 
 		self.rect.topleft = new_rect.topleft
+		return "moved"
+
+	def wantsFire(self):
+		""" Enemy decides to fire: CLASSIC and NES AI at random, SMART AI when target or brick on its way is ahead """
+		if config.ENEMY_AI == "SMART":
+			if self.smartWantsFire():
+				# reaction time: target must be seen for a while
+				self.smart_seen += 1
+				return self.smart_seen > config.SMART_REACTION_FRAMES
+			self.smart_seen = 0
+			return random.random() * 100 < config.CHANCE_OF_FIRE / 2
+		return random.random() * 100 < config.CHANCE_OF_FIRE
+
+	def lineTo(self, direction, target):
+		""" Bullet line from tank in direction
+		@return (target rect is on the line, steel between, bricks between)
+		"""
+		r = self.rect
+		if direction == self.DIR_UP:
+			ray, dist = pygame.Rect(r.centerx - 4, 0, 8, r.top), lambda t: r.top - t.bottom
+		elif direction == self.DIR_DOWN:
+			ray, dist = pygame.Rect(r.centerx - 4, r.bottom, 8, max(0, 416 - r.bottom)), lambda t: t.top - r.bottom
+		elif direction == self.DIR_LEFT:
+			ray, dist = pygame.Rect(0, r.centery - 4, r.left, 8), lambda t: r.left - t.right
+		else:
+			ray, dist = pygame.Rect(r.right, r.centery - 4, max(0, 416 - r.right), 8), lambda t: t.left - r.right
+		if not ray.colliderect(target):
+			return False, False, False
+		target_dist = dist(target)
+		steel = brick = False
+		for tile in self.level.mapr:
+			if tile.type in (self.level.TILE_BRICK, self.level.TILE_STEEL) and ray.colliderect(tile) and dist(tile) < target_dist:
+				if tile.type == self.level.TILE_STEEL:
+					steel = True
+				else:
+					brick = True
+		return True, steel, brick
+
+	def smartTarget(self):
+		""" SMART AI target rect: armor tank goes to castle, fast tank hunts nearest player, others by turns """
+		if self.smart_role == None:
+			if self.type == self.TYPE_ARMOR:
+				self.smart_role = "castle"
+			elif self.type == self.TYPE_FAST:
+				self.smart_role = "player"
+			else:
+				Enemy.smart_roles_given = getattr(Enemy, "smart_roles_given", 0) + 1
+				self.smart_role = "castle" if Enemy.smart_roles_given % 2 else "player"
+		players = [player for player in state.players if player.state == player.STATE_ALIVE]
+		if self.smart_role == "player" and players:
+			return min(players, key=lambda p: abs(p.rect.centerx - self.rect.centerx) + abs(p.rect.centery - self.rect.centery)).rect
+		return state.castle.rect
+
+	def smartAim(self):
+		""" Direction to player in clear line or to castle behind bricks, None if no target in line """
+		for direction in range(4):
+			for player in state.players:
+				if player.state == player.STATE_ALIVE:
+					in_line, steel, brick = self.lineTo(direction, player.rect)
+					if in_line and not steel and not brick:
+						return direction
+			if state.castle.active and self.smart_role == "castle":
+				in_line, steel, brick = self.lineTo(direction, state.castle.rect)
+				if in_line and not steel:
+					return direction
+		return None
+
+	def smartWantsFire(self):
+		""" Target ahead: player in clear line, castle (bricks can be shot through) or brick on the way """
+		for player in state.players:
+			if player.state == player.STATE_ALIVE:
+				in_line, steel, brick = self.lineTo(self.direction, player.rect)
+				if in_line and not steel and not brick:
+					return True
+		if state.castle.active:
+			in_line, steel, brick = self.lineTo(self.direction, state.castle.rect)
+			if in_line and not steel:
+				return True
+		return self.smart_blocked_by == "brick"
+
+	def smartPath(self):
+		""" Cheapest path of 16 px steps to a place from which target can be shot (Dijkstra on 25x25 tank places)
+		Bricks cost more (they are shot through), steel and water can't be passed
+		@return list of cells (tank's top left 16 px cell) without current one, None if there is no way
+		"""
+		target = self.smartTarget()
+		level = self.level
+		can_swim = self.canSwim()
+		# cost of 16 px map cell, None - impassable
+		costs = [[1] * 26 for i in range(26)]
+		for tile in level.mapr:
+			if tile.type == level.TILE_BRICK:
+				cost = config.SMART_BRICK_COST
+			elif tile.type == level.TILE_STEEL:
+				cost = None
+			elif tile.type == level.TILE_WATER and not can_swim:
+				cost = None
+			else:
+				continue
+			for cy in range(tile.top // CELL, (tile.bottom - 1) // CELL + 1):
+				for cx in range(tile.left // CELL, (tile.right - 1) // CELL + 1):
+					if 0 <= cx < 26 and 0 <= cy < 26 and costs[cy][cx] != None:
+						costs[cy][cx] = None if cost == None else max(costs[cy][cx], cost)
+		for castle in state.game.castles():
+			for cy in range(castle.rect.top // CELL, (castle.rect.bottom - 1) // CELL + 1):
+				for cx in range(castle.rect.left // CELL, (castle.rect.right - 1) // CELL + 1):
+					costs[cy][cx] = None
+
+		def placeCost(x, y):
+			cells = [costs[y][x], costs[y][x + 1], costs[y + 1][x], costs[y + 1][x + 1]]
+			return None if None in cells else max(cells)
+
+		# bullets can't fly through steel
+		steel = set([(tile.left // CELL, tile.top // CELL) for tile in level.mapr if tile.type == level.TILE_STEEL])
+		target_x0, target_x1 = target.left // CELL, (target.right - 1) // CELL
+		target_y0, target_y1 = target.top // CELL, (target.bottom - 1) // CELL
+
+		def isGoal(x, y):
+			# tank center on target's center line, no steel between
+			cx, cy = x * CELL + CELL, y * CELL + CELL
+			if abs(cx - target.centerx) < CELL // 2:
+				if y + 1 < target_y0:
+					rows = range(y + 2, target_y0)
+				elif y > target_y1:
+					rows = range(target_y1 + 1, y)
+				else:
+					return False
+				return not any([(col, row) in steel for col in (x, x + 1) for row in rows])
+			if abs(cy - target.centery) < CELL // 2:
+				if x + 1 < target_x0:
+					cols = range(x + 2, target_x0)
+				elif x > target_x1:
+					cols = range(target_x1 + 1, x)
+				else:
+					return False
+				return not any([(col, row) in steel for row in (y, y + 1) for col in cols])
+			return False
+
+		start = (self.rect.left // CELL, self.rect.top // CELL)
+		best = {start: 0}
+		previous = {}
+		queue = [(0, start)]
+		goal = None
+		while queue:
+			cost, place = heapq.heappop(queue)
+			if cost > best.get(place, cost):
+				continue
+			if isGoal(*place):
+				goal = place
+				break
+			x, y = place
+			for nx, ny in ((x, y - 1), (x + 1, y), (x, y + 1), (x - 1, y)):
+				if 0 <= nx <= 24 and 0 <= ny <= 24:
+					step = placeCost(nx, ny)
+					if step != None and cost + step < best.get((nx, ny), 10 ** 9):
+						best[(nx, ny)] = cost + step
+						previous[(nx, ny)] = place
+						heapq.heappush(queue, (cost + step, (nx, ny)))
+		if goal == None:
+			return None
+		path = []
+		while goal != start:
+			path.append(goal)
+			goal = previous[goal]
+		path.reverse()
+		return path
+
+	def moveStepSmart(self):
+		""" SMART AI: move 2 px. On 16 px grid: turn to target in line of fire, otherwise follow cheapest path;
+		shoot bricks on the way, wait for tanks, drive a bit at random when stuck """
+		if self.state != self.STATE_ALIVE or self.paused or self.paralised:
+			return
+
+		if self.nes_wait > 0:
+			self.nes_wait -= 1
+			return
+
+		if self.rect.left % CELL == 0 and self.rect.top % CELL == 0:
+			place = (self.rect.left // CELL, self.rect.top // CELL)
+			aim = self.smartAim()
+			if self.smart_wander > 0:
+				self.smart_wander -= 1
+			elif aim != None:
+				self.rotate(aim, False)
+			else:
+				self.smart_timer -= 1
+				if self.smart_path and self.smart_path[0] == place:
+					self.smart_path.pop(0)
+				if self.smart_timer <= 0 or not self.smart_path:
+					self.smart_path = self.smartPath()
+					self.smart_timer = config.SMART_PATH_CELLS
+				if self.smart_path:
+					x, y = self.smart_path[0]
+					if x != place[0] or y != place[1]:
+						if abs(x - place[0]) + abs(y - place[1]) != 1:
+							# path from other place: find again
+							self.smart_path = self.smartPath()
+						if self.smart_path:
+							x, y = self.smart_path[0]
+							self.rotate([self.DIR_UP, self.DIR_RIGHT, self.DIR_DOWN, self.DIR_LEFT][
+								[(0, -1), (1, 0), (0, 1), (-1, 0)].index((x - place[0], y - place[1]))] if (x - place[0], y - place[1]) in [(0, -1), (1, 0), (0, 1), (-1, 0)] else self.direction, False)
+				elif self.smart_path == None:
+					# no way: drive somewhere else for a while
+					self.rotate(random.randint(0, 3), False)
+					self.smart_wander = 4
+		elif self.smart_wander == 0 and not self.canStep(self.direction):
+			# between cells and blocked: turn to a target in line of fire (e.g. player right next to it) and shoot
+			aim = self.smartAim()
+			if aim != None:
+				self.rotate(aim, False)
+
+		result = self.stepForward()
+		self.smart_blocked_by = result if result in ("brick", "tank") else None
+		if result == "moved":
+			self.smart_blocked = 0
+		elif result == "brick":
+			# shoot through
+			self.nes_wait = 2
+		elif result in ("tank", "edge", "wall"):
+			self.smart_blocked += 1
+			self.nes_wait = 2
+			self.smart_timer = 0
+			if self.smart_blocked > config.SMART_STUCK_MOVES or result != "tank":
+				self.smart_blocked = 0
+				self.smartSidestep()
+
+	def stepBlock(self, direction):
+		""" What blocks 2 px move in direction: None (free), "edge", "wall", "brick" or "tank" """
+		dx, dy = [(0, -2), (2, 0), (0, 2), (-2, 0)][direction]
+		new_rect = self.rect.move(dx, dy)
+		if not pygame.Rect(0, 0, 416, 416).contains(new_rect):
+			return "edge"
+		if tilesBlock(self.level, new_rect, direction, self.canSwim()):
+			bricks = [tile for tile in self.level.mapr if tile.type == self.level.TILE_BRICK]
+			for cx, cy in frontCells(new_rect, direction):
+				if pygame.Rect(cx * CELL, cy * CELL, CELL, CELL).collidelist(bricks) != -1:
+					return "brick"
+			return "wall"
+		for tank in state.enemies + state.players:
+			if tank != self and tank.state == tank.STATE_ALIVE and getattr(tank, "aquired_position", True) and tankBlocks(new_rect, direction, tank):
+				return "tank"
+		return None
+
+	def canStep(self, direction):
+		""" Tank could move 2 px in direction: no screen edge, wall or tank in front """
+		return self.stepBlock(direction) == None
+
+	def smartSidestep(self):
+		""" Blocked tank drives aside for a while: to a free side (onto 16 px grid first if tank is between cells),
+		else back; boxed in tank shoots through bricks """
+		horizontal = [self.DIR_RIGHT, self.DIR_LEFT]
+		vertical = [self.DIR_UP, self.DIR_DOWN]
+		random.shuffle(horizontal)
+		random.shuffle(vertical)
+		# between cells: towards nearest cell first
+		if self.rect.left % CELL:
+			horizontal.sort(key=lambda d: 0 if (d == self.DIR_RIGHT) == (self.rect.left % CELL >= CELL // 2) else 1)
+		if self.rect.top % CELL:
+			vertical.sort(key=lambda d: 0 if (d == self.DIR_DOWN) == (self.rect.top % CELL >= CELL // 2) else 1)
+		back = (self.direction + 2) % 4
+		choices = (horizontal if self.direction in vertical else vertical) + [back]
+		if self.rect.left % CELL:
+			choices = horizontal + [d for d in choices if d not in horizontal]
+		elif self.rect.top % CELL:
+			choices = vertical + [d for d in choices if d not in vertical]
+		blocks = dict([(direction, self.stepBlock(direction)) for direction in set(choices + [self.direction])])
+		free = [direction for direction in choices if blocks[direction] == None]
+		bricks = [direction for direction in [self.direction] + choices if blocks[direction] == "brick"]
+		if free:
+			self.rotate(free[0], False)
+			self.smart_wander = 2
+		elif bricks:
+			# shoot through
+			self.rotate(bricks[0], False)
+			self.smart_blocked_by = "brick"
+		else:
+			self.rotate(random.choice(choices), False)
+			self.smart_wander = 2
 
 	def update(self, time_passed):
 		Tank.update(self, time_passed)

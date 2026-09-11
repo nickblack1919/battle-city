@@ -166,7 +166,12 @@ TWO_PLAYER_KILLS_BONUS = 1000	# 2+ players: player who destroyed most tanks on s
 ENEMY_AI_BASE_CHANCE = 30	# % chance enemy prefers directions towards player's castle (CLASSIC AI)
 # CLASSIC - random paths, sometimes towards castle; NES - like NES: random directions at stage start,
 # then chasing players, then going to castle; blocked tank waits or turns
-ENEMY_AI_TYPES = ["CLASSIC", "NES"]
+# SMART - finds shortest way to player or castle, shoots bricks on its way, aims at targets in line of fire
+ENEMY_AI_TYPES = ["CLASSIC", "NES", "SMART"]
+SMART_REACTION_FRAMES = 12	# SMART AI fires after target was in line of fire for n frames
+SMART_BRICK_COST = 4	# SMART AI: brick cell costs like n empty cells on the way
+SMART_PATH_CELLS = 2	# SMART AI finds way again every n cells
+SMART_STUCK_MOVES = 4	# SMART AI blocked by tank n times drives aside
 ENEMY_AI = "CLASSIC"
 
 # interface language: EN or RU (settings screen)
