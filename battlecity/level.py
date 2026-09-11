@@ -22,9 +22,10 @@ class Level():
 	# tile width/height in px
 	TILE_SIZE = 16
 
-	def __init__(self, level_nr = None):
+	def __init__(self, level_nr = None, rows = None):
 		""" There are total 35 different levels. If level_nr is larger than 35, loop over
-		to next according level so, for example, if level_nr ir 37, then load level 2 """
+		to next according level so, for example, if level_nr ir 37, then load level 2
+		rows: map rows (e.g. generated level) instead of level file """
 
 
 		# max number of enemies simultaneously  being on map
@@ -63,7 +64,10 @@ class Level():
 			if level_nr == 0:
 				level_nr = 35
 
-		self.loadLevel(level_nr)
+		if rows != None:
+			self.loadRows(rows)
+		else:
+			self.loadLevel(level_nr)
 
 		# tiles' rects on map, tanks cannot move over
 		self.obstacle_rects = []
