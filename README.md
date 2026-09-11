@@ -126,6 +126,15 @@ Saved in the game directory (or in `BATTLE_CITY_DATA_DIR` if set):
 | `.hiscores.json` | hiscore tables with names |
 | `custom_levels/` | levels made in editor |
 
+## Mac app
+
+```bash
+./build_app.sh
+```
+
+Builds `dist/Battle City.app` with PyInstaller (`venv/bin/pip install pyinstaller` first), spec is `battle_city.spec`.
+The app saves files to `~/Library/Application Support/Battle City` (or to `BATTLE_CITY_DATA_DIR` if set).
+
 ## Tests
 
 ```bash

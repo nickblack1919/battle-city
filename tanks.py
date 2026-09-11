@@ -6,6 +6,12 @@ Run: python tanks.py [-l LEVEL] [-f]
 Game code is in battlecity package, settings in battlecity/config.py
 """
 
+import os, sys
+
+# Mac app (PyInstaller): fonts, images, levels and sounds are read from the bundle
+if getattr(sys, "frozen", False):
+	os.chdir(sys._MEIPASS)
+
 from battlecity import config, state
 from battlecity.timer import Timer
 from battlecity.castle import Castle
