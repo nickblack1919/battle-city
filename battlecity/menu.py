@@ -98,9 +98,10 @@ class MenuMixin():
 
 			if activate:
 				label, action, argument = items[self.menu_index]
-				if action == "play":
+				if action in ("play", "play_bot"):
 					self.mode = "campaign"
 					self.nr_of_players = argument
+					self.bot = action == "play_bot"
 					self.stage = config.START_LEVEL - 1
 					del state.players[:]
 					return self.nextLevel
@@ -111,19 +112,22 @@ class MenuMixin():
 						self.mode = "campaign"
 						self.test_play = True
 						self.nr_of_players = 1
+						self.bot = False
 						del state.players[:]
 						return self.nextLevel
 					self.drawIntroScreen()
 				elif action == "versus":
 					self.mode = "versus"
 					self.nr_of_players = 2
+					self.bot = False
 					self.stage = 0
 					self.versus_winner = None
 					del state.players[:]
 					return self.nextLevel
-				elif action == "endless":
+				elif action in ("endless", "endless_bot"):
 					self.mode = "endless"
 					self.nr_of_players = argument
+					self.bot = action == "endless_bot"
 					self.stage = config.START_LEVEL - 1
 					self.first_stage = config.START_LEVEL
 					del state.players[:]
@@ -132,6 +136,7 @@ class MenuMixin():
 					# campaign on generated maps, seed is saved with the game
 					self.mode = "random"
 					self.nr_of_players = argument
+					self.bot = False
 					self.stage = config.START_LEVEL - 1
 					self.level_seed = random.randrange(1, 2 ** 31)
 					del state.players[:]
@@ -141,6 +146,7 @@ class MenuMixin():
 					date = levelgen.dailyDate()
 					self.mode = "daily"
 					self.nr_of_players = 1
+					self.bot = False
 					self.daily_date = date
 					self.level_seed = levelgen.dailySeed(date)
 					self.stage = levelgen.dailyStage(date) - 1
@@ -160,6 +166,7 @@ class MenuMixin():
 		self.demo = True
 		self.mode = "campaign"
 		self.nr_of_players = 2
+		self.bot = False
 		self.stage = random.randint(0, 34)
 		self.loaded_players_stats = None
 		del state.players[:]
@@ -223,6 +230,8 @@ class MenuMixin():
 		""" Main menu items: [label, action, argument] """
 		items = [
 			["1 PLAYER", "play", 1],
+			# player 2 is computer partner
+			["1 PLAYER + BOT", "play_bot", 2],
 			["2 PLAYERS", "play", 2],
 			["3 PLAYERS", "play", 3],
 		]
@@ -230,6 +239,7 @@ class MenuMixin():
 		if os.path.isfile(config.dataFile(config.SAVEGAME_FILE)):
 			items.append(["CONTINUE", "continue", None])
 		items.append(["ENDLESS 1P", "endless", 1])
+		items.append(["ENDLESS 1P + BOT", "endless_bot", 2])
 		items.append(["ENDLESS 2P", "endless", 2])
 		items.append(["RANDOM LEVELS", "random", 1])
 		items.append(["LEVEL OF THE DAY", "daily", 1])

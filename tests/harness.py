@@ -113,8 +113,9 @@ class Context(object):
 
 
 def default_menu(players):
-	""" Skip intro animation, select number of players, start game """
-	sequence = [pygame.K_RETURN] + [pygame.K_DOWN] * (players - 1) + [pygame.K_RETURN]
+	""" Skip intro animation, select number of players, start game
+	Menu: 1 PLAYER, 1 PLAYER + BOT, 2 PLAYERS, 3 PLAYERS """
+	sequence = [pygame.K_RETURN] + [pygame.K_DOWN] * {1: 0, 2: 2, 3: 3}[players] + [pygame.K_RETURN]
 
 	def menu(ctx):
 		i = ctx.menu_frame - 1

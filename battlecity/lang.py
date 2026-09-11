@@ -15,10 +15,12 @@ LANGUAGES = ["EN", "RU"]
 # whole texts
 PHRASES = {
 	"1 PLAYER": "1 ИГРОК",
+	"1 PLAYER + BOT": "1 ИГРОК + БОТ",
 	"2 PLAYERS": "2 ИГРОКА",
 	"3 PLAYERS": "3 ИГРОКА",
 	"CONTINUE": "ПРОДОЛЖИТЬ",
 	"ENDLESS 1P": "БЕСКОНЕЧНО 1",
+	"ENDLESS 1P + BOT": "БЕСКОНЕЧНО 1 + БОТ",
 	"ENDLESS 2P": "БЕСКОНЕЧНО 2",
 	"LEVEL EDITOR": "РЕДАКТОР",
 	"RANDOM LEVELS": "СЛУЧАЙНЫЕ УРОВНИ",
@@ -85,6 +87,7 @@ WORDS = {
 	"II-PLAYER": "II-ИГРОК",
 	"III-PLAYER": "III-ИГРОК",
 	"PLAYER": "ИГРОК",
+	"BOT": "БОТ",
 	"BONUS": "БОНУС",
 	"TOTAL": "ВСЕГО",
 	"PTS": "ОЧК",

@@ -32,7 +32,7 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
 | Enter | pause |
 | Ctrl+F / Cmd+F / Alt+Enter | full screen / window |
 | M | sound on / off |
-| B | borrow a life from partner for a player without lives |
+| B | borrow a life from partner for a player without lives (bot never gets a human's life) |
 | ESC | quit (in editor and settings: back to menu) |
 | P | freeze enemies (debug, only with `DEBUG_KEYS = True` in config) |
 | V | debug sprites and grid (debug, only with `DEBUG_KEYS = True` in config) |
@@ -40,8 +40,13 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
 ## Game modes
 
 - **1 / 2 / 3 PLAYERS** - campaign: 35 stages, scores screen after every stage. Progress is saved after each stage.
+- **1 PLAYER + BOT** - campaign with a computer partner playing player 2 (shown as BOT). It drives with the same speed
+  and bullets as a human: finds the best place to shoot enemies from (enemies near the castle first, defends the castle),
+  fires only when neither the castle, fortress walls nor the human are in its line of fire, dodges enemy bullets, steps out
+  of enemy lines of fire while its bullet isn't ready, picks up near bonuses the human isn't closer to and drives out of
+  the human's way. P2 keys and gamepads don't control it; its score doesn't go to hiscores; saved game remembers it.
 - **CONTINUE** - continue saved campaign (shown when there is a saved game).
-- **ENDLESS 1P / 2P** - waves of enemies until game over, every wave is harder.
+- **ENDLESS 1P / 1P + BOT / 2P** - waves of enemies until game over, every wave is harder.
 - **RANDOM LEVELS** - 1 player campaign on generated maps: every game gets a new random seed, every stage a new
   map; later stages have denser maps with more steel and water, enemies come from the stage tables. The seed is
   saved with the game, so CONTINUE gives the same maps.

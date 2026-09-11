@@ -183,6 +183,31 @@ SMART_JUKE_CHANCE = 35	# % SMART AI steps out of player's line of fire when its 
 SMART_FEINT_CHANCE = 8	# % SMART AI turns aside from its way for one cell (hard to predict)
 ENEMY_AI = "CLASSIC"
 
+# BOT: computer partner of one human player ("1 PLAYER + BOT"), drives player 2 tank with the same speed and bullets
+BOT_REACTION_FRAMES = 8	# bot fires after enemy was in its line of fire for n frames (1 frame = 20 ms)
+BOT_FIRE_INTERVAL = 8	# bot presses fire at most every n frames
+BOT_DODGE_CHANCE = 75	# % of enemy bullets flying at the bot it dodges or shoots down
+BOT_DODGE_REACTION_FRAMES = 6	# frames before bot reacts to enemy bullet
+BOT_JUKE_CHANCE = 50	# % bot steps out of enemy's line of fire while its own bullet isn't ready
+BOT_JUKE_DISTANCE = 160	# px: enemies further away don't make bot step aside
+BOT_PLAN_FRAMES = 10	# bot chooses target and way again every n frames
+BOT_BRICK_COST = 6	# brick cell on bot's way costs like n empty cells (bot shoots through)
+BOT_BRICK_SHOT_COST = 3	# brick row between place and enemy costs like n cells of way
+BOT_MAX_BRICK_CELLS = 1	# bot shoots at enemies through at most n brick rows (16 px)
+BOT_CASTLE_PRIORITY = 0.5	# enemy n cells closer to the castle is preferred like a way n * this cells shorter
+BOT_DEFEND_DISTANCE = 144	# px: enemies this close to the castle center are attacked first, others are ignored
+BOT_BONUS_DISTANCE = 14	# bot picks up bonuses up to n cells of way away (if the human isn't closer)
+BOT_BONUS_VALUE = 10	# bonus place is preferred like a way n cells shorter
+BOT_GOAL_STICKINESS = 6	# bot keeps chosen place while it costs at most n more than the best one
+BOT_POINT_BLANK = 48	# px: enemy this close surely stops the bullet: human or fortress walls behind it don't stop fire
+BOT_STUCK_FRAMES = 10	# bot not moving n frames shoots brick in front or drives aside
+BOT_STUCK_AVOID_FRAMES = 150	# ... and avoids that cell for n frames
+BOT_YIELD_FRAMES = 20	# human blocked by bot for n frames: bot drives out of his way
+BOT_YIELD_AVOID_FRAMES = 150	# ... and avoids human's lane for n frames
+BOT_AVOID_COST = 8	# avoided cell costs like n cells of way
+BOT_HUMAN_COST = 6	# cell with human's tank costs like n cells of way
+BOT_ENEMY_COST = 3	# cell with enemy tank costs like n cells of way
+
 # interface language: EN or RU (settings screen)
 LANGUAGE = "EN"
 

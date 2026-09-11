@@ -174,7 +174,8 @@ class ScreensMixin():
 		hiscore = self.loadHiscore()
 
 		# update hiscore if needed
-		best_score = max([player.score for player in state.players])
+		# bot's score doesn't count
+		best_score = max([player.score for player in state.players if not player.bot] or [0])
 		if best_score > hiscore:
 			hiscore = best_score
 			self.saveHiscore(hiscore)
@@ -210,7 +211,10 @@ class ScreensMixin():
 		state.screen.blit(self.text(str(state.players[0].score).rjust(8), False, pink), [25, 125])
 
 		if self.nr_of_players >= 2:
-			state.screen.blit(self.text("II-PLAYER", False, purple), [310, 95])
+			if state.players[1].bot:
+				state.screen.blit(self.text("BOT", False, purple), [350, 95])
+			else:
+				state.screen.blit(self.text("II-PLAYER", False, purple), [310, 95])
 
 			#player 2 global score
 			state.screen.blit(self.text(str(state.players[1].score).rjust(8), False, pink), [325, 125])
@@ -290,8 +294,9 @@ class ScreensMixin():
 			state.screen.blit(self.text(kills_text, False, white), [25, 395])
 
 		if kills_bonus_player != None:
-			player_names = ["I", "II", "III"]
-			bonus_text = self.text(player_names[kills_bonus_player] + "-PLAYER BONUS " + str(config.TWO_PLAYER_KILLS_BONUS), False, white)
+			player_names = ["I-PLAYER", "II-PLAYER", "III-PLAYER"]
+			name = "BOT" if state.players[kills_bonus_player].bot else player_names[kills_bonus_player]
+			bonus_text = self.text(name + " BONUS " + str(config.TWO_PLAYER_KILLS_BONUS), False, white)
 			state.screen.blit(bonus_text, [(480 - bonus_text.get_width()) // 2, 355])
 
 		self.flip()
@@ -367,6 +372,9 @@ class ScreensMixin():
 
 		entered = False
 		for player_nr, player in enumerate(state.players):
+			# only humans enter hiscore tables
+			if player.bot:
+				continue
 			if self.qualifiesForHiscores(table, player.score):
 				table.append([self.enterName(player_nr, player.score), player.score])
 				# stable sort: earlier entry with the same score stays higher
@@ -541,7 +549,7 @@ class ScreensMixin():
 		return True
 
 	def saveGame(self):
-		""" Save progress after completed stage: stage, number of players, preset,
+		""" Save progress after completed stage: stage, number of players, player 2 is bot, preset,
 		players' score, lives and superpowers
 		"""
 		data = {
@@ -550,6 +558,7 @@ class ScreensMixin():
 			"seed": self.level_seed if self.mode == "random" else None,
 			"stage": self.stage,
 			"nr_of_players": self.nr_of_players,
+			"bot": self.bot,
 			"preset": config.CURRENT_PRESET,
 			"players": [{
 				"score": player.score,
@@ -575,6 +584,7 @@ class ScreensMixin():
 			nr_of_players = int(data["nr_of_players"])
 			mode = data.get("mode", "campaign")
 			seed = int(data["seed"]) if mode == "random" else None
+			bot = bool(data.get("bot", False))
 			stats = [{
 				"score": int(player["score"]),
 				"lives": int(player["lives"]),
@@ -598,6 +608,7 @@ class ScreensMixin():
 		self.level_seed = seed
 		self.stage = stage
 		self.nr_of_players = nr_of_players
+		self.bot = bot and nr_of_players == 2
 		self.loaded_players_stats = stats
 		return True
 

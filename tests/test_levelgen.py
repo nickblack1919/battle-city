@@ -221,7 +221,7 @@ def menu_fits(ctx):
 	labels = [item[0] for item in items]
 	ctx.check("new items after ENDLESS 2P, before VERSUS (%s)" % labels,
 		labels.index("RANDOM LEVELS") == labels.index("ENDLESS 2P") + 1 and labels.index("LEVEL OF THE DAY") + 1 == labels.index("VERSUS"))
-	ctx.check("CONTINUE still 4th item", labels[3] == "CONTINUE")
+	ctx.check("CONTINUE after campaign items (%s)" % labels, labels[labels.index("3 PLAYERS") + 1] == "CONTINUE")
 	visible = True
 	for i in range(len(items)):
 		game.menu_index = i
