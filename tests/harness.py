@@ -6,10 +6,12 @@ and returns list of events to inject.
 
 Each test file defines SCENARIOS dict and calls harness.main(SCENARIOS). Without arguments
 every scenario runs in its own process (game uses module globals, so it can't be restarted
-in the same process).
+in the same process). Scenario processes run in parallel, results are printed in SCENARIOS
+order. Worker count: BATTLE_CITY_TEST_WORKERS environment variable, default os.cpu_count().
 """
 
-import os, sys, time, runpy, inspect, subprocess, tempfile
+import os, sys, time, runpy, inspect, subprocess, tempfile, threading
+from concurrent.futures import ThreadPoolExecutor
 
 GAME_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GAME_FILE = os.path.join(GAME_DIR, "tanks.py")
@@ -212,17 +214,50 @@ def main(scenarios):
 		sys.stdout.flush()
 		os._exit(1 if failed else 0)
 
+	exit_code = 0
+	for output, ok in run_parallel([(os.path.abspath(sys.argv[0]), name, scenarios[name]) for name in scenarios]):
+		if output:
+			print(output)
+		if not ok:
+			exit_code = 1
+	sys.exit(exit_code)
+
+
+def worker_count():
+	""" BATTLE_CITY_TEST_WORKERS or number of CPUs """
+	try:
+		return max(1, int(os.environ["BATTLE_CITY_TEST_WORKERS"]))
+	except (KeyError, ValueError):
+		return os.cpu_count() or 4
+
+
+def run_parallel(jobs, workers=None):
+	""" Run (test file, scenario name, options) jobs in separate processes in parallel.
+	Yields (output text, passed) in jobs order as soon as results are available.
+	Real time scenarios run at most half the workers at once so they are not starved. """
+
+	workers = workers or worker_count()
+	real_time_slots = threading.Semaphore(max(1, workers // 2))
+
 	# every scenario gets its own empty data directory
 	env = dict(os.environ)
 	env.pop("BATTLE_CITY_DATA_DIR", None)
 
-	exit_code = 0
-	for name in scenarios:
-		result = subprocess.run([sys.executable, sys.argv[0], name], capture_output=True, text=True, env=env)
+	def run_job(job):
+		path, name, options = job
+		real_time = options.get("real_time")
+		if real_time:
+			real_time_slots.acquire()
+		try:
+			result = subprocess.run([sys.executable, path, name], capture_output=True, text=True, env=env)
+		finally:
+			if real_time:
+				real_time_slots.release()
 		lines = [line for line in result.stdout.splitlines() if line.startswith(("OK", "FAIL"))]
-		print("\n".join(lines))
-		if result.returncode != 0:
-			exit_code = 1
-			if not any(line.startswith("FAIL") for line in lines):
-				print("FAIL [%s] crashed:\n%s" % (name, result.stderr[-2000:]))
-	sys.exit(exit_code)
+		if result.returncode != 0 and not any(line.startswith("FAIL") for line in lines):
+			lines.append("FAIL [%s] crashed:\n%s" % (name, result.stderr[-2000:]))
+		return "\n".join(lines), result.returncode == 0
+
+	with ThreadPoolExecutor(max_workers=workers) as pool:
+		for future in [pool.submit(run_job, job) for job in jobs]:
+			yield future.result()
