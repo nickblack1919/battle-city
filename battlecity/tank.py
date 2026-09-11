@@ -714,6 +714,9 @@ class Enemy(Tank):
 		steps = int(self.move_credit + 1e-9)
 		self.move_credit -= steps
 		for step in range(steps):
+			# NES: tank on 8 px grid sometimes spends a move choosing direction
+			if self.rect.left % 16 == 0 and self.rect.top % 16 == 0 and random.random() < config.ENEMY_GRID_PAUSE_CHANCE:
+				continue
 			self.moveStep()
 
 	def moveStep(self):

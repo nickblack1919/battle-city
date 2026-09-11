@@ -1298,6 +1298,8 @@ class Game():
 					"value": pygame.key.name(config.PLAYER_CONTROLS[player_nr][control]).upper(),
 					"type": "control", "player": player_nr, "control": control
 				})
+		# frame rate of NES version: speeds and timings
+		items.append({"label": "NES SPEED", "value": config.NES_VERSION, "type": "nes"})
 		items.append({"label": "RESET CONTROLS", "value": "", "type": "reset"})
 		items.append({"label": "BACK", "value": "", "type": "back"})
 		return items
@@ -1386,6 +1388,10 @@ class Game():
 					pygame.mixer.stop()
 		elif kind == "fullscreen":
 			self.toggleFullScreen()
+		elif kind == "nes":
+			names = sorted(config.NES_VERSIONS)
+			index = names.index(config.NES_VERSION) if config.NES_VERSION in names else 0
+			config.applyNesVersion(names[(index + change) % len(names)])
 		elif kind == "level":
 			config.START_LEVEL = (config.START_LEVEL - 1 + change) % 35 + 1
 			self.stage = config.START_LEVEL - 1

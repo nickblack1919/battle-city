@@ -45,7 +45,7 @@ then to players 1 and 2; gamepad Start pauses the game.
 - **VERSUS** - two players fight each other, each defends own castle; destroyed castle or no lives left loses.
 - **LEVEL EDITOR** - edit any of 35 levels: arrows / mouse move cursor, 1-5 tile, 0 eraser, space / left mouse draw,
   right mouse erase, `[` `]` level, S save, D back to original level, T save and play.
-- **SETTINGS** - difficulty preset, sound, full screen, start level, controls.
+- **SETTINGS** - difficulty preset, sound, full screen, start level, controls, NES speed (DENDY / NTSC).
 
 Campaign and endless mode have hiscore tables: players with top 10 score enter their names after game over.
 
@@ -57,9 +57,10 @@ Campaign and endless mode have hiscore tables: players with top 10 score enter t
 | GOOD (default) | more enemies, enemies pick up bonuses, player starts with one star, new enemies |
 | EXTREME | even more enemies in 2-3 player games |
 
-In every preset timings are taken from NES version (disassembly, converted from 60 fps): tank and bullet speeds,
-shield, helmet, shovel and clock durations, enemy fire rate, spawn animation, 3 lives. All values are in
-`battlecity/config.py`.
+In every preset timings are taken from NES version (disassembly, counted in NES frames): tank and bullet speeds,
+shield, helmet, shovel and clock durations, enemy fire rate, spawn animation, 3 lives. NES SPEED on settings
+screen selects frame rate of the console: DENDY (PAL, 50 fps, default) or NTSC (Japan / USA, 60 fps, everything
+1/5 faster). All values are in `battlecity/config.py`.
 
 ## Bonuses
 

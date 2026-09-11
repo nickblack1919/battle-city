@@ -68,7 +68,9 @@ def gamepad(ctx):
 	# gamepad state is read at the start of a frame and applied after event.get(),
 	# so a button set in frame N is handled in frame N+1 and visible to checks in frame N+2
 	if ctx.frame == 25:
-		d["bullets"] = len([b for b in g["bullets"] if b.owner_class is p3])
+		# A held since menu fires right after P3 appears: remove that bullet, P3 has 1 bullet quota
+		g["bullets"][:] = [b for b in g["bullets"] if b.owner_class is not p3]
+		d["bullets"] = 0
 		pad0.buttons = {"fire": True}
 	if ctx.frame == 27:
 		pad0.buttons = {}
