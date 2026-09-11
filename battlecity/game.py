@@ -575,6 +575,11 @@ class Game():
 				elif self.isFullScreenKey(event):
 					self.toggleFullScreen()
 
+	def delayFrames(self, frames):
+		""" Wait n NES frames, handling quit and full screen keys """
+		for i in range(max(1, int(round(config.nesFrames(frames) * config.GAME_FRAME_TIMING / 1000.0)))):
+			self.delay(config.GAME_FRAME_TIMING)
+
 	def getFreeSpawningPosition(self):
 		""" Next enemy spawning position not occupied by any tank
 		@return list [x, y] or None if all positions are occupied
@@ -1583,9 +1588,8 @@ class Game():
 
 		self.flip()
 
-		self.delay(2)
-
-		interval = 6
+		# pauses in NES frames
+		self.delayFrames(30)
 
 		# points and kills
 		for i in range(4):
@@ -1606,7 +1610,7 @@ class Game():
 				# print new total points per enemy
 				state.screen.blit(self.font.render(str(n * (i+1) * 100).rjust(4)+" PTS", False, white), [25, 168+(i*45)])
 				self.flip()
-				self.delay(interval)
+				self.delayFrames(8)
 
 			if self.nr_of_players >= 2:
 				tanks = state.players[1].trophies["enemy"+str(i)]
@@ -1623,9 +1627,11 @@ class Game():
 					state.screen.blit(self.font.render(str(n * (i+1) * 100).rjust(4)+" PTS", False, white), [325, 168+(i*45)])
 
 					self.flip()
-					self.delay(interval)
+					self.delayFrames(8)
 
-			self.delay(interval-2)
+			self.delayFrames(20)
+
+		self.delayFrames(30)
 
 		# total tanks
 		tanks = sum([i for i in state.players[0].trophies.values()]) - state.players[0].trophies["bonus"]
@@ -1649,9 +1655,8 @@ class Game():
 
 		self.flip()
 
-		# do nothing for 2 seconds
-		self.delay(1)
-		self.delay(1)
+		self.delayFrames(15)
+		self.delayFrames(120)
 
 		if self.game_over:
 			return self.gameOverScreen
@@ -2236,19 +2241,25 @@ class Game():
 					if config.AUTO_FIRE and fire_pressed and pygame.time.get_ticks() - player.last_fire_time >= config.PLAYER_AUTO_FIRE_DELAY:
 						self.playerFire(player)
 
-					if True in pressed:
+					# ice like on NES: tank starting to move on ice slides ICE_SLIDE_DISTANCE, first part of it
+					# buttons are ignored, the rest is slid after release. Sliding stops when tank leaves ice
+					on_ice = player.onIce()
+					if not on_ice:
+						player.slide = 0
+					if player.slide > config.ICE_CONTROL_DISTANCE:
+						player.slide = player.slide - player.speed if player.move(player.direction) else 0
+					elif True in pressed:
 						# first pressed in order: up, right, down, left
 						direction = [self.DIR_UP, self.DIR_RIGHT, self.DIR_DOWN, self.DIR_LEFT][pressed.index(True)]
-						player.move(direction)
-						# on ice tank keeps sliding after button is released
-						player.slide = config.ICE_SLIDE_DISTANCE if player.onIce() else 0
+						moved = player.move(direction)
+						if on_ice and player.slide <= 0:
+							player.slide = config.ICE_SLIDE_DISTANCE
+							if config.play_sounds:
+								state.sounds["ice"].play()
+						elif player.slide > 0:
+							player.slide = player.slide - player.speed if moved else 0
 					elif player.slide > 0:
-						if player.slide == config.ICE_SLIDE_DISTANCE and config.play_sounds:
-							state.sounds["ice"].play()
-						if player.move(player.direction):
-							player.slide -= player.speed
-						else:
-							player.slide = 0
+						player.slide = player.slide - player.speed if player.move(player.direction) else 0
 				player.update(time_passed)
 
 			self.level_time += time_passed

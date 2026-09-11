@@ -27,6 +27,7 @@ def applyNesVersion(name):
 	global BONUS_BLINK_INTERVAL, BONUS_PICKUP_LABEL_TIME, ENEMY_SPAWN_ANIMATION_TIME, PLAYER_SPAWN_ANIMATION_TIME
 	global PLAYER_START_SHIELD_TIMEOUT, CHANCE_OF_FIRE, GAME_OVER_TEXT_SPEED, BULLET_EXPLOSION_TIME, BULLET_TANK_HIT_SLOT_TIME
 	global DEFAULT_BULLET_SPEED, FAST_BULLET_SPEED, PLAYER_DEFAULT_SPEED, DEFAULT_ENEMY_SPEED, DEFAULT_ENEMY_SPEED_FAST
+	global ENEMY_EXPLOSION_TIME, FAST_ENEMY_EXPLOSION_TIME, PLAYER_EXPLOSION_TIME
 
 	NES_VERSION = name
 	NES_FPS = NES_VERSIONS[name]
@@ -52,6 +53,10 @@ def applyNesVersion(name):
 	# not NES: bullet which exploded on a tank frees its slot earlier, so shooting at a tank at point blank
 	# is a bit faster and explosion on enemy's front keeps stopping enemy bullets until the next shot
 	BULLET_TANK_HIT_SLOT_TIME = nesFrames(5)
+	# tank explosion
+	ENEMY_EXPLOSION_TIME = nesFrames(48)
+	FAST_ENEMY_EXPLOSION_TIME = nesFrames(24)
+	PLAYER_EXPLOSION_TIME = nesFrames(32)
 
 	# enemy tries to fire every frame (ENEMY_FIRE_TIMER) with 1/32 chance per NES frame
 	CHANCE_OF_FIRE = 100.0 * NES_FPS / 32 / GAME_FRAME_TIMING
@@ -93,13 +98,16 @@ BONUS_PLAYER_HIDDEN_TIMEOUT = 10000
 BONUS_SPAWN_TIMEOUT = 20000	# bonus disappears after n ms, 0 - stays until picked up (NES)
 BONUS_SHIP_TIMEOUT = 20000	# ship bonus: tank can drive over water
 VERSUS_BONUS_TIMEOUT = 15000	# versus mode: new random bonus every n ms
-ICE_SLIDE_DISTANCE = 15 * 2	# px tank slides on ice after movement button is released, NES: 15 px
+ICE_SLIDE_DISTANCE = 28 * 2	# px tank slides when it starts moving on ice, NES: 28 px
+ICE_CONTROL_DISTANCE = 16 * 2	# ... buttons are ignored until this many px are left (NES: first 12 px), rest is slid after release
 BRICK_QUARTERS = True	# brick tiles consist of 4 parts, bullet destroys nearest half (like on NES)
 # enemy fires with CHANCE_OF_FIRE % (see applyNesVersion) every ENEMY_FIRE_TIMER ms
 ENEMY_FIRE_TIMER = 1000 // GAME_FRAME_TIMING
 ENEMY_GRID_PAUSE_CHANCE = 1 / 32.0	# NES: enemy on 8 px grid spends a move choosing direction with 1/16 chance (2 steps here)
 HEAD_SHIELD_WHEN_PROTECTED = True	# protected player tank isn't hurt by bullets hitting its front
 ENABLE_PLAYER_PROTECTION = True	# player gets frontal armor at superpower 5
+# NES stars: 1 fast bullets, 2 two bullets, 3 bullets destroy steel and whole bricks (grass stays), more stars do nothing
+NES_STARS = False
 
 # bonuses which can appear (names of Bonus.BONUS_* types), repeated types are more frequent
 BONUS_TYPES = ["STAR", "STAR", "GRENADE", "GRENADE", "HELMET", "SHOVEL", "SHOVEL", "TANK", "TIMER", "PISTOL", "SHIP"]
@@ -203,6 +211,7 @@ PRESETS = {
 		"ENABLE_PLAYER_PROTECTION": False,
 		"ENEMY_AI_BASE_CHANCE": 50,
 		"ENABLE_NEW_ENEMIES": False,
+		"NES_STARS": True,
 	},
 	"GOOD": {
 		"ALLOW_MULTI_BONUS": True,
@@ -222,6 +231,7 @@ PRESETS = {
 		"ENABLE_PLAYER_PROTECTION": True,
 		"ENEMY_AI_BASE_CHANCE": 30,
 		"ENABLE_NEW_ENEMIES": True,
+		"NES_STARS": False,
 	},
 	"EXTREME": {
 		"ALLOW_MULTI_BONUS": True,
@@ -241,6 +251,7 @@ PRESETS = {
 		"ENABLE_PLAYER_PROTECTION": True,
 		"ENEMY_AI_BASE_CHANCE": 30,
 		"ENABLE_NEW_ENEMIES": True,
+		"NES_STARS": False,
 	},
 }
 

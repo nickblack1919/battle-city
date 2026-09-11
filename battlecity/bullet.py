@@ -140,8 +140,9 @@ class Bullet():
 		
 		# check for removable tiles
 		# if bullet is powerfull enough it can clear those tiles
-		if self.power >= 2:
-			
+		# NES stars don't clear grass
+		if self.power >= 2 and not (config.NES_STARS and self.owner == self.OWNER_PLAYER):
+
 			rects = self.level.removable_rects
 			removable = self.rect.collidelistall(rects)
 			if removable != []:
@@ -228,11 +229,19 @@ class Bullet():
 
 	def destroyBrickStrip(self, tile):
 		""" Destroy bricks in the hit row as wide as a tank (centered on the bullet),
-		so a tank driving straight and firing always clears its way """
+		so a tank driving straight and firing always clears its way.
+		NES 3rd star: whole brick tiles (16 px deep) """
+		whole = config.NES_STARS and self.owner == self.OWNER_PLAYER and self.power >= 3
 		if self.direction in (self.DIR_UP, self.DIR_DOWN):
-			strip = pygame.Rect(self.rect.centerx - 16, tile.top, 32, tile.height)
+			if whole:
+				strip = pygame.Rect(self.rect.centerx - 16, tile.top // 16 * 16, 32, 16)
+			else:
+				strip = pygame.Rect(self.rect.centerx - 16, tile.top, 32, tile.height)
 		else:
-			strip = pygame.Rect(tile.left, self.rect.centery - 16, tile.width, 32)
+			if whole:
+				strip = pygame.Rect(tile.left // 16 * 16, self.rect.centery - 16, 16, 32)
+			else:
+				strip = pygame.Rect(tile.left, self.rect.centery - 16, tile.width, 32)
 
 		bricks = [brick for brick in self.level.mapr if brick.type == self.level.TILE_BRICK and brick.colliderect(strip)]
 		for brick in bricks:

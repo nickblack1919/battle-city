@@ -46,6 +46,15 @@ def tankBlocks(new_rect, direction, other):
 	""" Other tank blocks move to new_rect in direction (NES rule) """
 	return len(frontCells(new_rect, direction) & tankCells(other)) > 0
 
+def tilesBlock(level, new_rect, direction, can_swim):
+	""" Walls block move to new_rect (NES rule): cells under 2 corner points of the front edge are checked,
+	a cell with any part of a wall (even one brick quarter) blocks the tank """
+	obstacles = level.obstacleRectsFor(can_swim)
+	for cx, cy in frontCells(new_rect, direction):
+		if pygame.Rect(cx * CELL, cy * CELL, CELL, CELL).collidelist(obstacles) != -1:
+			return True
+	return False
+
 class Tank():
 
 	# possible directions
@@ -257,7 +266,14 @@ class Tank():
 		""" start tanks's explosion """
 		if self.state != self.STATE_DEAD:
 			self.state = self.STATE_EXPLODING
-			self.explosion = Explosion(self.rect.topleft)
+			# NES durations, explosion has 3 images
+			if self.side == self.SIDE_PLAYER:
+				duration = config.PLAYER_EXPLOSION_TIME
+			elif self.type == Enemy.TYPE_FAST:
+				duration = config.FAST_ENEMY_EXPLOSION_TIME
+			else:
+				duration = config.ENEMY_EXPLOSION_TIME
+			self.explosion = Explosion(self.rect.topleft, max(1, duration // 3))
 			
 
 	def updateSuperpowers(self):
@@ -280,7 +296,13 @@ class Tank():
 		# 2 - can fire 2 bullets
 		if self.superpowers >= 2:
 			self.max_active_bullets = 2
-			
+
+		# NES stars: 3rd star - bullets destroy steel, nothing more
+		if config.NES_STARS and self.side == self.SIDE_PLAYER:
+			if self.superpowers >= 3:
+				self.bullet_power = 3
+			return
+
 		# 3 - can clear trees
 		if self.superpowers >= 3:
 			self.bullet_power = 2
@@ -806,7 +828,7 @@ class Enemy(Tank):
 		new_rect = pygame.Rect(new_position, [32, 32])
 
 		# collisions with tiles
-		if new_rect.collidelist(self.level.obstacleRectsFor(self.canSwim())) != -1:
+		if tilesBlock(self.level, new_rect, self.direction, self.canSwim()):
 			if self.persistance < 3:
 				self.persistance += 1
 				rotate = False
@@ -928,7 +950,7 @@ class Enemy(Tank):
 		dx, dy = [(0, -2), (2, 0), (0, 2), (-2, 0)][self.direction]
 		new_rect = self.rect.move(dx, dy)
 
-		blocked = not pygame.Rect(0, 0, 416, 416).contains(new_rect) or new_rect.collidelist(self.level.obstacleRectsFor(self.canSwim())) != -1
+		blocked = not pygame.Rect(0, 0, 416, 416).contains(new_rect) or tilesBlock(self.level, new_rect, self.direction, self.canSwim())
 
 		if not blocked and not self.aquired_position:
 			# just spawned: drive through tanks until free
@@ -1229,7 +1251,7 @@ class Player(Tank):
 		player_rect = pygame.Rect(new_position, [32, 32])
 
 		# collisions with tiles
-		if player_rect.collidelist(self.level.obstacleRectsFor(self.canSwim())) != -1:
+		if tilesBlock(self.level, player_rect, direction, self.canSwim()):
 			return
 
 		# collisions with other players

@@ -84,10 +84,18 @@ and exploding. Two differences from NES make head-on fights winnable: after a hi
 earlier (5 NES frames), and player's bullets destroy enemy bullets and fly on (on NES bullets cancel each other).
 
 Tanks collide like on NES: every tank marks map cells it occupies (not its top left cell), a moving tank checks only
-two corner points of its front edge, so tanks slightly crossing each other's path don't stop.
+two corner points of its front edge, so tanks slightly crossing each other's path don't stop. Walls are checked
+the same way: a map cell (16 px) with any part of a wall blocks the tank, so a brick cell needs two shots.
+
+Ice like on NES: a tank starting to move on ice slides 56 px, buttons are ignored during the first part of it,
+the rest is slid after the button is released; sliding stops when the tank leaves ice.
 
 Superpowers: 1 fast bullets, 2 two bullets, 3 bullets clear grass, 4 bullets destroy steel, 5 three bullets and
-frontal armor (not in CLASSIC), 6 bullets destroy walls and fly on, 9 castle protection (absorbs one hit).
+frontal armor, 6 bullets destroy walls and fly on, 9 castle protection (absorbs one hit).
+CLASSIC (NES stars): 1 fast bullets, 2 two bullets, 3 bullets destroy steel and whole brick cells, grass stays.
+
+Like on NES, a bonus appears on one of 16 fixed places (not right under a player), tank explosions last 48 NES
+frames (fast tank 24, player 32), scores screen pauses are counted in NES frames.
 
 Extra life every 20000 points (CLASSIC: only once, like on NES). In 2+ player games the player who destroyed most
 tanks on a stage gets 1000 points, if they have lives left.

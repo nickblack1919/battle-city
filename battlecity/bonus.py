@@ -37,7 +37,15 @@ class Bonus():
 		self.blinking = False
 		self.blink_timer = None
 
-		self.rect = pygame.Rect(random.randint(0, 416-32), random.randint(0, 416-32), 32, 32)
+		# NES: bonus center is one of 4x4 grid points, chosen again if a player is too close (12 NES px)
+		grid = [64, 160, 256, 352]
+		for attempt in range(16):
+			self.rect = pygame.Rect(0, 0, 32, 32)
+			self.rect.center = (random.choice(grid), random.choice(grid))
+			near = [player for player in state.players if player.state == player.STATE_ALIVE
+				and abs(player.rect.centerx - self.rect.centerx) < 24 and abs(player.rect.centery - self.rect.centery) < 24]
+			if not near:
+				break
 
 		# bonus types of current preset (NES set in CLASSIC)
 		self.bonus = random.choice([getattr(self, "BONUS_" + name) for name in config.BONUS_TYPES])
