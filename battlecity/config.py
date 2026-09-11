@@ -287,9 +287,16 @@ HISCORES_COUNT = 10	# entries in hiscore table
 
 def dataFile(name):
 	""" Path to file with saved data: hiscore, settings, saved game
-	BATTLE_CITY_DATA_DIR environment variable changes the directory (used by tests)
+	BATTLE_CITY_DATA_DIR environment variable changes the directory (used by tests),
+	default is game directory, or ~/Library/Application Support/Battle City for Mac app
 	"""
-	return os.path.join(os.environ.get("BATTLE_CITY_DATA_DIR", ""), name)
+	directory = os.environ.get("BATTLE_CITY_DATA_DIR", "")
+	if not directory and getattr(sys, "frozen", False):
+		# Mac app: never write into app bundle
+		directory = os.path.join(os.path.expanduser("~"), "Library", "Application Support", "Battle City")
+		if not os.path.isdir(directory):
+			os.makedirs(directory)
+	return os.path.join(directory, name)
 
 def levelFile(level_nr):
 	""" Level map file: custom level made in editor or original one """

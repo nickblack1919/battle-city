@@ -4,6 +4,7 @@
 import os, random, uuid, sys, json
 import pygame
 from pygame.locals import *
+from sys import exit as quit	# builtin quit() is missing in Mac app (PyInstaller)
 
 from battlecity import config, state
 from battlecity.bonus import Bonus
