@@ -123,6 +123,9 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		# playing level from editor: no saved game changes, back to menu after the stage
 		self.test_play = False
 
+		# preset chosen by player before continuing saved game with other preset
+		self.preset_before_continue = None
+
 		# versus: index of winning player
 		self.versus_winner = None
 
@@ -697,7 +700,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 	def respawnPlayer(self, player, clear_scores = False, superpowers = None):
 		""" Respawn player """
 		player.reset()
-		player.paralised = self.players_frozen
+		player.setFrozen(self.players_frozen)
 
 		# default is read at call time: preset can change it
 		player.superpowers = config.PLAYER_START_SUPERPOWER if superpowers == None else superpowers
@@ -972,7 +975,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		""" Freeze/defreeze all players """
 		
 		for player in state.players:
-			player.paralised = freeze
+			player.setFrozen(freeze)
 			# player.paused = freeze
 
 	def pause(self):
@@ -1142,7 +1145,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 							self.toggleFullScreen()
 						elif event.key == pygame.K_RETURN:
 							self.pause()
-						if event.key == pygame.K_v:
+						if event.key == pygame.K_v and config.DEBUG_KEYS:
 							self.toggleDebugMode()
 				
 				# gamepad Start unpauses
@@ -1183,10 +1186,10 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 					elif event.key == pygame.K_RETURN:
 						self.pause()
 					# toggle debug freeze
-					if event.key == pygame.K_p:
+					if event.key == pygame.K_p and config.DEBUG_KEYS:
 						self.toggleEnemyFreeze(not self.timefreeze)
 					# toggle debug mesh
-					if event.key == pygame.K_v:
+					if event.key == pygame.K_v and config.DEBUG_KEYS:
 						self.toggleDebugMode()
 					# toggle sounds
 					if event.key == pygame.K_m and state.sounds:

@@ -84,6 +84,9 @@ class Tank():
 
 		# tank can't move but can rotate and shoot
 		self.paralised = False
+		# reasons: stunned by partner's bullet, frozen by enemy clock bonus or pause
+		self.stunned = False
+		self.frozen = False
 
 		# tank can't do anything
 		self.paused = False
@@ -411,29 +414,36 @@ class Tank():
 			#print "Fixing position"
 			#print "Before fixing: " + str(self.rect.left) + ", " + str(self.rect.top)
 				
-			SPRITES_FIX = 0
+			# snap to 16 px grid: nearest grid line, or the other one if a wall or tank is in the way
+			for new_x in self.gridCandidates(self.rect.left):
+				for new_y in self.gridCandidates(self.rect.top):
+					new_rect = pygame.Rect([new_x, new_y], [32, 32])
 
-			new_x = self.nearest(self.rect.left - SPRITES_FIX, 16) + SPRITES_FIX
-			new_y = self.nearest(self.rect.top - SPRITES_FIX, 16) + SPRITES_FIX
-			new_rect = pygame.Rect([new_x, new_y], [32, 32])
+					collision = False
+					if new_rect.collidelist(self.level.obstacleRectsFor(self.canSwim())) != -1:
+						collision = True
+					for enemy in state.enemies:
+						if enemy != self and new_rect.colliderect(enemy.rect):
+							collision = True
+					for player in state.players:
+						if player != self and player.state == player.STATE_ALIVE and new_rect.colliderect(player.rect):
+							collision = True
+					if collision:
+						continue
 
-			collision = False
-			if new_rect.collidelist(self.level.obstacleRectsFor(self.canSwim())) != -1:
-				collision = True
-			for enemy in state.enemies:
-				if enemy != self and new_rect.colliderect(enemy.rect):
-					collision = True
-			for player in state.players:
-				if player != self and player.state == player.STATE_ALIVE and new_rect.colliderect(player.rect):
-					collision = True
-			if collision:
-				#print "Collision!"
-				return
-				
-			self.rect.left = new_x
-			self.rect.top = new_y
-			if config.DEBUG_COORDINATES:
-				print("After fixing: " + str(self.rect.center))
+					self.rect.left = new_x
+					self.rect.top = new_y
+					if config.DEBUG_COORDINATES:
+						print("After fixing: " + str(self.rect.center))
+					return
+
+	def gridCandidates(self, value):
+		""" 16 px grid lines to snap coordinate to: nearest first, then the other neighbour """
+		nearest = self.nearest(value, 16)
+		if value % 16 == 0:
+			return [nearest]
+		lower = value // 16 * 16
+		return [nearest, lower + 16 if nearest == lower else lower]
 
 			
 	def turnRandom(self):
@@ -564,20 +574,26 @@ class Tank():
 			# NES: helmet protects from partner's bullet too
 			if self.shielded:
 				return True
-			if not self.paralised:
+			if not self.stunned:
 				self.setParalised(True)
 				self.timer_uuid_paralise = state.gtimer.add(config.FRIENDLY_FIRE_STUN_TIME, lambda :self.setParalised(False), 1)
 			return True
 
 	def setParalised(self, paralised = True):
-		""" set tank paralise state
+		""" Stun tank (partner's bullet): it can't move, but stays frozen if enemy clock or pause froze it
 		@param boolean paralised
 		@return None
 		"""
 		if self.state != self.STATE_ALIVE:
 			state.gtimer.destroy(self.timer_uuid_paralise)
 			return
-		self.paralised = paralised
+		self.stunned = paralised
+		self.paralised = self.stunned or self.frozen
+
+	def setFrozen(self, frozen = True):
+		""" Freeze tank (enemy clock bonus, pause): stun from partner's bullet stays """
+		self.frozen = frozen
+		self.paralised = self.stunned or self.frozen
 
 
 class Enemy(Tank):
@@ -1604,7 +1620,8 @@ class Player(Tank):
 		self.superpowers = 0
 		self.updateSuperpowers()
 		self.health = config.PLAYER_START_HEALTH
-		self.paralised = False
+		self.stunned = False
+		self.paralised = self.frozen
 		self.paused = False
 		self.pressed = [False] * 4
 		self.fire_pressed = False

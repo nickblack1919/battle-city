@@ -197,7 +197,7 @@ def broken_files(ctx):
 	ctx.check("broken hiscore table doesn't spoil others (%s)" % sorted(tables), tables.get("campaign CLASSIC") == [["CCC", 900]])
 
 	old = list(g["PLAYER_CONTROLS"][0])
-	game.setControl(0, 0, pygame.K_p)
+	game.setControl(0, 0, pygame.K_m)
 	ctx.check("game keys can't be player controls", g["PLAYER_CONTROLS"][0] == old)
 	ctx.finish()
 

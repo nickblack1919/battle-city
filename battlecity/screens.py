@@ -561,6 +561,9 @@ class ScreensMixin():
 			return False
 
 		if data.get("preset") in config.PRESETS:
+			# player's own preset comes back in menu
+			if self.preset_before_continue == None and data["preset"] != config.CURRENT_PRESET:
+				self.preset_before_continue = config.CURRENT_PRESET
 			config.applyPreset(data["preset"])
 		self.mode = "campaign"
 		self.stage = stage

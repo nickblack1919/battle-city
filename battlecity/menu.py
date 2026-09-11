@@ -34,6 +34,10 @@ class MenuMixin():
 
 		self.demo = False
 		self.test_play = False
+		# preset of continued saved game was only for that game
+		if self.preset_before_continue in config.PRESETS:
+			config.applyPreset(self.preset_before_continue)
+		self.preset_before_continue = None
 		# castle protection (superpower 9) doesn't go to next game
 		state.castle.protected = False
 

@@ -204,7 +204,7 @@ class SettingsMixin():
 	def setControl(self, player_nr, control, key):
 		""" Assign key to player's control. Control already using this key gets the old key (swap) """
 		# keys used by the game itself: pause, quit, mute, borrow life, debug
-		if key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_m, pygame.K_b, pygame.K_p, pygame.K_v):
+		if key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_m, pygame.K_b) or (config.DEBUG_KEYS and key in (pygame.K_p, pygame.K_v)):
 			return
 		old_key = config.PLAYER_CONTROLS[player_nr][control]
 		for controls in config.PLAYER_CONTROLS:

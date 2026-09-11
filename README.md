@@ -34,8 +34,8 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
 | M | sound on / off |
 | B | borrow a life from partner for a player without lives |
 | ESC | quit (in editor and settings: back to menu) |
-| P | freeze enemies (debug) |
-| V | debug sprites and grid |
+| P | freeze enemies (debug, only with `DEBUG_KEYS = True` in config) |
+| V | debug sprites and grid (debug, only with `DEBUG_KEYS = True` in config) |
 
 ## Game modes
 
