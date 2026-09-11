@@ -160,6 +160,8 @@ def dodge(ctx, chance):
 	g, game, d = ctx.g, ctx.game, ctx.data
 	if ctx.frame == 1:
 		enemy = setup_field(ctx, [])
+		# single tank mechanics: no team orders (a hiding tank would leave the bullet's way anyway)
+		g["SMART_TEAM"] = False
 		g["castle"].rect.topleft = (384, 384)
 		game.level.updateObstacleRects()
 		g["SMART_DODGE_CHANCE"] = chance
@@ -232,8 +234,8 @@ def playing(ctx):
 		if abs(enemy.rect.left - start[0]) + abs(enemy.rect.top - start[1]) > 64:
 			d["moved"].add(key)
 		last = d["last_move"].get(key)
-		# standing and shooting at a target is fine
-		if last == None or last[0] != enemy.rect.topleft or enemy.smartWantsFire():
+		# standing and shooting at a target is fine, waiting in a hiding spot on commander's order too
+		if last == None or last[0] != enemy.rect.topleft or enemy.smartWantsFire() or (enemy.smart_waiting and enemy.smart_order == "hide"):
 			d["last_move"][key] = (enemy.rect.topleft, ctx.frame)
 		else:
 			d["longest_stop"] = max(d["longest_stop"], ctx.frame - last[1])

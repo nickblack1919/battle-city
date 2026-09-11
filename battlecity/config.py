@@ -181,6 +181,42 @@ SMART_DODGE_CHANCE = 60	# % player's bullets SMART AI tries to dodge (sharp turn
 SMART_DODGE_REACTION_FRAMES = 6	# NES frames before SMART AI reacts to a bullet
 SMART_JUKE_CHANCE = 35	# % SMART AI steps out of player's line of fire when its own bullet isn't ready
 SMART_FEINT_CHANCE = 8	# % SMART AI turns aside from its way for one cell (hard to predict)
+# SMART AI team tactics (battlecity/commander.py): enemies hide out of players' lines of fire, gather, attack together
+# from different sides at a good moment, hunt players, regroup after a failed attack
+SMART_TEAM = True	# False - every SMART enemy acts alone
+SMART_COMMAND_INTERVAL = 100	# ms between updates of danger map and team orders
+SMART_STABLE_FACING = 600	# ms player has to look one way before attack sides are changed
+SMART_DANGER_FACING = 10	# danger of cells in player's clear line of fire in the direction he looks
+SMART_DANGER_SIDE = 3	# ... in other directions (he can turn and shoot); half of these from the place he drives to
+SMART_DANGER_BULLET = 12	# ... on the way of a flying player bullet
+SMART_DANGER_WEIGHT_HIDE = 1.5	# way cost of danger (x danger of place) for a hiding tank ...
+SMART_DANGER_WEIGHT_HUNT = 0.5	# ... hunting tank
+SMART_DANGER_WEIGHT_ATTACK = 0.15	# ... attacking tank
+SMART_DANGER_WEIGHT_CASTLE = 0.3	# ... tank going to the castle
+SMART_GROUP_SIZE = 3	# attack when this many tanks wait in hiding spots (fewer if the stage can't have more)
+SMART_MIN_GATHER = 1500	# ms at least in hiding before the group attacks (vulnerable player: at once)
+SMART_SMALL_GROUP_WAIT = 4000	# ms: all tanks wait ready - attack even if they are fewer than SMART_GROUP_SIZE
+SMART_MAX_WAIT = 9000	# ms: attack anyway, stage never stalls
+SMART_ATTACK_TIME = 15000	# ms: longer attack ends with regroup (also when half of attackers are destroyed)
+SMART_PUNISH_DIST = 6	# cells: player's bullets are busy and a waiting tank is this near - attack
+SMART_HIDE_MIN_DIST = 4	# cells: hiding spots at least this far from the player (+2 when regrouping) ...
+SMART_HIDE_MAX_DIST = 10	# ... and not farther (farther spots cost more)
+SMART_HIDE_DANGER_COST = 6	# hiding spot cost: x danger of the place
+SMART_HIDE_NEAR_COST = 6	# ... per cell nearer than SMART_HIDE_MIN_DIST
+SMART_HIDE_FAR_COST = 1.5	# ... per cell farther than SMART_HIDE_MAX_DIST
+SMART_HIDE_WAY_WEIGHT = 0.5	# ... x way cost
+SMART_HIDE_SPREAD = 3	# cells: other enemy's spot this near costs SMART_CROWD_COST more
+SMART_GRASS_BONUS = 5	# spot in grass (tank is hidden) costs less
+SMART_COVER_BONUS = 3	# spot right behind a wall (towards the player) costs less
+SMART_AMBUSH_BONUS = 4	# spot with a free lane crossing player's row or column costs less
+SMART_WAIT_REPLAN = 10	# moves: waiting tank looks for a better spot every n moves
+SMART_SIDE_COST = 10	# attacking tank: place on other side than given one costs like n cells of way
+SMART_ATTACK_LEAD = 1	# cells: attacking tank aims where the player drives to ...
+SMART_HUNT_LEAD = 4	# ... hunting tank (takes place ahead of him)
+SMART_BEHIND_BONUS = 6	# hunting tank: place behind the player costs less
+SMART_CASTLE_RUSH_DIST = 11	# cells between player and castle: one tank rushes the castle
+SMART_DIVERSION_MIN_TANKS = 3	# attack of at least n tanks (gathering: more than n): one of them (not fast) goes for the castle
+SMART_ISOLATED_DIST = 10	# cells from castle and partner: fast tanks hunt the player instead of hiding
 ENEMY_AI = "CLASSIC"
 
 # BOT: computer partner of one human player ("1 PLAYER + BOT"), drives player 2 tank with the same speed and bullets

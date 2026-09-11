@@ -63,8 +63,18 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
   waits or turns; SMART - chooses the best place to shoot from (short way, few bricks between, from a side the player isn't
   looking at, not next to other enemies), keeps it instead of driving back and forth, shoots through bricks from
   there; dodges player's bullets with sharp turns, steps out of the player's line of fire while its own bullet
-  isn't ready, sometimes turns aside to be hard to predict; attacks the castle if the player can't be reached;
-  armor tanks go to the castle, fast tanks hunt players, other tanks take turns), gamepads: which gamepad every player uses (AUTO, OFF or gamepad number) and gamepad fire /
+  isn't ready, sometimes turns aside to be hard to predict; attacks the castle if the player can't be reached.
+  SMART enemies act as a team: they know which cells players can shoot now or soon (clear lines from every
+  player, stronger where he looks, and paths of flying bullets) and come through cover. First they gather:
+  hide out of the player's lines of fire 4-10 cells from him (grass and places behind walls first, spread
+  apart) and wait facing a lane the player may drive into - a player who drives into it gets an ambush shot.
+  They attack together when 3 tanks are ready, or at a good moment: the player is stunned or frozen, his
+  bullets are busy next to a waiting tank, or he turned away from them; after 9 seconds of waiting they attack
+  anyway. In an attack every tank gets its side around the player (not his front; only a tough tank takes
+  the front to draw fire), one tank of a big attack goes for the castle; fast tanks hunt: they take places
+  ahead of a moving player or behind him. An attack that lost half of its tanks or lasted 15 seconds ends
+  with regroup in new hiding spots. One tank rushes the castle while the player is far from it; without
+  players all enemies attack the castle. Bullets behind walls aren't dodged, dodges go out of lines of fire), gamepads: which gamepad every player uses (AUTO, OFF or gamepad number) and gamepad fire /
   start buttons (Enter, then press the gamepad button; left arrow - default buttons), language (EN / RU; Russian
   text uses pygame default font, the game font has no Cyrillic letters), CRT filter (OFF / SOFT / STRONG - old TV
   look: scanlines, darker edges and rounded corners, STRONG adds light horizontal glow; the game picture itself is not changed).
