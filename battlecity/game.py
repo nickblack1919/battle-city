@@ -150,6 +150,9 @@ class Game():
 		# True while "STAGE N" screen is shown
 		self.stage_screen = False
 
+		# keys currently held (layout independent key codes)
+		self.held_keys = set()
+
 		# connected gamepads (opened in updateGamepads)
 		self.gamepads = []
 		self.gamepad_count = 0
@@ -226,6 +229,35 @@ class Game():
 		if timer:	
 			state.gtimer.destroy(timer)
 	
+	# physical keys (scancodes) of letters, digits and punctuation -> key codes of U.S. layout
+	LAYOUT_KEYS = dict(
+		[(getattr(pygame, "KSCAN_" + letter), getattr(pygame, "K_" + letter.lower())) for letter in "ABCDEFGHIJKLMNOPQRSTUVWXYZ"] +
+		[(getattr(pygame, "KSCAN_" + digit), getattr(pygame, "K_" + digit)) for digit in "0123456789"] +
+		[(getattr(pygame, "KSCAN_" + name), getattr(pygame, "K_" + name)) for name in
+			("MINUS", "EQUALS", "LEFTBRACKET", "RIGHTBRACKET", "BACKSLASH", "SEMICOLON", "COMMA", "PERIOD", "SLASH")] +
+		[(pygame.KSCAN_APOSTROPHE, pygame.K_QUOTE), (pygame.KSCAN_GRAVE, pygame.K_BACKQUOTE)]
+	)
+
+	def events(self):
+		""" pygame.event.get() with key codes independent of keyboard layout:
+		with Russian layout physical W key gives key code of "ц", here it becomes K_w again,
+		so controls, hotkeys and editor keys work with any layout
+		"""
+		events = []
+		for event in pygame.event.get():
+			if event.type in (pygame.KEYDOWN, pygame.KEYUP):
+				key = self.LAYOUT_KEYS.get(getattr(event, "scancode", 0))
+				if key != None and key != event.key:
+					attributes = dict(event.dict)
+					attributes["key"] = key
+					event = pygame.event.Event(event.type, attributes)
+				if event.type == pygame.KEYDOWN:
+					self.held_keys.add(event.key)
+				else:
+					self.held_keys.discard(event.key)
+			events.append(event)
+		return events
+
 	def isFullScreenKey(self, event):
 		""" Ctrl+F / Cmd+F / Alt+Enter toggle full screen """
 		if event.key == pygame.K_f and event.mod & (pygame.KMOD_CTRL | pygame.KMOD_META):
@@ -534,7 +566,7 @@ class Game():
 		Used on screens without their own event loop (scores)
 		"""
 		self.clock.tick(fps)
-		for event in pygame.event.get():
+		for event in self.events():
 			if event.type == pygame.QUIT:
 				quit()
 			elif event.type == pygame.KEYDOWN:
@@ -654,7 +686,7 @@ class Game():
 			for gamepad in self.gamepads:
 				if gamepad.pressed("fire") or gamepad.pressed("start"):
 					return self.showMenu
-			for event in pygame.event.get():
+			for event in self.events():
 				if event.type == pygame.QUIT:
 					quit()
 				elif event.type == pygame.KEYDOWN:
@@ -699,7 +731,7 @@ class Game():
 				elif gamepad.pressed("fire") or gamepad.pressed("start"):
 					activate = True
 
-			for event in pygame.event.get():
+			for event in self.events():
 				if event.type == pygame.QUIT:
 					quit()
 				elif event.type == pygame.KEYDOWN:
@@ -834,7 +866,7 @@ class Game():
 				if gamepad.pressed("start"):
 					brush = (brush + 1) % len(self.EDITOR_TILES)
 
-			for event in pygame.event.get():
+			for event in self.events():
 				if event.type == pygame.QUIT:
 					quit()
 
@@ -1002,7 +1034,7 @@ class Game():
 			for gamepad in self.gamepads:
 				if gamepad.pressed("fire") or gamepad.pressed("start"):
 					return self.showMenu
-			for event in pygame.event.get():
+			for event in self.events():
 				if event.type == pygame.QUIT:
 					quit()
 				elif event.type == pygame.KEYDOWN:
@@ -1086,7 +1118,7 @@ class Game():
 				elif gamepad.pressed("fire") or gamepad.pressed("start"):
 					done = True
 
-			for event in pygame.event.get():
+			for event in self.events():
 				if event.type == pygame.QUIT:
 					quit()
 				if event.type != pygame.KEYDOWN:
@@ -1105,9 +1137,14 @@ class Game():
 					move = 1
 				elif event.key in (pygame.K_LEFT, pygame.K_BACKSPACE):
 					move = -1
-				elif event.unicode and event.unicode.upper() in letters:
-					name[position] = letters.index(event.unicode.upper())
-					move = 1
+				else:
+					# with non latin layout take letter from layout independent key code
+					char = event.unicode.upper() if event.unicode else ""
+					if char not in letters and (pygame.K_a <= event.key <= pygame.K_z or pygame.K_0 <= event.key <= pygame.K_9):
+						char = chr(event.key).upper()
+					if char and char in letters:
+						name[position] = letters.index(char)
+						move = 1
 
 			name[position] = (name[position] + change) % len(letters)
 			position = max(0, min(len(name) - 1, position + move))
@@ -1161,7 +1198,7 @@ class Game():
 			for gamepad in self.gamepads:
 				if gamepad.pressed("fire") or gamepad.pressed("start"):
 					return
-			for event in pygame.event.get():
+			for event in self.events():
 				if event.type == pygame.QUIT:
 					quit()
 				elif event.type == pygame.KEYDOWN:
@@ -1296,7 +1333,7 @@ class Game():
 					elif gamepad.pressed("start"):
 						return
 
-			for event in pygame.event.get():
+			for event in self.events():
 				if event.type == pygame.QUIT:
 					quit()
 				if event.type != pygame.KEYDOWN:
@@ -1737,7 +1774,7 @@ class Game():
 		y = 416
 		while (y > 0):
 			time_passed = self.clock.tick(50)
-			for event in pygame.event.get():
+			for event in self.events():
 				if event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_RETURN or event.key == pygame.K_DOWN:
 						y = 0
@@ -1934,11 +1971,10 @@ class Game():
 			# keep players frozen if enemy timer bonus is still active
 			self.togglePlayersFreeze(self.players_frozen)
 			# keys could be pressed/released during pause
-			keys = pygame.key.get_pressed()
 			for player in state.players:
 				if player.controls:
-					player.fire_pressed = bool(keys[player.controls[0]])
-					player.pressed = [bool(keys[key]) for key in player.controls[1:]]
+					player.fire_pressed = player.controls[0] in self.held_keys
+					player.pressed = [key in self.held_keys for key in player.controls[1:]]
 			if config.play_sounds:
 				state.sounds["bg"].play(-1)
 
@@ -2057,7 +2093,7 @@ class Game():
 			self.updateGamepads()
 
 			if self.game_paused and not config.DEBUG_UNFREEZE_PLAYERS_ON_PAUSE:
-				for event in pygame.event.get():
+				for event in self.events():
 					if event.type == pygame.QUIT:
 						quit()
 					elif event.type == pygame.KEYDOWN and not self.game_over and self.active:
@@ -2079,7 +2115,7 @@ class Game():
 				self.draw()
 				continue
 
-			for event in pygame.event.get():
+			for event in self.events():
 				if event.type == pygame.MOUSEBUTTONDOWN:
 					pass
 				elif event.type == pygame.QUIT:
