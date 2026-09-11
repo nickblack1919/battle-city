@@ -55,7 +55,7 @@ Campaign and endless mode have hiscore tables: players with top 10 score enter t
 
 | Preset | |
 |---|---|
-| CLASSIC | NES rules: 4 enemies on screen (6 in 2 player game), armor tank 4 hits, bonus carried by 4th / 11th / 18th tank, NES bonus set, bonus stays until picked up, enemies don't pick up bonuses, friendly fire stuns partner, one extra life, NES enemy spawn intervals, no new enemies |
+| CLASSIC | NES rules: 4 enemies on screen (6 in 2 player game), armor tank 4 hits, bonus carried by 4th / 11th / 18th tank, NES bonus set, bonus stays until picked up, enemies pick up bonuses too (not on NES), friendly fire stuns partner, one extra life, NES enemy spawn intervals, no new enemies |
 | GOOD (default) | more enemies, enemies pick up bonuses, player starts with one star, new enemies |
 | EXTREME | even more enemies in 2-3 player games |
 

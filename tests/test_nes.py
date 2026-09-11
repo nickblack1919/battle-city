@@ -93,7 +93,7 @@ def presets(ctx):
 
 	g["applyPreset"]("CLASSIC")
 	ctx.check("CLASSIC preset: 4 enemies on screen", g["MAX_ACTIVE_ENEMIES"] == 4)
-	ctx.check("CLASSIC preset: enemies don't pick up bonuses", g["ENEMY_PICKUP_BONUSES"] == False)
+	ctx.check("CLASSIC preset: enemies pick up bonuses", g["ENEMY_PICKUP_BONUSES"] == True)
 	ctx.check("CLASSIC preset: armor tank 4 hits", g["DEFAULT_ENEMY_ARMOR_HEALTH"] == 400)
 	game.respawnPlayer(p)
 	ctx.check("respawn uses current preset superpower (0)", p.superpowers == 0)

@@ -138,7 +138,7 @@ DISABLE_LABELS = False	# score popups ("100", "500")
 BONUS_BLINK_TIME = 5000	# bonus blinks during last ms before it disappears
 SCREEN_SHAKE = True	# shake screen on big explosions
 STAGE_SCREEN_TIME = 1500	# grey "STAGE N" screen before level, 0 - don't show
-SHOW_EFFECT_TIMERS = True	# bars showing time left for shield, freeze and fortress walls
+SHOW_EFFECT_TIMERS = False	# bars showing time left for shield, ship, freeze and fortress walls
 
 # CONSTANTS
 S_SIZE = 4
@@ -177,7 +177,7 @@ PRESETS = {
 	# rules of original NES game
 	"CLASSIC": {
 		"ALLOW_MULTI_BONUS": False,
-		"ENEMY_PICKUP_BONUSES": False,
+		"ENEMY_PICKUP_BONUSES": True,	# NES: enemies don't pick up bonuses
 		"BONUS_FREQ": 7,
 		"BONUS_TANK_OFFSET": 3,
 		"BONUS_SPAWN_TIMEOUT": 0,

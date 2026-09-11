@@ -73,6 +73,8 @@ def effect_timers(ctx):
 		return
 	p = g["players"][0]
 	gtimer = g["gtimer"]
+	# bars are off by default
+	g["SHOW_EFFECT_TIMERS"] = True
 
 	game.shieldPlayer(p, True, 10000)
 	remaining = gtimer.remaining(p.shield_end_timer)
