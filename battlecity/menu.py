@@ -6,7 +6,7 @@ import pygame
 from pygame.locals import *
 from sys import exit as quit	# builtin quit() is missing in Mac app (PyInstaller)
 
-from battlecity import config, lang, state
+from battlecity import config, lang, state, levelgen
 from battlecity.bonus import Bonus
 from battlecity.castle import Castle
 from battlecity.effects import Label
@@ -128,6 +128,24 @@ class MenuMixin():
 					self.first_stage = config.START_LEVEL
 					del state.players[:]
 					return self.nextLevel
+				elif action == "random":
+					# campaign on generated maps, seed is saved with the game
+					self.mode = "random"
+					self.nr_of_players = argument
+					self.stage = config.START_LEVEL - 1
+					self.level_seed = random.randrange(1, 2 ** 31)
+					del state.players[:]
+					return self.nextLevel
+				elif action == "daily":
+					# one generated stage, same for everyone on this date
+					date = levelgen.dailyDate()
+					self.mode = "daily"
+					self.nr_of_players = 1
+					self.daily_date = date
+					self.level_seed = levelgen.dailySeed(date)
+					self.stage = levelgen.dailyStage(date) - 1
+					del state.players[:]
+					return self.nextLevel
 				elif action == "continue":
 					if self.loadGame():
 						del state.players[:]
@@ -200,10 +218,24 @@ class MenuMixin():
 			items.append(["CONTINUE", "continue", None])
 		items.append(["ENDLESS 1P", "endless", 1])
 		items.append(["ENDLESS 2P", "endless", 2])
+		items.append(["RANDOM LEVELS", "random", 1])
+		items.append(["LEVEL OF THE DAY", "daily", 1])
 		items.append(["VERSUS", "versus", 2])
 		items.append(["LEVEL EDITOR", "editor", None])
 		items.append(["SETTINGS", "settings", None])
 		return items
+
+	# menu items fitting the screen under the logo (y = 228 ... 404)
+	MENU_VISIBLE_ITEMS = 9
+
+	def menuScroll(self, count):
+		""" Index of first visible menu item: list scrolls so selected item is visible """
+		first = getattr(self, "menu_first", 0)
+		first = min(first, self.menu_index)
+		first = max(first, self.menu_index - self.MENU_VISIBLE_ITEMS + 1)
+		first = max(0, min(first, count - self.MENU_VISIBLE_ITEMS))
+		self.menu_first = first
+		return first
 
 	def drawIntroScreen(self, put_on_surface = True):
 		""" Draw intro (menu) screen
@@ -223,12 +255,19 @@ class MenuMixin():
 
 			state.screen.blit(self.text("HI- "+str(hiscore), True, pygame.Color('white')), [170, 35])
 
-			for i, item in enumerate(items):
+			# long menu scrolls: selected item is always visible, arrows show hidden items
+			first = self.menuScroll(len(items))
+			for i, item in enumerate(items[first:first + self.MENU_VISIBLE_ITEMS]):
 				state.screen.blit(self.text(item[0], True, pygame.Color('white')), [165, 228 + i * 20])
+			grey = pygame.Color(160, 160, 160)
+			if first > 0:
+				pygame.draw.polygon(state.screen, grey, [[400, 232], [392, 242], [408, 242]])
+			if first + self.MENU_VISIBLE_ITEMS < len(items):
+				pygame.draw.polygon(state.screen, grey, [[400, 402], [392, 392], [408, 392]])
 
 		# selected item marker
 		marker = self.player_image if self.menu_index == 0 else self.player_image_green
-		state.screen.blit(marker, [125, 223 + self.menu_index * 20])
+		state.screen.blit(marker, [125, 223 + (self.menu_index - self.menuScroll(len(items))) * 20])
 
 		self.writeInBricks("battle", [65, 80])
 		self.writeInBricks("city", [129, 160])

@@ -42,9 +42,15 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
 - **1 / 2 / 3 PLAYERS** - campaign: 35 stages, scores screen after every stage. Progress is saved after each stage.
 - **CONTINUE** - continue saved campaign (shown when there is a saved game).
 - **ENDLESS 1P / 2P** - waves of enemies until game over, every wave is harder.
+- **RANDOM LEVELS** - 1 player campaign on generated maps: every game gets a new random seed, every stage a new
+  map; later stages have denser maps with more steel and water, enemies come from the stage tables. The seed is
+  saved with the game, so CONTINUE gives the same maps.
+- **LEVEL OF THE DAY** - 1 player, one generated stage, the same for everyone on this date (seed from the local
+  date, stage difficulty 5-30 from the seed). After the stage or game over: scores, hiscore table of the day, menu.
+  Every date and difficulty preset has its own hiscore table.
 - **VERSUS** - two players fight each other, each defends own castle; destroyed castle or no lives left loses.
 - **LEVEL EDITOR** - edit any of 35 levels: arrows / mouse move cursor, 1-5 tile, 0 eraser, space / left mouse draw,
-  right mouse erase, `[` `]` level, S save, D back to original level, T save and play.
+  right mouse erase, `[` `]` level, G fill with generated map, S save, D back to original level, T save and play.
 - **SETTINGS** - difficulty preset, sound, full screen, start level, controls, NES speed (DENDY / NTSC),
   auto fire (ON by default - holding fire button shoots again when bullet slot is free; OFF - every shot needs
   a press, like on NES), enemy AI (CLASSIC - random paths, sometimes towards the castle; NES - like on NES: at
@@ -58,7 +64,13 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
   text uses pygame default font, the game font has no Cyrillic letters).
 - **DEMO** - after 20 seconds in the menu without input the computer plays a 2 player game; any key returns to menu.
 
-Campaign and endless mode have hiscore tables for every difficulty preset: players with top 10 score enter their names after game over.
+Campaign, endless, random levels and level of the day have hiscore tables for every difficulty preset: players with top 10 score enter their names after game over.
+
+Generated maps look like original ones: structures of 2x2 cell blocks (tanks fit between them), usually left-right
+mirror symmetry (sometimes 4-way or none), brick walls, steel, water, grass and ice. Every map is checked with
+a search over tank positions: enemy spawns reach the castle and player starts reach every enemy spawn without
+crossing steel or water (bricks can be shot), places no tank can reach are filled; a failed map is generated
+again, so the map depends only on seed and stage.
 
 ## Difficulty presets
 
@@ -172,6 +184,7 @@ One test file: `venv/bin/python tests/test_versus.py`, one scenario: `venv/bin/p
 | `battlecity/lang.py` | interface language (EN / RU) |
 | `battlecity/tank.py` | player and enemy tanks |
 | `battlecity/level.py` | level map |
+| `battlecity/levelgen.py` | level generator, level of the day seed |
 | `battlecity/bullet.py`, `bonus.py`, `castle.py`, `effects.py`, `timer.py`, `gamepad.py` | other game objects |
 | `levels/` | level maps: `.` empty, `#` brick, `@` steel, `~` water, `%` grass, `-` ice |
 | `tests/` | automated tests |

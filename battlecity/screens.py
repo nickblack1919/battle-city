@@ -6,7 +6,7 @@ import pygame
 from pygame.locals import *
 from sys import exit as quit	# builtin quit() is missing in Mac app (PyInstaller)
 
-from battlecity import config, lang, state
+from battlecity import config, lang, state, levelgen
 from battlecity.bonus import Bonus
 from battlecity.castle import Castle
 from battlecity.effects import Label
@@ -41,10 +41,15 @@ class ScreensMixin():
 			title = "WAVE " + str(self.stage - self.first_stage + 1)
 		elif self.mode == "versus":
 			title = "VERSUS"
+		elif self.mode == "daily":
+			title = "LEVEL OF THE DAY"
 		else:
 			title = "STAGE " + str(self.stage)
 		text = self.text(title, False, pygame.Color("black"))
 		state.screen.blit(text, [(416 - text.get_width()) // 2, (416 - text.get_height()) // 2])
+		if self.mode == "daily" and self.daily_date != None:
+			date = self.text(self.daily_date.strftime("%Y-%m-%d"), False, pygame.Color("black"), False)
+			state.screen.blit(date, [(416 - date.get_width()) // 2, (416 - date.get_height()) // 2 + 28])
 
 		for i in range(config.STAGE_SCREEN_TIME // 20):
 			self.flip()
@@ -298,6 +303,10 @@ class ScreensMixin():
 			return self.gameOverScreen
 		elif self.test_play:
 			return self.showMenu
+		elif self.mode == "daily":
+			# level of the day is one stage: hiscores, then menu
+			self.recordHiscores(True)
+			return self.showMenu
 		else:
 			self.saveGame()
 			return self.nextLevel
@@ -341,12 +350,20 @@ class ScreensMixin():
 	def qualifiesForHiscores(self, table, score):
 		return score > 0 and (len(table) < config.HISCORES_COUNT or score > table[-1][1])
 
-	def recordHiscores(self):
-		""" After game over players with good score enter their names, then hiscore table is shown """
-		if self.mode not in ("campaign", "endless") or self.demo or self.test_play:
+	def hiscoreMode(self):
+		""" Hiscore table mode of current game: campaign, endless, random, daily YYYY-MM-DD """
+		if self.mode == "daily":
+			return levelgen.dailyKey(self.daily_date)
+		return self.mode
+
+	def recordHiscores(self, always_show = False):
+		""" After game over players with good score enter their names, then hiscore table is shown
+		always_show: show table even without new entry (level of the day) """
+		if self.mode not in ("campaign", "endless", "random", "daily") or self.demo or self.test_play:
 			return
+		mode = self.hiscoreMode()
 		tables = self.loadHiscores()
-		table = tables.setdefault(self.hiscoreKey(self.mode), [])
+		table = tables.setdefault(self.hiscoreKey(mode), [])
 
 		entered = False
 		for player_nr, player in enumerate(state.players):
@@ -359,7 +376,8 @@ class ScreensMixin():
 
 		if entered:
 			self.saveHiscores(tables)
-			self.showHiscores(self.mode, 5000)
+		if entered or always_show:
+			self.showHiscores(mode, 5000)
 
 	def enterName(self, player_nr, score):
 		""" Arcade style name entry
@@ -458,9 +476,15 @@ class ScreensMixin():
 		white = pygame.Color("white")
 		yellow = pygame.Color(255, 200, 0)
 
-		title = self.text(lang.tr("HIGH SCORES") + " - " + lang.tr(mode.upper()), False, yellow, False)
+		subtitle = lang.tr(config.CURRENT_PRESET or "CUSTOM")
+		if mode.startswith("daily "):
+			# date goes to second line, title would be too wide
+			title = self.text(lang.tr("LEVEL OF THE DAY"), False, yellow, False)
+			subtitle = mode.split(" ", 1)[1] + " " + subtitle
+		else:
+			title = self.text(lang.tr("HIGH SCORES") + " - " + lang.tr(mode.upper()), False, yellow, False)
 		state.screen.blit(title, [(480 - title.get_width()) // 2, 30])
-		preset = self.text(config.CURRENT_PRESET or "CUSTOM", False, yellow)
+		preset = self.text(subtitle, False, yellow, False)
 		state.screen.blit(preset, [(480 - preset.get_width()) // 2, 54])
 		for i, entry in enumerate(table):
 			row = "%2d. %-3s %8d" % (i + 1, entry[0], entry[1])
@@ -521,6 +545,9 @@ class ScreensMixin():
 		players' score, lives and superpowers
 		"""
 		data = {
+			"mode": self.mode,
+			# random levels: same maps after continue
+			"seed": self.level_seed if self.mode == "random" else None,
 			"stage": self.stage,
 			"nr_of_players": self.nr_of_players,
 			"preset": config.CURRENT_PRESET,
@@ -546,6 +573,8 @@ class ScreensMixin():
 				data = json.load(f)
 			stage = int(data["stage"])
 			nr_of_players = int(data["nr_of_players"])
+			mode = data.get("mode", "campaign")
+			seed = int(data["seed"]) if mode == "random" else None
 			stats = [{
 				"score": int(player["score"]),
 				"lives": int(player["lives"]),
@@ -556,7 +585,7 @@ class ScreensMixin():
 			print("Can't load saved game")
 			return False
 
-		if nr_of_players not in (1, 2, 3) or len(stats) != nr_of_players or stage < 0:
+		if nr_of_players not in (1, 2, 3) or len(stats) != nr_of_players or stage < 0 or mode not in ("campaign", "random"):
 			print("Saved game is broken")
 			return False
 
@@ -565,7 +594,8 @@ class ScreensMixin():
 			if self.preset_before_continue == None and data["preset"] != config.CURRENT_PRESET:
 				self.preset_before_continue = config.CURRENT_PRESET
 			config.applyPreset(data["preset"])
-		self.mode = "campaign"
+		self.mode = mode
+		self.level_seed = seed
 		self.stage = stage
 		self.nr_of_players = nr_of_players
 		self.loaded_players_stats = stats

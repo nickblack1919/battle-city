@@ -6,7 +6,7 @@ import pygame
 from pygame.locals import *
 from sys import exit as quit	# builtin quit() is missing in Mac app (PyInstaller)
 
-from battlecity import config, lang, state
+from battlecity import config, lang, state, levelgen
 from battlecity.bonus import Bonus
 from battlecity.castle import Castle
 from battlecity.effects import Label
@@ -116,6 +116,10 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		# game mode: campaign (stages with score screens) or endless (waves until game over)
 		self.mode = "campaign"
 		self.first_stage = 1
+
+		# random levels / level of the day: seed of generated maps, date of level of the day
+		self.level_seed = None
+		self.daily_date = None
 
 		# demo: computer plays when menu is idle
 		self.demo = False
@@ -720,7 +724,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			return
 
 		print("Game Over")
-		if self.mode == "campaign" and not self.test_play:
+		if self.mode in ("campaign", "random") and not self.test_play:
 			self.deleteSavedGame()
 		if config.play_sounds:
 			for sound in state.sounds:
@@ -1073,7 +1077,10 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 
 		# load level
 		self.stage += 1
-		self.level = Level("versus" if self.mode == "versus" else self.stage)
+		if self.mode in ("random", "daily"):
+			self.level = Level(self.stage, levelgen.generateLevel(self.level_seed, self.stage))
+		else:
+			self.level = Level("versus" if self.mode == "versus" else self.stage)
 
 		self.showStageScreen()
 		self.timefreeze = False

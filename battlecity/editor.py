@@ -6,7 +6,7 @@ import pygame
 from pygame.locals import *
 from sys import exit as quit	# builtin quit() is missing in Mac app (PyInstaller)
 
-from battlecity import config, lang, state
+from battlecity import config, lang, state, levelgen
 from battlecity.bonus import Bonus
 from battlecity.castle import Castle
 from battlecity.effects import Label
@@ -132,6 +132,11 @@ class EditorMixin():
 						level = Level(level_nr)
 						modified = False
 						changed = True
+					elif event.key == pygame.K_g:
+						# generated map (not saved until S / T)
+						rows = [list(row) for row in levelgen.generateLevel(random.randrange(1, 2 ** 31), level_nr)]
+						modified = True
+						changed = True
 					elif event.key == pygame.K_s:
 						self.editorSave(level_nr, rows)
 						modified = False
@@ -190,7 +195,7 @@ class EditorMixin():
 			pygame.draw.rect(state.screen, black, [440, 44, 16, 16], 1)
 		state.screen.blit(lang.render(font, 8, name, False, black), [420, 66])
 
-		hints = ["1-5 TILE", "0 ERASE", "SPC DRAW", "S SAVE", "D RESET", "[ ] LVL", "T TEST", "ESC MENU"]
+		hints = ["1-5 TILE", "0 ERASE", "SPC DRAW", "S SAVE", "D RESET", "[ ] LVL", "G RANDOM", "T TEST", "ESC MENU"]
 		for i, hint in enumerate(hints):
 			state.screen.blit(lang.render(font, 8, hint, False, black), [416, 100 + i * 14])
 
