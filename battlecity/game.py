@@ -131,6 +131,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		# sounds playing: moving player's engine, engine hum of the stage
 		self.engine_sound = False
 		self.bg_sound = False
+		self.start_music = False
 
 		# fortress timer
 		self.fortress_end_timer = None
@@ -183,6 +184,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 	def playBackgroundSound(self):
 		""" Enemy engine hum during the stage (until last enemy is destroyed); player's engine isn't heard then """
 		self.bg_sound = True
+		self.start_music = False
 		if self.engine_sound:
 			state.sounds["engine"].stop()
 			self.engine_sound = False
@@ -191,7 +193,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 
 	def updateEngineSound(self, moving):
 		""" Engine sound plays while any player tank moves, but not while enemy engine hum is heard (distracting) """
-		moving = moving and config.play_sounds and "engine" in state.sounds and not self.game_paused and not self.game_over and not self.bg_sound
+		moving = moving and config.play_sounds and "engine" in state.sounds and not self.game_paused and not self.game_over and not self.bg_sound and not self.start_music
 		if moving == self.engine_sound:
 			return
 		self.engine_sound = moving
@@ -1066,6 +1068,8 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 
 		self.engine_sound = False
 		self.bg_sound = False
+		# stage start music plays until engine hum starts
+		self.start_music = True
 		if config.play_sounds:
 			state.sounds["start"].play()
 		state.gtimer.add(4330, lambda :self.playBackgroundSound(), 1)

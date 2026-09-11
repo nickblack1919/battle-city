@@ -100,7 +100,8 @@ frontal armor, 6 bullets destroy walls and fly on, 9 castle protection (absorbs 
 CLASSIC (NES stars): 1 fast bullets, 2 two bullets, 3 bullets destroy steel and whole brick cells, grass stays.
 
 Like on NES, a grey curtain closes before the "STAGE N" screen and opens over the new stage; while a player tank
-moves its engine is heard, but only when enemy engine hum isn't playing (e.g. after the last enemy is destroyed),
+moves its engine is heard, but only when neither stage start music nor enemy engine hum is playing (e.g. after
+the last enemy is destroyed),
 so it doesn't distract (the engine sound is the hum played faster, there is no separate sound file).
 
 Like on NES, a bonus appears on one of 16 fixed places (not right under a player), tank explosions last 48 NES
