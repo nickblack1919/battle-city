@@ -78,7 +78,10 @@ screen selects frame rate of the console: DENDY (PAL, 50 fps, default) or NTSC (
 | Ship | drive over water | enemies drive over water |
 
 Like on NES, a bullet appears on the edge of the tank and a tank can't fire again until its bullet finished flying
-and exploding.
+and exploding (on a wall or a tank).
+
+Tanks collide like on NES: every tank marks map cells it occupies (not its top left cell), a moving tank checks only
+two corner points of its front edge, so tanks slightly crossing each other's path don't stop.
 
 Superpowers: 1 fast bullets, 2 two bullets, 3 bullets clear grass, 4 bullets destroy steel, 5 three bullets and
 frontal armor (not in CLASSIC), 6 bullets destroy walls and fly on, 9 castle protection (absorbs one hit).

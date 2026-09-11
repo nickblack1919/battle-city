@@ -10,18 +10,41 @@ from battlecity.bonus import Bonus
 from battlecity.bullet import Bullet
 from battlecity.effects import Explosion, Label
 
-def blocksMove(rect, new_rect, other_rect):
-	""" Other tank blocks move from rect to new_rect.
-	Tanks already on top of each other (e.g. player respawned on enemy) may make moves which don't
-	make overlap bigger: away from each other or sideways (when a wall is behind), otherwise they
-	would block each other forever
+# tank collisions like on NES: tanks mark map cells (8 NES px = 16 px here) they occupy,
+# moving tank checks only 2 corner points of its new front edge against these cells
+
+CELL = 16
+
+def tankCells(tank):
+	""" Map cells marked as occupied by tank (NES sub_E181): bottom right cell of tank's
+	top left 2x2 cells, plus bottom left one if tank is aligned to the cell grid horizontally
+	and top right one if aligned vertically. Top left cell is never marked, and a tank between
+	cells marks only its middle column / row, so a small overlap of tanks doesn't block them
 	"""
-	new_clip = new_rect.clip(other_rect)
-	new_overlap = new_clip.width * new_clip.height
-	if new_overlap == 0:
-		return False
-	clip = rect.clip(other_rect)
-	return new_overlap > clip.width * clip.height
+	cx, cy = tank.rect.left // CELL, tank.rect.top // CELL
+	cells = set([(cx + 1, cy + 1)])
+	if tank.rect.left % CELL == 0:
+		cells.add((cx, cy + 1))
+	if tank.rect.top % CELL == 0:
+		cells.add((cx + 1, cy))
+	return cells
+
+def frontCells(new_rect, direction):
+	""" Cells under 2 corner points of the front edge of tank moved to new_rect """
+	left, top, right, bottom = new_rect.left, new_rect.top, new_rect.right - 1, new_rect.bottom - 1
+	if direction == Tank.DIR_UP:
+		points = [(left, top), (right, top)]
+	elif direction == Tank.DIR_DOWN:
+		points = [(left, bottom), (right, bottom)]
+	elif direction == Tank.DIR_LEFT:
+		points = [(left, top), (left, bottom)]
+	else:
+		points = [(right, top), (right, bottom)]
+	return set([(x // CELL, y // CELL) for x, y in points])
+
+def tankBlocks(new_rect, direction, other):
+	""" Other tank blocks move to new_rect in direction (NES rule) """
+	return len(frontCells(new_rect, direction) & tankCells(other)) > 0
 
 class Tank():
 
@@ -803,14 +826,15 @@ class Enemy(Tank):
 		else:
 			# collisions with other enemies (spawning enemies are obstacles too)
 			for enemy in state.enemies:
-				if enemy != self and (enemy.aquired_position or enemy.state == enemy.STATE_SPAWNING) and blocksMove(self.rect, new_rect, enemy.rect):
+				# like on NES: only alive tanks mark cells, spawning and exploding ones don't block
+				if enemy != self and enemy.aquired_position and enemy.state == enemy.STATE_ALIVE and tankBlocks(new_rect, self.direction, enemy):
 					self.turnRandom()
 					self.path = self.generatePath(self.direction)
 					return
 
 			# collisions with players
 			for player in state.players:
-				if player.state == player.STATE_ALIVE and blocksMove(self.rect, new_rect, player.rect):
+				if player.state == player.STATE_ALIVE and tankBlocks(new_rect, self.direction, player):
 					self.turnRandom()
 					self.path = self.generatePath(self.direction)
 					return
@@ -1096,13 +1120,13 @@ class Player(Tank):
 		# collisions with other players
 		for player in state.players:
 			if player != self and player.state == player.STATE_ALIVE and player_rect.colliderect(player.rect) == True:
-				if player.aquired_position and blocksMove(self.rect, player_rect, player.rect):
+				if player.aquired_position and tankBlocks(player_rect, direction, player):
 					return
 
-		# collisions with enemies
+		# collisions with enemies (exploding and spawning tanks don't block, like on NES)
 		for enemy in state.enemies:
-			if player_rect.colliderect(enemy.rect) == True:
-				if enemy.aquired_position and self.aquired_position and blocksMove(self.rect, player_rect, enemy.rect):
+			if enemy.state == enemy.STATE_ALIVE and player_rect.colliderect(enemy.rect) == True:
+				if enemy.aquired_position and self.aquired_position and tankBlocks(player_rect, direction, enemy):
 					return
 
 		# collisions with bonuses
