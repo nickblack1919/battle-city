@@ -181,14 +181,17 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		return pygame.mixer.Sound(buffer=shifted.tobytes())
 
 	def playBackgroundSound(self):
-		""" Engine hum during the stage (until last enemy is destroyed); moving player's engine sound replaces it """
+		""" Enemy engine hum during the stage (until last enemy is destroyed); player's engine isn't heard then """
 		self.bg_sound = True
-		if config.play_sounds and not self.engine_sound:
+		if self.engine_sound:
+			state.sounds["engine"].stop()
+			self.engine_sound = False
+		if config.play_sounds:
 			state.sounds["bg"].play(-1)
 
 	def updateEngineSound(self, moving):
-		""" NES: engine sound plays while any player tank moves """
-		moving = moving and config.play_sounds and "engine" in state.sounds and not self.game_paused and not self.game_over
+		""" Engine sound plays while any player tank moves, but not while enemy engine hum is heard (distracting) """
+		moving = moving and config.play_sounds and "engine" in state.sounds and not self.game_paused and not self.game_over and not self.bg_sound
 		if moving == self.engine_sound:
 			return
 		self.engine_sound = moving

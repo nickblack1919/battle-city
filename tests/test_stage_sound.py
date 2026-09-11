@@ -35,19 +35,27 @@ def engine(ctx):
 		del g["enemies"][:]
 		p.shielded = True
 		g["play_sounds"] = True
+		# enemy engine hum is heard
+		game.playBackgroundSound()
 		p.pressed = [True, False, False, False]
 	if ctx.frame == 3:
-		ctx.check("moving tank: engine sound", game.engine_sound)
-		p.pressed = [False] * 4
-	if ctx.frame == 5:
-		ctx.check("tank stopped: no engine sound", not game.engine_sound)
-		# last enemy destroyed: hum stops, moving tank is still heard
+		ctx.check("enemy hum heard: no own engine sound", not game.engine_sound)
+		# last enemy destroyed: hum stops, moving tank is heard
 		game.bg_sound = False
-		p.pressed = [False, False, False, True]
+	if ctx.frame == 5:
+		ctx.check("moving tank at the end of stage: engine sound", game.engine_sound)
+		p.pressed = [False] * 4
 	if ctx.frame == 7:
-		ctx.check("engine sound at the end of stage", game.engine_sound)
-		game.pause()
+		ctx.check("tank stopped: no engine sound", not game.engine_sound)
+		p.pressed = [False, False, False, True]
 	if ctx.frame == 9:
+		ctx.check("moving again: engine sound", game.engine_sound)
+		game.playBackgroundSound()
+		ctx.check("hum starts: own engine sound stops", not game.engine_sound)
+		game.bg_sound = False
+	if ctx.frame == 11:
+		game.pause()
+	if ctx.frame == 13:
 		ctx.check("no engine sound in pause", not game.engine_sound)
 		ctx.finish()
 
