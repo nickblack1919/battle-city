@@ -154,7 +154,12 @@ One test file: `venv/bin/python tests/test_versus.py`, one scenario: `venv/bin/p
 | `tanks.py` | entry point |
 | `battlecity/config.py` | settings, difficulty presets, saved settings |
 | `battlecity/state.py` | objects shared by modules: screen, players, enemies, castle, ... |
-| `battlecity/game.py` | menu, settings, editor, game loop, scores and other screens |
+| `battlecity/game.py` | game loop, bonuses, spawning, drawing (Game class, other parts are mixins below) |
+| `battlecity/menu.py` | main menu, intro screen, demo |
+| `battlecity/settings.py` | settings screen |
+| `battlecity/editor.py` | level editor |
+| `battlecity/screens.py` | stage, scores, game over, versus result, hiscores screens, saved game |
+| `battlecity/lang.py` | interface language (EN / RU) |
 | `battlecity/tank.py` | player and enemy tanks |
 | `battlecity/level.py` | level map |
 | `battlecity/bullet.py`, `bonus.py`, `castle.py`, `effects.py`, `timer.py`, `gamepad.py` | other game objects |
