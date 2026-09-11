@@ -46,8 +46,8 @@ then to players 1 and 2; gamepad Start pauses the game.
 - **LEVEL EDITOR** - edit any of 35 levels: arrows / mouse move cursor, 1-5 tile, 0 eraser, space / left mouse draw,
   right mouse erase, `[` `]` level, S save, D back to original level, T save and play.
 - **SETTINGS** - difficulty preset, sound, full screen, start level, controls, NES speed (DENDY / NTSC),
-  auto fire (OFF by default - every shot needs a press, like on NES; ON - holding fire button shoots again when
-  bullet slot is free).
+  auto fire (ON by default - holding fire button shoots again when bullet slot is free; OFF - every shot needs
+  a press, like on NES).
 
 Campaign and endless mode have hiscore tables: players with top 10 score enter their names after game over.
 

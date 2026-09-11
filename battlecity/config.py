@@ -115,7 +115,7 @@ PLAYER_START_LIFE = 3	# NES: 3 (sidebar shows lives left: 2)
 PLAYER_START_HEALTH = 100
 PLAYER_START_SCORE = 0
 PLAYER_START_MAX_ACTIVE_BULLETS = 1
-AUTO_FIRE = False	# True: holding fire button fires again as soon as bullet slot is free. NES (False): every shot needs a press
+AUTO_FIRE = True	# holding fire button fires again as soon as bullet slot is free. NES (False): every shot needs a press
 PLAYER_AUTO_FIRE_DELAY = 100	# min ms between shots while fire button is held
 
 # CONTROLS: fire, up, right, down, left for players 1 and 2 (player 3 uses gamepad only)
