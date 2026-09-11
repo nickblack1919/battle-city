@@ -78,7 +78,8 @@ screen selects frame rate of the console: DENDY (PAL, 50 fps, default) or NTSC (
 | Ship | drive over water | enemies drive over water |
 
 Like on NES, a bullet appears on the edge of the tank and a tank can't fire again until its bullet finished flying
-and exploding (on a wall or a tank).
+and exploding. Two differences from NES make head-on fights winnable: after a hit on a tank the slot is free a bit
+earlier (5 NES frames), and player's bullets destroy enemy bullets and fly on (on NES bullets cancel each other).
 
 Tanks collide like on NES: every tank marks map cells it occupies (not its top left cell), a moving tank checks only
 two corner points of its front edge, so tanks slightly crossing each other's path don't stop.

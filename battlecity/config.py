@@ -25,7 +25,7 @@ def applyNesVersion(name):
 	global FRIENDLY_FIRE_STUN_TIME, LEVEL_FINISH_TIMEOUT, GAME_OVER_TIMEOUT, BONUS_TIMER_FREEZE_TIMEOUT
 	global BONUS_FORTRESS_WALLS_TIMEOUT, FORTRESS_BLINK_TIME, FORTRESS_BLINK_INTERVAL, BONUS_PLAYER_SHIELD_TIMEOUT
 	global BONUS_BLINK_INTERVAL, BONUS_PICKUP_LABEL_TIME, ENEMY_SPAWN_ANIMATION_TIME, PLAYER_SPAWN_ANIMATION_TIME
-	global PLAYER_START_SHIELD_TIMEOUT, CHANCE_OF_FIRE, GAME_OVER_TEXT_SPEED, BULLET_EXPLOSION_TIME
+	global PLAYER_START_SHIELD_TIMEOUT, CHANCE_OF_FIRE, GAME_OVER_TEXT_SPEED, BULLET_EXPLOSION_TIME, BULLET_TANK_HIT_SLOT_TIME
 	global DEFAULT_BULLET_SPEED, FAST_BULLET_SPEED, PLAYER_DEFAULT_SPEED, DEFAULT_ENEMY_SPEED, DEFAULT_ENEMY_SPEED_FAST
 
 	NES_VERSION = name
@@ -49,6 +49,9 @@ def applyNesVersion(name):
 	PLAYER_START_SHIELD_TIMEOUT = nesFrames(192)	# after (re)spawn: 3 x 64 frames
 	# bullet explosion; tank can't fire again until its bullet stops exploding
 	BULLET_EXPLOSION_TIME = nesFrames(9)
+	# not NES: bullet which exploded on a tank frees its slot earlier, so shooting at a tank at point blank
+	# is a bit faster and explosion on enemy's front keeps stopping enemy bullets until the next shot
+	BULLET_TANK_HIT_SLOT_TIME = nesFrames(5)
 
 	# enemy tries to fire every frame (ENEMY_FIRE_TIMER) with 1/32 chance per NES frame
 	CHANCE_OF_FIRE = 100.0 * NES_FPS / 32 / GAME_FRAME_TIMING
@@ -117,6 +120,9 @@ PLAYER_START_SCORE = 0
 PLAYER_START_MAX_ACTIVE_BULLETS = 1
 AUTO_FIRE = True	# holding fire button fires again as soon as bullet slot is free. NES (False): every shot needs a press
 PLAYER_AUTO_FIRE_DELAY = 100	# min ms between shots while fire button is held
+# not NES (there bullets cancel each other): player's bullet destroys enemy's bullet and flies on,
+# so player shooting at an enemy head-on wins even if the enemy fires too
+PLAYER_BULLETS_PRIORITY = True
 
 # CONTROLS: fire, up, right, down, left for players 1 and 2 (player 3 uses gamepad only)
 # can be changed on settings screen

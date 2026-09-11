@@ -59,6 +59,9 @@ class Bullet():
 		# fractional part of movement (speed can be fractional, bullet moves by whole px)
 		self.move_credit = 0.0
 
+		# tank can't fire again while its bullet flies or its slot is busy during explosion
+		self.slot_busy = True
+
 		self.state = self.STATE_ACTIVE
 
 		self.dbg_label = Label(self.rect.bottomleft, str(self.rect.topleft))
@@ -102,6 +105,8 @@ class Bullet():
 
 	def step(self, px):
 		""" Move bullet by px and handle collisions """
+		# area passed during this step: bullets meeting each other must not jump over each other
+		previous_rect = self.rect.copy()
 		if self.direction == self.DIR_UP:
 			self.rect.topleft = [self.rect.left, self.rect.top - px]
 			if self.rect.top < 0:
@@ -166,9 +171,16 @@ class Bullet():
 
 		# check for collisions with other bullets
 		for bullet in state.bullets:
-			if self.state == self.STATE_ACTIVE and bullet.owner != self.owner and bullet != self and self.rect.colliderect(bullet.rect):
+			if self.state == self.STATE_ACTIVE and bullet.owner != self.owner and bullet != self and bullet.state != bullet.STATE_REMOVED and previous_rect.union(self.rect).colliderect(bullet.rect):
+				# player's bullet destroys enemy's bullet and flies on (PLAYER_BULLETS_PRIORITY)
+				if config.PLAYER_BULLETS_PRIORITY and self.owner == self.OWNER_PLAYER:
+					bullet.destroy()
+					continue
+				# bullets cancel each other without explosion
 				self.destroy()
-				self.explode()
+				if config.PLAYER_BULLETS_PRIORITY and bullet.owner == self.OWNER_PLAYER:
+					return
+				bullet.destroy()
 				return
 
 		# check for collisions with players
@@ -185,15 +197,15 @@ class Bullet():
 					if absorbed_by_helmet:
 						self.destroy()
 					else:
-						self.explode()
+						self.explode(config.BULLET_TANK_HIT_SLOT_TIME)
 					return
 
 		# check for collisions with enemies
 		for enemy in state.enemies:
 			if enemy.state == enemy.STATE_ALIVE and self.rect.colliderect(enemy.rect):
 				if enemy.bulletImpact(self.owner == self.OWNER_ENEMY, self.damage, self.owner_class, self.direction):
-					# NES: bullet explodes on a tank, tank can't fire again until explosion ends
-					self.explode()
+					# bullet explodes on a tank, tank can fire again a bit before explosion ends
+					self.explode(config.BULLET_TANK_HIT_SLOT_TIME)
 					return
 
 		# protected castle: protection absorbs the hit, enemy shooter explodes,
@@ -247,9 +259,16 @@ class Bullet():
 		nearest = best([key(rects[i]) for i in collisions])
 		return [i for i in collisions if key(rects[i]) == nearest]
 
-	def explode(self):
-		""" start bullets's explosion """
+	def releaseSlot(self):
+		self.slot_busy = False
+
+	def explode(self, slot_time = None):
+		""" start bullets's explosion
+		slot_time: ms after which tank may fire again, None - when explosion ends
+		"""
 		if self.state != self.STATE_REMOVED:
+			if slot_time != None:
+				state.gtimer.add(slot_time, lambda :self.releaseSlot(), 1)
 			self.state = self.STATE_EXPLODING
 			# NES: explosion lasts 9 frames (2 images)
 			interval = config.BULLET_EXPLOSION_TIME // len(self.explosion_images)

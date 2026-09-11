@@ -106,8 +106,41 @@ def point_blank_tank(ctx):
 			bullets = player_bullets(ctx)
 			ctx.check("bullet explodes on the tank", bullets and bullets[0].state == bullets[0].STATE_EXPLODING)
 	if ctx.frame == 61:
-		# explosion 9-10 frames + new shot: about 11 frames per hit (was every 5 frames)
-		ctx.check("point blank auto fire: %d hits in 60 frames (about 5-6, at most 7; bug gave 12)" % d["hits"], 2 <= d["hits"] <= 7)
+		# slot of bullet exploded on a tank is free after 5 NES frames: about 7 frames per hit
+		# (whole NES explosion gave about 11 frames, no slot rule gave 5)
+		ctx.check("point blank auto fire: %d hits in 60 frames (7-11)" % d["hits"], 7 <= d["hits"] <= 11)
+		ctx.finish()
+
+
+def head_on_duel(ctx):
+	""" Player shooting first at point blank kills armor tank even if the tank fires all the time """
+	g, d = ctx.g, ctx.data
+	if ctx.frame == 1:
+		p = prepare(ctx)
+		p.shielded = False
+		Enemy = g["Enemy"]
+		ctx.game.level.enemies_left[:] = [Enemy.TYPE_ARMOR]
+		enemy = Enemy(ctx.game.level, 1, [p.rect.left - 32, p.rect.top])
+		enemy.state = enemy.STATE_ALIVE
+		enemy.aquired_position = True
+		enemy.bonus = None
+		enemy.health = 400
+		enemy.rotate(enemy.DIR_RIGHT, False)
+		# enemy stands and faces player
+		enemy.paused = False
+		enemy.speed = 0
+		g["enemies"].append(enemy)
+		g["AUTO_FIRE"] = True
+		p.rotate(p.DIR_LEFT, False)
+		d["enemy"] = enemy
+		return [ctx.key(p.controls[0])]
+	if ctx.frame == 3:
+		# after player's first shot enemy fires whenever its bullet slot is free
+		g["CHANCE_OF_FIRE"] = 100
+	enemy, p = d["enemy"], g["players"][0]
+	if ctx.frame == 150 or enemy.state != enemy.STATE_ALIVE or p.state != p.STATE_ALIVE:
+		ctx.check("head-on: armor tank destroyed (%s), player alive (%s)" % (enemy.state, p.state),
+			enemy.state != enemy.STATE_ALIVE and p.state == p.STATE_ALIVE)
 		ctx.finish()
 
 
@@ -132,6 +165,7 @@ def helmet_absorbs(ctx):
 SCENARIOS = {
 	# auto fire delay uses real time
 	"point_blank_tank": {"fn": point_blank_tank, "real_time": True},
+	"head_on_duel": {"fn": head_on_duel, "real_time": True},
 	"helmet_absorbs": {"fn": helmet_absorbs},
 	"spawn_position": {"fn": spawn_position},
 	"slot_busy_while_exploding": {"fn": slot_busy_while_exploding},
