@@ -46,6 +46,8 @@ def key_during_spawn(ctx):
 	if ctx.frame == 1:
 		del ctx.game.level.enemies_left[:]
 		del g["enemies"][:]
+		# held fire shoots after spawn only with auto fire (off by default, like on NES)
+		g["AUTO_FIRE"] = True
 		ctx.game.respawnPlayer(p)
 		ctx.check("player spawning after respawn", p.state == p.STATE_SPAWNING)
 		d["y"] = p.rect.top

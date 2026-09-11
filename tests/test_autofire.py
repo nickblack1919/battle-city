@@ -19,6 +19,8 @@ def autofire(ctx):
 	d = ctx.data
 
 	if ctx.frame == 10:
+		# auto fire is off by default (NES: every shot needs a press)
+		ctx.g["AUTO_FIRE"] = True
 		# shoot left: screen edge is close (128 px), so several shots fit in check window
 		# (like on NES, next shot waits until bullet flew and exploded)
 		p.rotate(p.DIR_LEFT, False)
