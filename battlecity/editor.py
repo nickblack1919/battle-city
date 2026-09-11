@@ -192,6 +192,6 @@ class EditorMixin():
 
 		hints = ["1-5 TILE", "0 ERASE", "SPC DRAW", "S SAVE", "D RESET", "[ ] LVL", "T TEST", "ESC MENU"]
 		for i, hint in enumerate(hints):
-			state.screen.blit(lang.render(font, 8, hint, False, black), [418, 100 + i * 14])
+			state.screen.blit(lang.render(font, 8, hint, False, black), [416, 100 + i * 14])
 
 		self.flip()

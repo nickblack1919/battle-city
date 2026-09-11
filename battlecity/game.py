@@ -120,6 +120,9 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		# demo: computer plays when menu is idle
 		self.demo = False
 
+		# playing level from editor: no saved game changes, back to menu after the stage
+		self.test_play = False
+
 		# versus: index of winning player
 		self.versus_winner = None
 
@@ -183,6 +186,8 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 
 	def playBackgroundSound(self):
 		""" Enemy engine hum during the stage (until last enemy is destroyed); player's engine isn't heard then """
+		if self.game_over:
+			return
 		self.bg_sound = True
 		self.start_music = False
 		if self.engine_sound:
@@ -373,11 +378,14 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		""" Ship bonus time is over (player still on water can drive out) """
 		player.ship = False
 		player.ship_timer = None
+		player.drive_out = True
 
 	def setEnemiesShip(self, ship):
 		self.enemies_ship = ship
 		if not ship:
 			self.enemies_ship_timer = None
+			for enemy in state.enemies:
+				enemy.drive_out = True
 
 	def shake(self, frames):
 		""" Shake screen for some frames """
@@ -461,11 +469,13 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		elif bonus.bonus == bonus.BONUS_PISTOL:
 			for enemy in state.enemies:
 				enemy.superpowers += 2
-				enemy.type += 2
-				if enemy.type >= 3:
-					enemy.health = 400
-					enemy.type = 3
-					enemy.speed = config.DEFAULT_ENEMY_SPEED + config.DEFAULT_ENEMY_SPEED_FAST
+				# new enemy types (stealth, mortar, boss) keep their type
+				if enemy.type < enemy.TYPE_ARMOR:
+					enemy.type += 2
+					if enemy.type >= enemy.TYPE_ARMOR:
+						enemy.health = 400
+						enemy.type = enemy.TYPE_ARMOR
+						enemy.speed = config.DEFAULT_ENEMY_SPEED + config.DEFAULT_ENEMY_SPEED_FAST
 				enemy.updateSuperpowers()
 		# increase all enemy health by 200
 		elif bonus.bonus == bonus.BONUS_TANK:
@@ -707,7 +717,8 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			return
 
 		print("Game Over")
-		self.deleteSavedGame()
+		if self.mode == "campaign" and not self.test_play:
+			self.deleteSavedGame()
 		if config.play_sounds:
 			for sound in state.sounds:
 				state.sounds[sound].stop()
@@ -736,7 +747,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			state.sounds["bonusnew"].play()
 		if config.BONUS_SPAWN_TIMEOUT > 0:
 			state.gtimer.add(max(config.BONUS_SPAWN_TIMEOUT - config.BONUS_BLINK_TIME, 1), lambda :bonus.startBlinking(), 1)
-			state.gtimer.add(config.BONUS_SPAWN_TIMEOUT, lambda :state.bonuses.remove(bonus), 1)
+			state.gtimer.add(config.BONUS_SPAWN_TIMEOUT, lambda :bonus in state.bonuses and state.bonuses.remove(bonus), 1)
 		else:
 			bonus.startBlinking()
 
@@ -923,9 +934,19 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		if config.play_sounds:
 			state.sounds["bg"].stop()
 
-		state.gtimer.add(config.LEVEL_FINISH_TIMEOUT, lambda :self.endLevel(self.showMenu if self.demo else (self.nextLevel if self.mode == "endless" else self.showScores)), 1)
+		state.gtimer.add(config.LEVEL_FINISH_TIMEOUT, lambda :self.stageFinished(), 1)
 
 		print("Stage "+str(self.stage)+" completed")
+
+	def stageFinished(self):
+		""" Some time after the last enemy: demo returns to menu, endless starts next wave,
+		otherwise (or if game got over meanwhile) scores screen """
+		if self.demo:
+			self.stopDemo()
+		elif self.mode == "endless" and not self.game_over:
+			self.endLevel(self.nextLevel)
+		else:
+			self.endLevel(self.showScores)
 
 	def endLevel(self, next_action):
 		""" Stop main game loop and schedule next screen
@@ -1062,10 +1083,16 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		self.fortress_blink_start_timer = None
 		self.fortress_blink_timer = None
 		self.next_action = None
+		# pause pressed when previous stage ended
+		self.game_paused = False
+		if self.mode == "versus":
+			state.castle.protected = False
 
 		# set number of enemies by types (basic, fast, power, armor) according to level
 		self.loadLevelEnemies(False)
 
+		if self.engine_sound:
+			state.sounds["engine"].stop()
 		self.engine_sound = False
 		self.bg_sound = False
 		# stage start music plays until engine hum starts
@@ -1075,6 +1102,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		state.gtimer.add(4330, lambda :self.playBackgroundSound(), 1)
 
 		self.reloadPlayers()
+		self.togglePlayersFreeze(False)
 
 		# NES: first enemy appears immediately, then after spawn interval
 		self.spawn_timer = 0 if config.ENEMY_SPAWN_TIMEOUT == None else self.enemySpawnInterval()
@@ -1161,7 +1189,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 					if event.key == pygame.K_v:
 						self.toggleDebugMode()
 					# toggle sounds
-					if event.key == pygame.K_m:
+					if event.key == pygame.K_m and state.sounds:
 						config.play_sounds = not config.play_sounds
 						if not config.play_sounds:
 							pygame.mixer.stop()
@@ -1279,7 +1307,8 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			for enemy in state.enemies[:]:
 				if enemy.state == enemy.STATE_ALIVE:
 						if enemy.bonus_aquired != None:
-							self.triggerEnemyBonus(enemy.bonus_aquired, enemy)
+							if enemy.bonus_aquired in state.bonuses:
+								self.triggerEnemyBonus(enemy.bonus_aquired, enemy)
 							enemy.bonus_aquired = None
 				if enemy.state == enemy.STATE_DEAD and not self.game_over and self.active:
 					state.enemies.remove(enemy)
@@ -1304,7 +1333,8 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 
 					if player.state == player.STATE_ALIVE:
 						if player.bonus != None and player.side == player.SIDE_PLAYER:
-							self.triggerBonus(player.bonus, player)
+							if player.bonus in state.bonuses:
+								self.triggerBonus(player.bonus, player)
 							player.bonus = None
 					elif player.state == player.STATE_DEAD:
 						if not config.PLAYER_INFINITE_LIVES and player.lives > 0:

@@ -90,7 +90,8 @@ earlier (5 NES frames), and player's bullets destroy enemy bullets and fly on (o
 
 Tanks collide like on NES: every tank marks map cells it occupies (not its top left cell), a moving tank checks only
 two corner points of its front edge, so tanks slightly crossing each other's path don't stop. Walls are checked
-the same way: a map cell (16 px) with any part of a wall blocks the tank, so a brick cell needs two shots.
+by map cells under the front edge: a cell (16 px) with any part of a wall blocks the tank, so a brick cell needs
+two shots.
 
 Ice like on NES: a tank starting to move on ice slides 56 px, buttons are ignored during the first part of it,
 the rest is slid after the button is released; sliding stops when the tank leaves ice.

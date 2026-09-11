@@ -335,33 +335,53 @@ def loadSettings():
 	except (IOError, ValueError):
 		return
 
-	try:
-		if settings.get("preset") in PRESETS:
-			applyPreset(settings["preset"])
-		if settings.get("nes_version") in NES_VERSIONS:
-			applyNesVersion(settings["nes_version"])
-		AUTO_FIRE = bool(settings.get("auto_fire", AUTO_FIRE))
-		if settings.get("enemy_ai") in ENEMY_AI_TYPES:
-			ENEMY_AI = settings["enemy_ai"]
-		if settings.get("language") in ("EN", "RU"):
-			LANGUAGE = settings["language"]
-		gamepads = settings.get("gamepads")
-		if isinstance(gamepads, list) and len(gamepads) == len(GAMEPAD_ASSIGN):
-			GAMEPAD_ASSIGN = [g if g in ("AUTO", "OFF") else int(g) for g in gamepads]
-		for key, name in (("pad_fire", "GAMEPAD_FIRE_BUTTON"), ("pad_start", "GAMEPAD_START_BUTTON")):
-			if settings.get(key) != None:
+	if not isinstance(settings, dict):
+		return
+
+	# every setting separately: one broken value doesn't reset others
+	if settings.get("preset") in PRESETS:
+		applyPreset(settings["preset"])
+	if settings.get("nes_version") in NES_VERSIONS:
+		applyNesVersion(settings["nes_version"])
+	AUTO_FIRE = bool(settings.get("auto_fire", AUTO_FIRE))
+	if settings.get("enemy_ai") in ENEMY_AI_TYPES:
+		ENEMY_AI = settings["enemy_ai"]
+	if settings.get("language") in ("EN", "RU"):
+		LANGUAGE = settings["language"]
+	play_sounds = bool(settings.get("sound", play_sounds))
+	START_FULLSCREEN = bool(settings.get("fullscreen", START_FULLSCREEN))
+
+	gamepads = settings.get("gamepads")
+	if isinstance(gamepads, list) and len(gamepads) == len(GAMEPAD_ASSIGN):
+		def gamepadNumber(value):
+			if value in ("AUTO", "OFF"):
+				return value
+			try:
+				return int(value) if 0 <= int(value) <= 3 else "AUTO"
+			except (TypeError, ValueError):
+				return "AUTO"
+		GAMEPAD_ASSIGN = [gamepadNumber(value) for value in gamepads]
+	for key, name in (("pad_fire", "GAMEPAD_FIRE_BUTTON"), ("pad_start", "GAMEPAD_START_BUTTON")):
+		try:
+			if settings.get(key) != None and int(settings[key]) >= 0:
 				globals()[name] = int(settings[key])
-		play_sounds = bool(settings.get("sound", play_sounds))
-		START_FULLSCREEN = bool(settings.get("fullscreen", START_FULLSCREEN))
-		# command line argument has priority
+		except (TypeError, ValueError):
+			print("Can't read setting " + key)
+
+	# command line argument has priority
+	try:
 		start_level = int(settings.get("start_level", START_LEVEL))
 		if args['level'] == None and 1 <= start_level <= 35:
 			START_LEVEL = start_level
+	except (TypeError, ValueError):
+		print("Can't read setting start_level")
+
+	try:
 		controls = settings.get("controls")
 		if isinstance(controls, list) and len(controls) == len(PLAYER_CONTROLS) and all([isinstance(c, list) and len(c) == 5 for c in controls]):
 			PLAYER_CONTROLS = [[int(key) for key in c] for c in controls]
-	except (TypeError, ValueError, AttributeError):
-		print("Can't read settings")
+	except (TypeError, ValueError):
+		print("Can't read setting controls")
 
 def saveSettings(fullscreen):
 	""" Save settings changed on settings screen """

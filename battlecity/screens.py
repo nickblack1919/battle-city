@@ -296,6 +296,8 @@ class ScreensMixin():
 
 		if self.game_over:
 			return self.gameOverScreen
+		elif self.test_play:
+			return self.showMenu
 		else:
 			self.saveGame()
 			return self.nextLevel
@@ -308,10 +310,16 @@ class ScreensMixin():
 		try:
 			with open(config.dataFile(config.HISCORES_FILE), "r") as f:
 				data = json.load(f)
-			for key in data:
+		except (IOError, ValueError):
+			data = {}
+		if not isinstance(data, dict):
+			data = {}
+		for key in data:
+			# broken table doesn't spoil other ones
+			try:
 				tables[key] = [[str(entry[0])[:3], int(entry[1])] for entry in data[key]][:config.HISCORES_COUNT]
-		except (IOError, ValueError, TypeError, AttributeError, IndexError):
-			pass
+			except (ValueError, TypeError, AttributeError, IndexError, KeyError):
+				pass
 		# old tables without preset go to current preset
 		for mode in ("campaign", "endless"):
 			if mode in tables:
@@ -335,7 +343,7 @@ class ScreensMixin():
 
 	def recordHiscores(self):
 		""" After game over players with good score enter their names, then hiscore table is shown """
-		if self.mode not in ("campaign", "endless") or self.demo:
+		if self.mode not in ("campaign", "endless") or self.demo or self.test_play:
 			return
 		tables = self.loadHiscores()
 		table = tables.setdefault(self.hiscoreKey(self.mode), [])

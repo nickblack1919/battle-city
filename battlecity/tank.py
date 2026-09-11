@@ -46,11 +46,21 @@ def tankBlocks(new_rect, direction, other):
 	""" Other tank blocks move to new_rect in direction (NES rule) """
 	return len(frontCells(new_rect, direction) & tankCells(other)) > 0
 
+def frontEdgeCells(new_rect, direction):
+	""" All cells under the front edge of tank moved to new_rect: 2 corner cells like on NES,
+	and the middle one for a tank between cells (otherwise it would drive into a 1 cell wide wall) """
+	left, top, right, bottom = new_rect.left, new_rect.top, new_rect.right - 1, new_rect.bottom - 1
+	if direction in (Tank.DIR_UP, Tank.DIR_DOWN):
+		y = top if direction == Tank.DIR_UP else bottom
+		return set([(x // CELL, y // CELL) for x in list(range(left, right, CELL)) + [right]])
+	x = left if direction == Tank.DIR_LEFT else right
+	return set([(x // CELL, y // CELL) for y in list(range(top, bottom, CELL)) + [bottom]])
+
 def tilesBlock(level, new_rect, direction, can_swim):
-	""" Walls block move to new_rect (NES rule): cells under 2 corner points of the front edge are checked,
+	""" Walls block move to new_rect (NES rule): cells under the front edge are checked,
 	a cell with any part of a wall (even one brick quarter) blocks the tank """
 	obstacles = level.obstacleRectsFor(can_swim)
-	for cx, cy in frontCells(new_rect, direction):
+	for cx, cy in frontEdgeCells(new_rect, direction):
 		if pygame.Rect(cx * CELL, cy * CELL, CELL, CELL).collidelist(obstacles) != -1:
 			return True
 	return False
@@ -123,6 +133,8 @@ class Tank():
 		# ship bonus: can drive over water
 		self.ship = False
 		self.ship_timer = None
+		# ship ended while tank was on water
+		self.drive_out = False
 
 		# px left to slide on ice
 		self.slide = 0
@@ -450,7 +462,13 @@ class Tank():
 		""" Tank can drive over water: ship bonus is active or tank is still on water
 		(ship ended while on water - let the tank drive out) """
 		ship = self.ship if self.side == self.SIDE_PLAYER else state.game.enemies_ship
-		return ship or self.rect.collidelist(self.level.water_rects) != -1
+		if ship:
+			return True
+		# ship ended on water: tank can drive out of water, not across it
+		on_water = self.rect.collidelist(self.level.water_rects) != -1
+		if not on_water:
+			self.drive_out = False
+		return on_water and self.drive_out
 
 	def onIce(self):
 		return self.rect.collidelist(self.level.ice_rects) != -1
@@ -719,7 +737,7 @@ class Enemy(Tank):
 			self.image2_left = self.getEnemyImage(self.DIR_LEFT, self.type, self.health, self.FLASHING_YES)
 			self.image2_down = self.getEnemyImage(self.DIR_DOWN, self.type, self.health, self.FLASHING_YES)
 			self.image2_right = self.getEnemyImage(self.DIR_RIGHT, self.type, self.health, self.FLASHING_YES)
-			self.image2 = dir_oriented_image[self.direction]
+			self.image2 = [self.image2_up, self.image2_right, self.image2_down, self.image2_left][self.direction]
 			
 	def removeBonusLoad(self):
 		""" Remove bonus from enemy tank and stop flashing """
@@ -760,7 +778,7 @@ class Enemy(Tank):
 		# bonus blinks during last seconds before it disappears
 		if config.BONUS_SPAWN_TIMEOUT > 0:
 			state.gtimer.add(max(config.BONUS_SPAWN_TIMEOUT - config.BONUS_BLINK_TIME, 1), lambda :bonus.startBlinking(), 1)
-			state.gtimer.add(config.BONUS_SPAWN_TIMEOUT, lambda :state.bonuses.remove(bonus), 1)
+			state.gtimer.add(config.BONUS_SPAWN_TIMEOUT, lambda :bonus in state.bonuses and state.bonuses.remove(bonus), 1)
 		else:
 			# NES: bonus stays until picked up, always blinking
 			bonus.startBlinking()
@@ -773,7 +791,7 @@ class Enemy(Tank):
 
 		if config.ENEMY_PICKUP_BONUSES:
 			for enemy in state.enemies:
-				if enemy.rect.colliderect(bonus.rect) == True:
+				if enemy.state == enemy.STATE_ALIVE and enemy.rect.colliderect(bonus.rect) == True:
 					enemy.bonus_aquired = bonus
 
 	def clearAllBonuses(self):
@@ -977,7 +995,7 @@ class Enemy(Tank):
 			return "edge"
 		if tilesBlock(self.level, new_rect, self.direction, self.canSwim()):
 			bricks = [tile for tile in self.level.mapr if tile.type == self.level.TILE_BRICK]
-			for cx, cy in frontCells(new_rect, self.direction):
+			for cx, cy in frontEdgeCells(new_rect, self.direction):
 				if pygame.Rect(cx * CELL, cy * CELL, CELL, CELL).collidelist(bricks) != -1:
 					return "brick"
 			return "wall"
@@ -1241,7 +1259,7 @@ class Enemy(Tank):
 			return "edge"
 		if tilesBlock(self.level, new_rect, direction, self.canSwim()):
 			bricks = [tile for tile in self.level.mapr if tile.type == self.level.TILE_BRICK]
-			for cx, cy in frontCells(new_rect, direction):
+			for cx, cy in frontEdgeCells(new_rect, direction):
 				if pygame.Rect(cx * CELL, cy * CELL, CELL, CELL).collidelist(bricks) != -1:
 					return "brick"
 			return "wall"
@@ -1357,7 +1375,7 @@ class Enemy(Tank):
 		new_direction = None
 
 		for direction in directions:
-			if direction == self.DIR_UP and y > 1:
+			if direction == self.DIR_UP and y > 0:
 				new_pos_rect = self.rect.move(0, -8)
 				if new_pos_rect.collidelist(self.level.obstacleRectsFor(self.canSwim())) == -1:
 					new_direction = direction
@@ -1372,7 +1390,7 @@ class Enemy(Tank):
 				if new_pos_rect.collidelist(self.level.obstacleRectsFor(self.canSwim())) == -1:
 					new_direction = direction
 					break
-			elif direction == self.DIR_LEFT and x > 1:
+			elif direction == self.DIR_LEFT and x > 0:
 				new_pos_rect = self.rect.move(-8, 0)
 				if new_pos_rect.collidelist(self.level.obstacleRectsFor(self.canSwim())) == -1:
 					new_direction = direction

@@ -67,6 +67,7 @@ class SettingsMixin():
 
 			move = 0
 			change = 0
+			pad_change = False
 
 			self.updateGamepads()
 			if waiting_pad != None:
@@ -79,7 +80,12 @@ class SettingsMixin():
 						break
 					# button held when waiting started can be released and pressed again
 					waiting_pad[i] = waiting_pad.get(i, set()) & held
-			elif not waiting_key:
+			elif waiting_key:
+				# gamepad can't set a key: its button cancels waiting
+				for gamepad in self.gamepads:
+					if gamepad.pressed("fire") or gamepad.pressed("start"):
+						waiting_key = False
+			else:
 				for gamepad in self.gamepads:
 					if gamepad.pressed("down"):
 						move = 1
@@ -91,6 +97,7 @@ class SettingsMixin():
 						change = -1
 					elif gamepad.pressed("start"):
 						return
+			pad_change = change != 0
 
 			for event in self.events():
 				if event.type == pygame.QUIT:
@@ -128,7 +135,8 @@ class SettingsMixin():
 				if kind == "back":
 					return
 				elif kind == "control":
-					waiting_key = True
+					# keys are set from keyboard only
+					waiting_key = not pad_change
 				elif kind == "padbutton" and change > 0:
 					waiting_pad = dict([(i, gamepad.buttonsHeld()) for i, gamepad in enumerate(self.gamepads)])
 				else:
@@ -195,6 +203,9 @@ class SettingsMixin():
 
 	def setControl(self, player_nr, control, key):
 		""" Assign key to player's control. Control already using this key gets the old key (swap) """
+		# keys used by the game itself: pause, quit, mute, borrow life, debug
+		if key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_m, pygame.K_b, pygame.K_p, pygame.K_v):
+			return
 		old_key = config.PLAYER_CONTROLS[player_nr][control]
 		for controls in config.PLAYER_CONTROLS:
 			for i in range(len(controls)):
@@ -227,7 +238,7 @@ class SettingsMixin():
 			state.screen.blit(self.text(item["label"], False, color), [40, y])
 			waiting_text = waiting_key if isinstance(waiting_key, str) else "PRESS KEY"
 			value = waiting_text if i == selected and waiting_key else item["value"]
-			if value and item["type"] == "control":
+			if value and item["type"] == "control" and not (i == selected and waiting_key):
 				# key names aren't translated
 				state.screen.blit(self.text(value[:10], False, color, False), [288, y])
 			elif value:

@@ -33,6 +33,9 @@ class MenuMixin():
 		self.stage = config.START_LEVEL - 1
 
 		self.demo = False
+		self.test_play = False
+		# castle protection (superpower 9) doesn't go to next game
+		state.castle.protected = False
 
 		self.animateIntroScreen()
 
@@ -102,6 +105,7 @@ class MenuMixin():
 					if self.showEditor() == "play":
 						# play edited level
 						self.mode = "campaign"
+						self.test_play = True
 						self.nr_of_players = 1
 						del state.players[:]
 						return self.nextLevel
