@@ -93,7 +93,8 @@ def name_entry(ctx):
 
 	elif phase == "table" and ctx.in_function("showHiscores"):
 		with open(hiscores_file()) as f:
-			table = json.load(f)["campaign"]
+			# old table without preset went to current preset (GOOD)
+			table = json.load(f)["campaign GOOD"]
 		ctx.check("table still has 10 entries", len(table) == 10)
 		# 10000 ... 6000, then new 5500
 		ctx.check("new entry with typed name at 6th place: %s" % table[5], table[5] == ["BZ9", 5500])

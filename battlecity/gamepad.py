@@ -53,8 +53,7 @@ class Gamepad():
 			x = c.get_axis(pygame.CONTROLLER_AXIS_LEFTX) / 32768.0
 			y = c.get_axis(pygame.CONTROLLER_AXIS_LEFTY) / 32768.0
 			fire_buttons = (pygame.CONTROLLER_BUTTON_A, pygame.CONTROLLER_BUTTON_B, pygame.CONTROLLER_BUTTON_X, pygame.CONTROLLER_BUTTON_Y)
-			fire = any([c.get_button(button) for button in fire_buttons])
-			start = c.get_button(pygame.CONTROLLER_BUTTON_START)
+			start_buttons = (pygame.CONTROLLER_BUTTON_START,)
 		elif self.joystick != None:
 			j = self.joystick
 			if j.get_numhats() > 0:
@@ -63,10 +62,18 @@ class Gamepad():
 				right, left = hat_x > 0, hat_x < 0
 			if j.get_numaxes() >= 2:
 				x, y = j.get_axis(0), j.get_axis(1)
-			buttons = j.get_numbuttons()
-			fire = any([j.get_button(button) for button in range(min(buttons, 4))])
-			start = any([j.get_button(button) for button in (7, 9) if button < buttons])
+			fire_buttons = range(4)
+			start_buttons = (7, 9)
 
+		if self.controller != None or self.joystick != None:
+			# buttons chosen on settings screen
+			if config.GAMEPAD_FIRE_BUTTON != None:
+				fire_buttons = (config.GAMEPAD_FIRE_BUTTON,)
+			if config.GAMEPAD_START_BUTTON != None:
+				start_buttons = (config.GAMEPAD_START_BUTTON,)
+			held = self.buttonsHeld()
+			fire = any([button in held for button in fire_buttons])
+			start = any([button in held for button in start_buttons])
 		# left stick: only dominant axis counts (tanks can't move diagonally)
 		if abs(x) > abs(y):
 			right = right or x > self.AXIS_THRESHOLD
@@ -79,6 +86,17 @@ class Gamepad():
 			"up": bool(up), "right": bool(right), "down": bool(down), "left": bool(left),
 			"fire": bool(fire), "start": bool(start)
 		}
+
+	def buttonsHeld(self):
+		""" Numbers of held buttons (SDL controller or joystick button numbers) """
+		try:
+			if self.controller != None:
+				return set([b for b in range(pygame.CONTROLLER_BUTTON_MAX) if self.controller.get_button(b)])
+			if self.joystick != None:
+				return set([b for b in range(self.joystick.get_numbuttons()) if self.joystick.get_button(b)])
+		except pygame.error:
+			pass
+		return set()
 
 	def update(self):
 		""" Read new state, remember previous one (call once per frame) """

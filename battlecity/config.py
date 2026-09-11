@@ -168,6 +168,16 @@ ENEMY_AI_BASE_CHANCE = 30	# % chance enemy prefers directions towards player's c
 ENEMY_AI_TYPES = ["CLASSIC", "NES"]
 ENEMY_AI = "CLASSIC"
 
+# GAMEPADS (settings screen): gamepad of players 1-3: "AUTO", "OFF" or gamepad number from 0;
+# fire / start button numbers, None - default buttons (A, B, X, Y fire, Start)
+GAMEPAD_ASSIGN = ["AUTO", "AUTO", "AUTO"]
+GAMEPAD_FIRE_BUTTON = None
+GAMEPAD_START_BUTTON = None
+
+# DEMO: computer plays after n ms in menu without input (0 - no demo), demo lasts n ms
+DEMO_IDLE_TIME = 20000
+DEMO_TIME = 40000
+
 # NEW ENEMIES (disabled in CLASSIC preset)
 ENABLE_NEW_ENEMIES = True
 NEW_ENEMIES_FROM_STAGE = 5	# stealth and mortar tanks appear from this stage (wave)
@@ -301,6 +311,7 @@ def levelFile(level_nr):
 def loadSettings():
 	""" Apply settings saved on settings screen """
 	global play_sounds, START_LEVEL, START_FULLSCREEN, PLAYER_CONTROLS, AUTO_FIRE, ENEMY_AI
+	global GAMEPAD_ASSIGN, GAMEPAD_FIRE_BUTTON, GAMEPAD_START_BUTTON
 
 	try:
 		with open(dataFile(SETTINGS_FILE), "r") as f:
@@ -316,6 +327,12 @@ def loadSettings():
 		AUTO_FIRE = bool(settings.get("auto_fire", AUTO_FIRE))
 		if settings.get("enemy_ai") in ENEMY_AI_TYPES:
 			ENEMY_AI = settings["enemy_ai"]
+		gamepads = settings.get("gamepads")
+		if isinstance(gamepads, list) and len(gamepads) == len(GAMEPAD_ASSIGN):
+			GAMEPAD_ASSIGN = [g if g in ("AUTO", "OFF") else int(g) for g in gamepads]
+		for key, name in (("pad_fire", "GAMEPAD_FIRE_BUTTON"), ("pad_start", "GAMEPAD_START_BUTTON")):
+			if settings.get(key) != None:
+				globals()[name] = int(settings[key])
 		play_sounds = bool(settings.get("sound", play_sounds))
 		START_FULLSCREEN = bool(settings.get("fullscreen", START_FULLSCREEN))
 		# command line argument has priority
@@ -338,6 +355,9 @@ def saveSettings(fullscreen):
 		"nes_version": NES_VERSION,
 		"auto_fire": AUTO_FIRE,
 		"enemy_ai": ENEMY_AI,
+		"gamepads": GAMEPAD_ASSIGN,
+		"pad_fire": GAMEPAD_FIRE_BUTTON,
+		"pad_start": GAMEPAD_START_BUTTON,
 		"controls": PLAYER_CONTROLS,
 	}
 	try:

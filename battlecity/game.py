@@ -118,6 +118,9 @@ class Game():
 		self.mode = "campaign"
 		self.first_stage = 1
 
+		# demo: computer plays when menu is idle
+		self.demo = False
+
 		# versus: index of winning player
 		self.versus_winner = None
 
@@ -201,11 +204,22 @@ class Game():
 			gamepad.update()
 
 	def assignGamepads(self):
-		""" Give gamepads to players: players without keyboard controls (P3) first, then P1, P2 """
+		""" Give gamepads to players: GAMEPAD_ASSIGN (settings) - gamepad number, OFF or AUTO.
+		AUTO players get free gamepads: players without keyboard controls (P3) first, then P1, P2 """
 		for player in state.players:
 			player.gamepad = None
-		ordered = [player for player in state.players if not player.controls] + [player for player in state.players if player.controls]
-		for gamepad, player in zip(self.gamepads, ordered):
+		used = []
+		auto = []
+		for player_nr, player in enumerate(state.players):
+			assign = config.GAMEPAD_ASSIGN[player_nr] if player_nr < len(config.GAMEPAD_ASSIGN) else "AUTO"
+			if assign == "AUTO":
+				auto.append(player)
+			elif assign != "OFF" and assign < len(self.gamepads):
+				player.gamepad = self.gamepads[assign]
+				used.append(assign)
+		free = [gamepad for i, gamepad in enumerate(self.gamepads) if i not in used]
+		ordered = [player for player in auto if not player.controls] + [player for player in auto if player.controls]
+		for gamepad, player in zip(free, ordered):
 			player.gamepad = gamepad
 
 	def applyGamepads(self):
@@ -654,6 +668,10 @@ class Game():
 		""" End game and return to menu """
 
 
+		if self.demo:
+			self.stopDemo()
+			return
+
 		print("Game Over")
 		self.deleteSavedGame()
 		if config.play_sounds:
@@ -715,10 +733,16 @@ class Game():
 		# set current stage to 0
 		self.stage = config.START_LEVEL - 1
 
+		self.demo = False
+
 		self.animateIntroScreen()
+
+		# ms without input: demo starts after DEMO_IDLE_TIME
+		idle = 0
 
 		while True:
 			time_passed = self.clock.tick(50)
+			idle += time_passed
 
 			# redraw every frame, otherwise menu stays invisible if display wasn't ready
 			# during intro animation (happens when switching to full screen)
@@ -740,6 +764,7 @@ class Game():
 				if event.type == pygame.QUIT:
 					quit()
 				elif event.type == pygame.KEYDOWN:
+					idle = 0
 					if event.key == pygame.K_ESCAPE:
 						quit()
 					elif self.isFullScreenKey(event):
@@ -753,6 +778,11 @@ class Game():
 						activate = True
 
 			items = self.menuItems()
+
+			if move != 0 or activate:
+				idle = 0
+			elif config.DEMO_IDLE_TIME > 0 and idle >= config.DEMO_IDLE_TIME:
+				return self.startDemo()
 
 			if move != 0:
 				self.menu_index = (self.menu_index + move) % len(items)
@@ -799,6 +829,57 @@ class Game():
 				elif action == "settings":
 					self.showSettings()
 					self.drawIntroScreen()
+
+	def startDemo(self):
+		""" Demo: computer plays 2 player game on random stage until key is pressed or DEMO_TIME passes """
+		self.demo = True
+		self.mode = "campaign"
+		self.nr_of_players = 2
+		self.stage = random.randint(0, 34)
+		self.loaded_players_stats = None
+		del state.players[:]
+		return self.nextLevel
+
+	def stopDemo(self):
+		""" Leave demo to main menu """
+		pygame.mixer.stop()
+		self.endLevel(self.showMenu)
+
+	def demoControl(self):
+		""" Demo: gamepad button returns to menu, computer drives players and fires """
+		for gamepad in self.gamepads:
+			if gamepad.pressed("fire") or gamepad.pressed("start"):
+				self.stopDemo()
+		if self.level_time >= config.DEMO_TIME:
+			self.stopDemo()
+
+		for player in state.players:
+			player.pad_pressed = [False] * 4
+			player.pad_fire = False
+			if player.state != player.STATE_ALIVE:
+				continue
+			frames = getattr(player, "demo_frames", 0)
+			stuck = getattr(player, "demo_position", None) == player.rect.topleft
+			# new direction after a while or when stuck
+			if frames <= 0 or (stuck and random.randint(0, 3) == 0):
+				enemies = [enemy for enemy in state.enemies if enemy.state == enemy.STATE_ALIVE]
+				if enemies and random.randint(0, 1):
+					# towards nearest enemy along longer axis
+					enemy = min(enemies, key=lambda e: abs(e.rect.centerx - player.rect.centerx) + abs(e.rect.centery - player.rect.centery))
+					dx, dy = enemy.rect.centerx - player.rect.centerx, enemy.rect.centery - player.rect.centery
+					if abs(dx) > abs(dy):
+						player.demo_direction = self.DIR_RIGHT if dx > 0 else self.DIR_LEFT
+					else:
+						player.demo_direction = self.DIR_DOWN if dy > 0 else self.DIR_UP
+				else:
+					player.demo_direction = random.randint(0, 3)
+				frames = random.randint(25, 100)
+			player.demo_frames = frames - 1
+			player.demo_position = player.rect.topleft
+			player.pressed = [direction == player.demo_direction for direction in range(4)]
+			player.fire_pressed = False
+			if player.demo_frames % 6 == 0:
+				self.playerFire(player)
 
 	# editor tiles: level character and name
 	EDITOR_TILES = [(".", "ERASE"), ("#", "BRICK"), ("@", "STEEL"), ("~", "WATER"), ("%", "GRASS"), ("-", "ICE")]
@@ -1050,18 +1131,27 @@ class Game():
 		return self.showMenu
 
 	def loadHiscores(self):
-		""" Hiscore tables with names
-		@return {"campaign": [[name, score], ...], "endless": [...]}, best score first
+		""" Hiscore tables with names, every difficulty preset has own tables
+		@return {"campaign CLASSIC": [[name, score], ...], "endless GOOD": [...], ...}, best score first
 		"""
-		tables = {"campaign": [], "endless": []}
+		tables = {}
 		try:
 			with open(config.dataFile(config.HISCORES_FILE), "r") as f:
 				data = json.load(f)
-			for mode in tables:
-				tables[mode] = [[str(entry[0])[:3], int(entry[1])] for entry in data.get(mode, [])][:config.HISCORES_COUNT]
+			for key in data:
+				tables[key] = [[str(entry[0])[:3], int(entry[1])] for entry in data[key]][:config.HISCORES_COUNT]
 		except (IOError, ValueError, TypeError, AttributeError, IndexError):
 			pass
+		# old tables without preset go to current preset
+		for mode in ("campaign", "endless"):
+			if mode in tables:
+				tables.setdefault(self.hiscoreKey(mode), tables[mode])
+				del tables[mode]
 		return tables
+
+	def hiscoreKey(self, mode):
+		""" Hiscore table name: game mode and difficulty preset """
+		return mode + " " + (config.CURRENT_PRESET or "CUSTOM")
 
 	def saveHiscores(self, tables):
 		try:
@@ -1075,10 +1165,10 @@ class Game():
 
 	def recordHiscores(self):
 		""" After game over players with good score enter their names, then hiscore table is shown """
-		tables = self.loadHiscores()
-		if self.mode not in tables:
+		if self.mode not in ("campaign", "endless") or self.demo:
 			return
-		table = tables[self.mode]
+		tables = self.loadHiscores()
+		table = tables.setdefault(self.hiscoreKey(self.mode), [])
 
 		entered = False
 		for player_nr, player in enumerate(state.players):
@@ -1185,13 +1275,15 @@ class Game():
 	def showHiscores(self, mode, duration):
 		""" Show hiscore table for duration ms or until key / gamepad button is pressed """
 
-		table = self.loadHiscores().get(mode, [])
+		table = self.loadHiscores().get(self.hiscoreKey(mode), [])
 		state.screen.fill([0, 0, 0])
 		white = pygame.Color("white")
 		yellow = pygame.Color(255, 200, 0)
 
 		title = self.font.render("HIGH SCORES - " + mode.upper(), False, yellow)
-		state.screen.blit(title, [(480 - title.get_width()) // 2, 40])
+		state.screen.blit(title, [(480 - title.get_width()) // 2, 30])
+		preset = self.font.render(config.CURRENT_PRESET or "CUSTOM", False, yellow)
+		state.screen.blit(preset, [(480 - preset.get_width()) // 2, 54])
 		for i, entry in enumerate(table):
 			row = "%2d. %-3s %8d" % (i + 1, entry[0], entry[1])
 			state.screen.blit(self.font.render(row, False, white), [96, 90 + i * 28])
@@ -1307,6 +1399,13 @@ class Game():
 		items.append({"label": "NES SPEED", "value": config.NES_VERSION, "type": "nes"})
 		items.append({"label": "AUTO FIRE", "value": "ON" if config.AUTO_FIRE else "OFF", "type": "autofire"})
 		items.append({"label": "ENEMY AI", "value": config.ENEMY_AI, "type": "ai"})
+		for player_nr in range(len(config.GAMEPAD_ASSIGN)):
+			assign = config.GAMEPAD_ASSIGN[player_nr]
+			value = assign if assign in ("AUTO", "OFF") else "PAD %d" % (assign + 1)
+			items.append({"label": "P%d GAMEPAD" % (player_nr + 1), "value": value, "type": "pad", "player": player_nr})
+		for label, name, default in (("PAD FIRE", "GAMEPAD_FIRE_BUTTON", "ANY"), ("PAD START", "GAMEPAD_START_BUTTON", "DEFAULT")):
+			button = getattr(config, name)
+			items.append({"label": label, "value": default if button == None else "BUTTON %d" % button, "type": "padbutton", "button": name})
 		items.append({"label": "RESET CONTROLS", "value": "", "type": "reset"})
 		items.append({"label": "BACK", "value": "", "type": "back"})
 		return items
@@ -1319,17 +1418,29 @@ class Game():
 
 		selected = 0
 		waiting_key = False
+		# waiting for gamepad button: {gamepad index: buttons held when waiting started}, None - not waiting
+		waiting_pad = None
 
 		while True:
 			self.clock.tick(50)
 			items = self.settingsItems()
-			self.drawSettings(items, selected, waiting_key)
+			self.drawSettings(items, selected, "PRESS BTN" if waiting_pad != None else waiting_key)
 
 			move = 0
 			change = 0
 
 			self.updateGamepads()
-			if not waiting_key:
+			if waiting_pad != None:
+				for i, gamepad in enumerate(self.gamepads):
+					held = gamepad.buttonsHeld()
+					new = held - waiting_pad.get(i, set())
+					if new:
+						self.setPadButton(items[selected]["button"], min(new))
+						waiting_pad = None
+						break
+					# button held when waiting started can be released and pressed again
+					waiting_pad[i] = waiting_pad.get(i, set()) & held
+			elif not waiting_key:
 				for gamepad in self.gamepads:
 					if gamepad.pressed("down"):
 						move = 1
@@ -1347,7 +1458,10 @@ class Game():
 					quit()
 				if event.type != pygame.KEYDOWN:
 					continue
-				if waiting_key:
+				if waiting_pad != None:
+					# any key cancels waiting for gamepad button
+					waiting_pad = None
+				elif waiting_key:
 					# ESC cancels, Enter is reserved for pause
 					if event.key not in (pygame.K_ESCAPE, pygame.K_RETURN):
 						self.setControl(items[selected]["player"], items[selected]["control"], event.key)
@@ -1376,11 +1490,15 @@ class Game():
 					return
 				elif kind == "control":
 					waiting_key = True
+				elif kind == "padbutton" and change > 0:
+					waiting_pad = dict([(i, gamepad.buttonsHeld()) for i, gamepad in enumerate(self.gamepads)])
 				else:
-					self.changeSetting(kind, change)
+					self.changeSetting(kind, change, items[selected])
 
-	def changeSetting(self, kind, change):
-		""" Change setting value and save settings """
+	def changeSetting(self, kind, change, item = None):
+		""" Change setting value and save settings
+		item: settings item (player of gamepad setting, button name)
+		"""
 
 
 		if kind == "preset":
@@ -1401,6 +1519,16 @@ class Game():
 			names = config.ENEMY_AI_TYPES
 			index = names.index(config.ENEMY_AI) if config.ENEMY_AI in names else 0
 			config.ENEMY_AI = names[(index + change) % len(names)]
+		elif kind == "pad":
+			values = ["AUTO", "OFF", 0, 1, 2, 3]
+			player_nr = item["player"] if item else 0
+			current = config.GAMEPAD_ASSIGN[player_nr]
+			index = values.index(current) if current in values else 0
+			config.GAMEPAD_ASSIGN[player_nr] = values[(index + change) % len(values)]
+			self.assignGamepads()
+		elif kind == "padbutton":
+			# back to default buttons
+			setattr(config, item["button"] if item else "GAMEPAD_FIRE_BUTTON", None)
 		elif kind == "nes":
 			names = sorted(config.NES_VERSIONS)
 			index = names.index(config.NES_VERSION) if config.NES_VERSION in names else 0
@@ -1410,7 +1538,16 @@ class Game():
 			self.stage = config.START_LEVEL - 1
 		elif kind == "reset":
 			config.PLAYER_CONTROLS = [list(controls) for controls in config.DEFAULT_PLAYER_CONTROLS]
+			config.GAMEPAD_ASSIGN = ["AUTO"] * len(config.GAMEPAD_ASSIGN)
+			config.GAMEPAD_FIRE_BUTTON = None
+			config.GAMEPAD_START_BUTTON = None
+			self.assignGamepads()
 
+		config.saveSettings(self.is_fullscreen)
+
+	def setPadButton(self, name, button):
+		""" Use gamepad button for fire or start (name: GAMEPAD_FIRE_BUTTON / GAMEPAD_START_BUTTON) """
+		setattr(config, name, button)
 		config.saveSettings(self.is_fullscreen)
 
 	def setControl(self, player_nr, control, key):
@@ -1434,13 +1571,19 @@ class Game():
 		title = self.font.render("SETTINGS", False, white)
 		state.screen.blit(title, [(480 - title.get_width()) // 2, 16])
 
+		# list scrolls: selected item is always visible
+		rows = (416 - 52) // 20
+		offset = min(max(0, selected - rows + 1), max(0, len(items) - rows))
 		for i, item in enumerate(items):
-			y = 52 + i * 20
+			if not offset <= i < offset + rows:
+				continue
+			y = 52 + (i - offset) * 20
 			color = yellow if i == selected else white
 			if i == selected:
 				state.screen.blit(self.font.render(">", False, yellow), [16, y])
 			state.screen.blit(self.font.render(item["label"], False, color), [40, y])
-			value = "PRESS KEY" if i == selected and waiting_key else item["value"]
+			waiting_text = waiting_key if isinstance(waiting_key, str) else "PRESS KEY"
+			value = waiting_text if i == selected and waiting_key else item["value"]
 			if value:
 				state.screen.blit(self.font.render(value[:10], False, color), [288, y])
 
@@ -1939,7 +2082,7 @@ class Game():
 		if config.play_sounds:
 			state.sounds["bg"].stop()
 
-		state.gtimer.add(config.LEVEL_FINISH_TIMEOUT, lambda :self.endLevel(self.nextLevel if self.mode == "endless" else self.showScores), 1)
+		state.gtimer.add(config.LEVEL_FINISH_TIMEOUT, lambda :self.endLevel(self.showMenu if self.demo else (self.nextLevel if self.mode == "endless" else self.showScores)), 1)
 
 		print("Stage "+str(self.stage)+" completed")
 
@@ -2137,6 +2280,13 @@ class Game():
 				continue
 
 			for event in self.events():
+				# demo: any key returns to menu
+				if self.demo:
+					if event.type == pygame.QUIT:
+						quit()
+					elif event.type == pygame.KEYDOWN:
+						self.stopDemo()
+					continue
 				if event.type == pygame.MOUSEBUTTONDOWN:
 					pass
 				elif event.type == pygame.QUIT:
@@ -2229,7 +2379,10 @@ class Game():
 								elif index == 4:
 									player.pressed[3] = False
 
-			self.applyGamepads()
+			if self.demo:
+				self.demoControl()
+			else:
+				self.applyGamepads()
 
 			for player in state.players:
 				if player.state == player.STATE_ALIVE and not self.game_over and self.active:

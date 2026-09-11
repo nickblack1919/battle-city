@@ -25,7 +25,7 @@ Command line arguments:
 | Fire (hold for auto fire) | J | right Shift | gamepad A / B / X / Y |
 
 Player 1 and 2 keys can be changed on the settings screen. Gamepads are assigned to player 3 first,
-then to players 1 and 2; gamepad Start pauses the game.
+then to players 1 and 2 (can be changed on the settings screen); gamepad Start pauses the game.
 
 | Key | Action |
 |---|---|
@@ -49,9 +49,11 @@ then to players 1 and 2; gamepad Start pauses the game.
   auto fire (ON by default - holding fire button shoots again when bullet slot is free; OFF - every shot needs
   a press, like on NES), enemy AI (CLASSIC - random paths, sometimes towards the castle; NES - like on NES: at
   stage start enemies drive in random directions, later chase players, then go to the castle; a blocked tank
-  waits or turns).
+  waits or turns), gamepads: which gamepad every player uses (AUTO, OFF or gamepad number) and gamepad fire /
+  start buttons (Enter, then press the gamepad button; left arrow - default buttons).
+- **DEMO** - after 20 seconds in the menu without input the computer plays a 2 player game; any key returns to menu.
 
-Campaign and endless mode have hiscore tables: players with top 10 score enter their names after game over.
+Campaign and endless mode have hiscore tables for every difficulty preset: players with top 10 score enter their names after game over.
 
 ## Difficulty presets
 
