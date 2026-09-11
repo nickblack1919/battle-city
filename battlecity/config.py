@@ -151,7 +151,8 @@ DISABLE_LABELS = False	# score popups ("100", "500")
 # EFFECTS
 BONUS_BLINK_TIME = 5000	# bonus blinks during last ms before it disappears
 SCREEN_SHAKE = True	# shake screen on big explosions
-STAGE_SCREEN_TIME = 1500	# grey "STAGE N" screen before level, 0 - don't show
+STAGE_SCREEN_TIME = 1500	# grey "STAGE N" screen before level, 0 - don't show (and no curtain)
+CURTAIN_FRAMES = 16	# NES: grey curtain closes before "STAGE N" and opens over the stage in 16 frames
 SHOW_EFFECT_TIMERS = False	# bars showing time left for shield, ship, freeze and fortress walls
 
 # CONSTANTS

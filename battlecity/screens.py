@@ -17,15 +17,26 @@ from battlecity.tank import Enemy, Player
 class ScreensMixin():
 	""" Part of Game class """
 
+	CURTAIN_COLOR = (99, 99, 99)
+
 	def showStageScreen(self):
-		""" Grey "STAGE N" screen before level starts, like on NES """
+		""" Before level starts, like on NES: grey curtain closes from top and bottom over the screen,
+		then grey "STAGE N" screen """
 
 
 		if config.STAGE_SCREEN_TIME <= 0:
 			return
 
 		self.stage_screen = True
-		state.screen.fill([99, 99, 99])
+
+		# menu, scores or previous stage stays under the curtain
+		background = state.screen.copy()
+		for frame in range(1, config.CURTAIN_FRAMES + 1):
+			self.drawCurtain(background, frame / float(config.CURTAIN_FRAMES))
+			self.flip()
+			self.delayFrames(1)
+
+		state.screen.fill(self.CURTAIN_COLOR)
 		if self.mode == "endless":
 			title = "WAVE " + str(self.stage - self.first_stage + 1)
 		elif self.mode == "versus":
@@ -40,6 +51,27 @@ class ScreensMixin():
 			self.delay(50)
 
 		self.stage_screen = False
+
+	def openCurtain(self):
+		""" NES: grey curtain opens from the middle of the screen showing the stage """
+		if config.STAGE_SCREEN_TIME <= 0:
+			return
+
+		self.stage_screen = True
+		self.draw(False)
+		background = state.screen.copy()
+		for frame in range(config.CURTAIN_FRAMES - 1, -1, -1):
+			self.drawCurtain(background, frame / float(config.CURTAIN_FRAMES))
+			self.flip()
+			self.delayFrames(1)
+		self.stage_screen = False
+
+	def drawCurtain(self, background, closed):
+		""" Draw background with grey curtain: closed 0 - open, 1 - whole screen is grey """
+		state.screen.blit(background, [0, 0])
+		height = int(round(208 * closed))
+		state.screen.fill(self.CURTAIN_COLOR, [0, 0, 480, height])
+		state.screen.fill(self.CURTAIN_COLOR, [0, 416 - height, 480, height])
 
 	def gameOverScreen(self):
 		""" Show game over screen """

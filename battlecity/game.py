@@ -1,7 +1,7 @@
 # coding=utf-8
 """ Battle City: game screens and main loop """
 
-import os, random, uuid, sys, json
+import os, random, uuid, sys, json, array
 import pygame
 from pygame.locals import *
 from sys import exit as quit	# builtin quit() is missing in Mac app (PyInstaller)
@@ -67,6 +67,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			state.sounds["gameover"] = pygame.mixer.Sound("sounds/gameover.ogg")
 			state.sounds["score"] = pygame.mixer.Sound("sounds/score.ogg")
 			state.sounds["bg"] = pygame.mixer.Sound("sounds/background.ogg")
+			state.sounds["engine"] = self.makeEngineSound(state.sounds["bg"])
 			state.sounds["fire"] = pygame.mixer.Sound("sounds/fire.ogg")
 			state.sounds["bonus"] = pygame.mixer.Sound("sounds/bonus.ogg")
 			state.sounds["bonusnew"] = pygame.mixer.Sound("sounds/bonusnew.ogg")
@@ -127,6 +128,10 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 
 		state.enemy_spawn_pos_index = 2
 
+		# sounds playing: moving player's engine, engine hum of the stage
+		self.engine_sound = False
+		self.bg_sound = False
+
 		# fortress timer
 		self.fortress_end_timer = None
 
@@ -162,6 +167,38 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		del state.bullets[:]
 		del state.enemies[:]
 		del state.bonuses[:]
+
+	def makeEngineSound(self, sound, pitch = 1.5):
+		""" Engine sound of moving player tank: engine hum played faster (higher) """
+		frequency, size, channels = pygame.mixer.get_init()
+		if size != -16:
+			return sound
+		samples = array.array("h", sound.get_raw())
+		shifted = array.array("h")
+		for i in range(int(len(samples) // channels / pitch)):
+			start = int(i * pitch) * channels
+			shifted.extend(samples[start:start + channels])
+		return pygame.mixer.Sound(buffer=shifted.tobytes())
+
+	def playBackgroundSound(self):
+		""" Engine hum during the stage (until last enemy is destroyed); moving player's engine sound replaces it """
+		self.bg_sound = True
+		if config.play_sounds and not self.engine_sound:
+			state.sounds["bg"].play(-1)
+
+	def updateEngineSound(self, moving):
+		""" NES: engine sound plays while any player tank moves """
+		moving = moving and config.play_sounds and "engine" in state.sounds and not self.game_paused and not self.game_over
+		if moving == self.engine_sound:
+			return
+		self.engine_sound = moving
+		if moving:
+			state.sounds["bg"].stop()
+			state.sounds["engine"].play(-1)
+		elif "engine" in state.sounds:
+			state.sounds["engine"].stop()
+			if self.bg_sound and config.play_sounds:
+				state.sounds["bg"].play(-1)
 
 	def prerenderTexts(self):
 		""" Pre-render "game over" and "pause" texts in current language """
@@ -771,7 +808,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 
 		self.assignGamepads()
 
-	def draw(self):
+	def draw(self, flip = True):
 
 		state.screen.fill([0, 0, 0])
 
@@ -812,7 +849,8 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		if config.DEBUG_DRAW_MESH:
 			self.drawMesh()
 
-		self.flip()
+		if flip:
+			self.flip()
 
 	def drawSidebar(self):
 
@@ -875,6 +913,8 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		"""
 
 
+		# engine hum stops, moving tank's engine is still heard
+		self.bg_sound = False
 		if config.play_sounds:
 			state.sounds["bg"].stop()
 
@@ -917,6 +957,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			self.game_paused = True
 			# self.toggleEnemyFreeze(True)
 			pygame.mixer.stop()
+			self.engine_sound = False
 			if not config.DEBUG_UNFREEZE_PLAYERS_ON_PAUSE:
 				self.togglePlayersFreeze(True)
 			if config.play_sounds:
@@ -933,8 +974,8 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 				if player.controls:
 					player.fire_pressed = player.controls[0] in self.held_keys
 					player.pressed = [key in self.held_keys for key in player.controls[1:]]
-			if config.play_sounds:
-				state.sounds["bg"].play(-1)
+			if self.bg_sound:
+				self.playBackgroundSound()
 
 	def loadLevelEnemies(self, add):
 		levels_enemies = (
@@ -1020,9 +1061,11 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		# set number of enemies by types (basic, fast, power, armor) according to level
 		self.loadLevelEnemies(False)
 
+		self.engine_sound = False
+		self.bg_sound = False
 		if config.play_sounds:
 			state.sounds["start"].play()
-			state.gtimer.add(4330, lambda :state.sounds["bg"].play(-1), 1)
+		state.gtimer.add(4330, lambda :self.playBackgroundSound(), 1)
 
 		self.reloadPlayers()
 
@@ -1045,6 +1088,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		if config.FORTRESS_FOREVER > 0:
 			self.level.buildFortress(self.level.TILE_STEEL)
 
+		self.openCurtain()
 		self.draw()
 
 		while self.running:
@@ -1114,8 +1158,9 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 						config.play_sounds = not config.play_sounds
 						if not config.play_sounds:
 							pygame.mixer.stop()
-						else:
-							state.sounds["bg"].play(-1)
+							self.engine_sound = False
+						elif self.bg_sound:
+							self.playBackgroundSound()
 
 					if self.game_paused and not config.DEBUG_UNFREEZE_PLAYERS_ON_PAUSE:
 						continue
@@ -1180,11 +1225,14 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			else:
 				self.applyGamepads()
 
+			engine_moving = False
 			for player in state.players:
 				if player.state == player.STATE_ALIVE and not self.game_over and self.active:
 					# keyboard or gamepad
 					pressed = [player.pressed[i] or player.pad_pressed[i] for i in range(4)]
 					fire_pressed = player.fire_pressed or player.pad_fire
+					if (True in pressed or player.slide > 0) and not player.paralised:
+						engine_moving = True
 
 					# auto fire while fire button is held: shoot as soon as a bullet slot is free
 					if config.AUTO_FIRE and fire_pressed and pygame.time.get_ticks() - player.last_fire_time >= config.PLAYER_AUTO_FIRE_DELAY:
@@ -1210,6 +1258,8 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 					elif player.slide > 0:
 						player.slide = player.slide - player.speed if player.move(player.direction) else 0
 				player.update(time_passed)
+
+			self.updateEngineSound(engine_moving)
 
 			self.level_time += time_passed
 

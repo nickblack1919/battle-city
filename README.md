@@ -97,6 +97,10 @@ Superpowers: 1 fast bullets, 2 two bullets, 3 bullets clear grass, 4 bullets des
 frontal armor, 6 bullets destroy walls and fly on, 9 castle protection (absorbs one hit).
 CLASSIC (NES stars): 1 fast bullets, 2 two bullets, 3 bullets destroy steel and whole brick cells, grass stays.
 
+Like on NES, a grey curtain closes before the "STAGE N" screen and opens over the new stage; while a player tank
+moves its engine sound replaces the engine hum of the stage (the hum stops after the last enemy, the moving tank's
+engine is still heard; the engine sound is the hum played faster, there is no separate sound file).
+
 Like on NES, a bonus appears on one of 16 fixed places (not right under a player), tank explosions last 48 NES
 frames (fast tank 24, player 32), scores screen pauses are counted in NES frames.
 
