@@ -10,6 +10,19 @@ from battlecity.bonus import Bonus
 from battlecity.bullet import Bullet
 from battlecity.effects import Explosion, Label
 
+def blocksMove(rect, new_rect, other_rect):
+	""" Other tank blocks move from rect to new_rect.
+	Tanks already on top of each other (e.g. player respawned on enemy) may make moves which don't
+	make overlap bigger: away from each other or sideways (when a wall is behind), otherwise they
+	would block each other forever
+	"""
+	new_clip = new_rect.clip(other_rect)
+	new_overlap = new_clip.width * new_clip.height
+	if new_overlap == 0:
+		return False
+	clip = rect.clip(other_rect)
+	return new_overlap > clip.width * clip.height
+
 class Tank():
 
 	# possible directions
@@ -787,14 +800,14 @@ class Enemy(Tank):
 		else:
 			# collisions with other enemies (spawning enemies are obstacles too)
 			for enemy in state.enemies:
-				if enemy != self and (enemy.aquired_position or enemy.state == enemy.STATE_SPAWNING) and new_rect.colliderect(enemy.rect):
+				if enemy != self and (enemy.aquired_position or enemy.state == enemy.STATE_SPAWNING) and blocksMove(self.rect, new_rect, enemy.rect):
 					self.turnRandom()
 					self.path = self.generatePath(self.direction)
 					return
 
 			# collisions with players
 			for player in state.players:
-				if player.state == player.STATE_ALIVE and new_rect.colliderect(player.rect):
+				if player.state == player.STATE_ALIVE and blocksMove(self.rect, new_rect, player.rect):
 					self.turnRandom()
 					self.path = self.generatePath(self.direction)
 					return
@@ -849,6 +862,19 @@ class Enemy(Tank):
 			directions.remove(direction)
 			directions.insert(0, direction)
 			directions.append(opposite_direction)
+
+		# on top of a player (e.g. player respawned on enemy): drive away from the player first
+		for player in state.players:
+			if player.state == player.STATE_ALIVE and self.rect.colliderect(player.rect):
+				dx = self.rect.centerx - player.rect.centerx
+				dy = self.rect.centery - player.rect.centery
+				horizontal = self.DIR_RIGHT if dx > 0 else self.DIR_LEFT
+				vertical = self.DIR_DOWN if dy > 0 else self.DIR_UP
+				away = [horizontal, vertical] if abs(dx) >= abs(dy) else [vertical, horizontal]
+				directions = away + [d for d in directions if d not in away]
+				# don't keep pushing into a wall
+				self.persistance = 0
+				break
 
 		# sometimes prefer directions towards player's castle
 		if random.randint(1, 100) <= config.ENEMY_AI_BASE_CHANCE:
@@ -1067,13 +1093,13 @@ class Player(Tank):
 		# collisions with other players
 		for player in state.players:
 			if player != self and player.state == player.STATE_ALIVE and player_rect.colliderect(player.rect) == True:
-				if player.aquired_position:
+				if player.aquired_position and blocksMove(self.rect, player_rect, player.rect):
 					return
 
 		# collisions with enemies
 		for enemy in state.enemies:
 			if player_rect.colliderect(enemy.rect) == True:
-				if enemy.aquired_position and self.aquired_position:
+				if enemy.aquired_position and self.aquired_position and blocksMove(self.rect, player_rect, enemy.rect):
 					return
 
 		# collisions with bonuses

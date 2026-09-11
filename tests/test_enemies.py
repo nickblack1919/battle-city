@@ -61,7 +61,46 @@ def spawn_free(ctx):
 		ctx.finish()
 
 
+def enemy_on_player(ctx, enemy_frozen):
+	""" Player respawned on top of enemy: they must be able to drive apart """
+	g, game, d = ctx.g, ctx.game, ctx.data
+	enemies, Enemy = g["enemies"], g["Enemy"]
+	p = g["players"][0]
+
+	if ctx.frame == 5:
+		del enemies[:]
+		# level 1, columns 20-21: free up and down (at player's start the enemy can be walled in
+		# by fortress bricks and screen edge; then only player can drive away)
+		p.rect.topleft = [320, 64]
+		game.level.enemies_left[:] = [0]
+		enemy = Enemy(game.level, 1, list(p.rect.topleft))
+		del game.level.enemies_left[:]
+		enemy.state = enemy.STATE_ALIVE
+		enemy.aquired_position = True
+		enemy.path = []
+		enemies.append(enemy)
+		p.aquired_position = True
+		p.shielded = True
+		d["enemy"] = enemy
+		ctx.check("player and enemy on top of each other", p.rect.colliderect(enemy.rect))
+		if enemy_frozen:
+			game.toggleEnemyFreeze(True)
+			# player drives up out of enemy
+			p.pressed = [True, False, False, False]
+
+	if ctx.frame == 5 + 150:
+		enemy = d["enemy"]
+		p.pressed = [False] * 4
+		if enemy_frozen:
+			ctx.check("player drove out of frozen enemy (player top %d)" % p.rect.top, not p.rect.colliderect(enemy.rect))
+		else:
+			ctx.check("enemy drove away from player (enemy %s, player %s)" % (enemy.rect.topleft, p.rect.topleft), not p.rect.colliderect(enemy.rect))
+		ctx.finish()
+
+
 SCENARIOS = {
+	"player_leaves_enemy": {"fn": lambda ctx: enemy_on_player(ctx, True)},
+	"enemy_leaves_player": {"fn": lambda ctx: enemy_on_player(ctx, False)},
 	"overlap": {"fn": overlap},
 	"spawn_free": {"fn": spawn_free},
 }
