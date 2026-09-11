@@ -35,19 +35,19 @@ class Bullet():
 
 		self.image = state.sprites.subsurface(75*2, 74*2, 3*2, 4*2)
 
-		# position is player's top left corner, so we'll need to
-		# recalculate a bit. also rotate image itself.
+		# position is tank's top left corner. Like on NES, bullet's center appears
+		# on the edge of the tank (8 NES px = 16 px from tank's center). Also rotate image.
 		if direction == self.DIR_UP:
-			self.rect = pygame.Rect(position[0] + 12, position[1], 8, 8)
+			self.rect = pygame.Rect(position[0] + 12, position[1] - 4, 8, 8)
 		elif direction == self.DIR_RIGHT:
 			self.image = pygame.transform.rotate(self.image, 270)
-			self.rect = pygame.Rect(position[0] + 32 - 8, position[1] + 12, 8, 8)
+			self.rect = pygame.Rect(position[0] + 32 - 4, position[1] + 12, 8, 8)
 		elif direction == self.DIR_DOWN:
 			self.image = pygame.transform.rotate(self.image, 180)
-			self.rect = pygame.Rect(position[0] + 12, position[1] + 32 - 8, 8, 8)
+			self.rect = pygame.Rect(position[0] + 12, position[1] + 32 - 4, 8, 8)
 		elif direction == self.DIR_LEFT:
 			self.image = pygame.transform.rotate(self.image, 90)
-			self.rect = pygame.Rect(position[0] + 4 , position[1] + 12, 8, 8)
+			self.rect = pygame.Rect(position[0] - 4, position[1] + 12, 8, 8)
 
 		self.explosion_images = [
 			state.sprites.subsurface(0, 80*2, 32*2, 32*2),
@@ -245,7 +245,9 @@ class Bullet():
 		""" start bullets's explosion """
 		if self.state != self.STATE_REMOVED:
 			self.state = self.STATE_EXPLODING
-			self.explosion = Explosion([self.rect.left-16, self.rect.top-16], None, self.explosion_images)
+			# NES: explosion lasts 9 frames (2 images)
+			interval = config.BULLET_EXPLOSION_TIME // len(self.explosion_images)
+			self.explosion = Explosion([self.rect.left-16, self.rect.top-16], interval, self.explosion_images)
 
 	def destroy(self):
 		self.state = self.STATE_REMOVED

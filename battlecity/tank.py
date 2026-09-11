@@ -292,7 +292,8 @@ class Tank():
 		if not forced:
 			active_bullets = 0
 			for bullet in state.bullets:
-				if bullet.owner_class == self and bullet.state == bullet.STATE_ACTIVE:
+				# NES: bullet slot is busy while bullet flies and while it explodes
+				if bullet.owner_class == self and bullet.state in (bullet.STATE_ACTIVE, bullet.STATE_EXPLODING):
 					active_bullets += 1
 			if active_bullets >= self.max_active_bullets:
 				return False

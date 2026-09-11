@@ -1300,6 +1300,7 @@ class Game():
 				})
 		# frame rate of NES version: speeds and timings
 		items.append({"label": "NES SPEED", "value": config.NES_VERSION, "type": "nes"})
+		items.append({"label": "AUTO FIRE", "value": "ON" if config.AUTO_FIRE else "OFF", "type": "autofire"})
 		items.append({"label": "RESET CONTROLS", "value": "", "type": "reset"})
 		items.append({"label": "BACK", "value": "", "type": "back"})
 		return items
@@ -1388,6 +1389,8 @@ class Game():
 					pygame.mixer.stop()
 		elif kind == "fullscreen":
 			self.toggleFullScreen()
+		elif kind == "autofire":
+			config.AUTO_FIRE = not config.AUTO_FIRE
 		elif kind == "nes":
 			names = sorted(config.NES_VERSIONS)
 			index = names.index(config.NES_VERSION) if config.NES_VERSION in names else 0
@@ -2223,7 +2226,7 @@ class Game():
 					fire_pressed = player.fire_pressed or player.pad_fire
 
 					# auto fire while fire button is held: shoot as soon as a bullet slot is free
-					if fire_pressed and pygame.time.get_ticks() - player.last_fire_time >= config.PLAYER_AUTO_FIRE_DELAY:
+					if config.AUTO_FIRE and fire_pressed and pygame.time.get_ticks() - player.last_fire_time >= config.PLAYER_AUTO_FIRE_DELAY:
 						self.playerFire(player)
 
 					if True in pressed:

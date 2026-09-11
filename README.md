@@ -45,7 +45,8 @@ then to players 1 and 2; gamepad Start pauses the game.
 - **VERSUS** - two players fight each other, each defends own castle; destroyed castle or no lives left loses.
 - **LEVEL EDITOR** - edit any of 35 levels: arrows / mouse move cursor, 1-5 tile, 0 eraser, space / left mouse draw,
   right mouse erase, `[` `]` level, S save, D back to original level, T save and play.
-- **SETTINGS** - difficulty preset, sound, full screen, start level, controls, NES speed (DENDY / NTSC).
+- **SETTINGS** - difficulty preset, sound, full screen, start level, controls, NES speed (DENDY / NTSC),
+  auto fire (holding fire button shoots again when bullet slot is free; OFF - every shot needs a press, like on NES).
 
 Campaign and endless mode have hiscore tables: players with top 10 score enter their names after game over.
 
@@ -74,6 +75,9 @@ screen selects frame rate of the console: DENDY (PAL, 50 fps, default) or NTSC (
 | Timer | freezes enemies | freezes players |
 | Pistol | 3 superpowers | enemies become stronger tank types |
 | Ship | drive over water | enemies drive over water |
+
+Like on NES, a bullet appears on the edge of the tank and a tank can't fire again until its bullet finished flying
+and exploding.
 
 Superpowers: 1 fast bullets, 2 two bullets, 3 bullets clear grass, 4 bullets destroy steel, 5 three bullets and
 frontal armor (not in CLASSIC), 6 bullets destroy walls and fly on, 9 castle protection (absorbs one hit).

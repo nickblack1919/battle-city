@@ -19,8 +19,9 @@ def autofire(ctx):
 	d = ctx.data
 
 	if ctx.frame == 10:
-		# shoot up, away from walls around the base
-		p.rotate(p.DIR_UP, False)
+		# shoot left: screen edge is close (128 px), so several shots fit in check window
+		# (like on NES, next shot waits until bullet flew and exploded)
+		p.rotate(p.DIR_LEFT, False)
 		p.shielded = True
 		d["start"] = n
 		return [ctx.key(fire_key)]

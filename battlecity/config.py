@@ -25,7 +25,7 @@ def applyNesVersion(name):
 	global FRIENDLY_FIRE_STUN_TIME, LEVEL_FINISH_TIMEOUT, GAME_OVER_TIMEOUT, BONUS_TIMER_FREEZE_TIMEOUT
 	global BONUS_FORTRESS_WALLS_TIMEOUT, FORTRESS_BLINK_TIME, FORTRESS_BLINK_INTERVAL, BONUS_PLAYER_SHIELD_TIMEOUT
 	global BONUS_BLINK_INTERVAL, BONUS_PICKUP_LABEL_TIME, ENEMY_SPAWN_ANIMATION_TIME, PLAYER_SPAWN_ANIMATION_TIME
-	global PLAYER_START_SHIELD_TIMEOUT, CHANCE_OF_FIRE, GAME_OVER_TEXT_SPEED
+	global PLAYER_START_SHIELD_TIMEOUT, CHANCE_OF_FIRE, GAME_OVER_TEXT_SPEED, BULLET_EXPLOSION_TIME
 	global DEFAULT_BULLET_SPEED, FAST_BULLET_SPEED, PLAYER_DEFAULT_SPEED, DEFAULT_ENEMY_SPEED, DEFAULT_ENEMY_SPEED_FAST
 
 	NES_VERSION = name
@@ -47,6 +47,8 @@ def applyNesVersion(name):
 	ENEMY_SPAWN_ANIMATION_TIME = nesFrames(56)	# flashing star before enemy appears
 	PLAYER_SPAWN_ANIMATION_TIME = nesFrames(38)
 	PLAYER_START_SHIELD_TIMEOUT = nesFrames(192)	# after (re)spawn: 3 x 64 frames
+	# bullet explosion; tank can't fire again until its bullet stops exploding
+	BULLET_EXPLOSION_TIME = nesFrames(9)
 
 	# enemy tries to fire every frame (ENEMY_FIRE_TIMER) with 1/32 chance per NES frame
 	CHANCE_OF_FIRE = 100.0 * NES_FPS / 32 / GAME_FRAME_TIMING
@@ -113,6 +115,7 @@ PLAYER_START_LIFE = 3	# NES: 3 (sidebar shows lives left: 2)
 PLAYER_START_HEALTH = 100
 PLAYER_START_SCORE = 0
 PLAYER_START_MAX_ACTIVE_BULLETS = 1
+AUTO_FIRE = True	# holding fire button fires again as soon as bullet slot is free (NES: every shot needs a press)
 PLAYER_AUTO_FIRE_DELAY = 100	# min ms between shots while fire button is held
 
 # CONTROLS: fire, up, right, down, left for players 1 and 2 (player 3 uses gamepad only)
@@ -276,7 +279,7 @@ def levelFile(level_nr):
 
 def loadSettings():
 	""" Apply settings saved on settings screen """
-	global play_sounds, START_LEVEL, START_FULLSCREEN, PLAYER_CONTROLS
+	global play_sounds, START_LEVEL, START_FULLSCREEN, PLAYER_CONTROLS, AUTO_FIRE
 
 	try:
 		with open(dataFile(SETTINGS_FILE), "r") as f:
@@ -289,6 +292,7 @@ def loadSettings():
 			applyPreset(settings["preset"])
 		if settings.get("nes_version") in NES_VERSIONS:
 			applyNesVersion(settings["nes_version"])
+		AUTO_FIRE = bool(settings.get("auto_fire", AUTO_FIRE))
 		play_sounds = bool(settings.get("sound", play_sounds))
 		START_FULLSCREEN = bool(settings.get("fullscreen", START_FULLSCREEN))
 		# command line argument has priority
@@ -309,6 +313,7 @@ def saveSettings(fullscreen):
 		"fullscreen": fullscreen,
 		"start_level": START_LEVEL,
 		"nes_version": NES_VERSION,
+		"auto_fire": AUTO_FIRE,
 		"controls": PLAYER_CONTROLS,
 	}
 	try:

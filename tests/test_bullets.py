@@ -1,0 +1,85 @@
+""" Bullets like on NES: spawn on tank's edge, bullet slot busy while bullet explodes, auto fire switch """
+
+import harness
+import pygame
+
+
+def player_bullets(ctx):
+	return [b for b in ctx.g["bullets"] if b.owner_class is ctx.g["players"][0]]
+
+
+def prepare(ctx):
+	g = ctx.g
+	del ctx.game.level.enemies_left[:]
+	del g["enemies"][:]
+	p = g["players"][0]
+	p.shielded = True
+	return p
+
+
+def spawn_position(ctx):
+	g = ctx.g
+	if ctx.frame != 1:
+		return
+	p = prepare(ctx)
+	Bullet = g["Bullet"]
+	x, y = 192, 192
+	centers = {}
+	for direction in (Bullet.DIR_UP, Bullet.DIR_RIGHT, Bullet.DIR_DOWN, Bullet.DIR_LEFT):
+		centers[direction] = Bullet(ctx.game.level, [x, y], direction).rect.center
+	ctx.check("bullet center appears on tank's edge: %s" % centers, centers == {
+		Bullet.DIR_UP: (x + 16, y), Bullet.DIR_RIGHT: (x + 32, y + 16),
+		Bullet.DIR_DOWN: (x + 16, y + 32), Bullet.DIR_LEFT: (x, y + 16)})
+	ctx.finish()
+
+
+def slot_busy_while_exploding(ctx):
+	g, d = ctx.g, ctx.data
+	p = prepare(ctx) if ctx.frame == 1 else g["players"][0]
+	if ctx.frame == 1:
+		# level 1: brick right above player 1 start (column 8-9, row 22 is free, fire left into bricks at columns 6-7)
+		p.rotate(p.DIR_LEFT, False)
+		ctx.check("bullet fired", p.fire())
+	if ctx.frame == 2:
+		bullets = player_bullets(ctx)
+		d["bullet"] = bullets[0] if bullets else None
+	if ctx.frame > 2 and "exploding_frame" not in d and d["bullet"] and d["bullet"].state == d["bullet"].STATE_EXPLODING:
+		d["exploding_frame"] = ctx.frame
+		ctx.check("can't fire while own bullet explodes", not p.fire())
+	if "exploding_frame" in d and d["bullet"].state == d["bullet"].STATE_REMOVED and "removed_frame" not in d:
+		d["removed_frame"] = ctx.frame
+		frames = d["removed_frame"] - d["exploding_frame"]
+		expected = g["BULLET_EXPLOSION_TIME"] // 20
+		ctx.check("explosion lasts 9 NES frames (%d frames, expected about %d)" % (frames, expected), abs(frames - expected) <= 2)
+	if "removed_frame" in d and ctx.frame == d["removed_frame"] + 1:
+		ctx.check("can fire again after explosion", p.fire())
+		ctx.finish()
+	if ctx.frame > 200:
+		ctx.check("bullet exploded on bricks", False)
+		ctx.finish()
+
+
+def auto_fire_off(ctx):
+	g, d = ctx.g, ctx.data
+	if ctx.frame == 1:
+		p = prepare(ctx)
+		p.rotate(p.DIR_UP, False)
+		g["AUTO_FIRE"] = False
+		d["seen"] = set()
+		return [ctx.key(p.controls[0])]
+	p = g["players"][0]
+	for bullet in player_bullets(ctx):
+		d["seen"].add(id(bullet))
+	if ctx.frame == 150:
+		ctx.check("auto fire off: holding fire shoots once (%d)" % len(d["seen"]), len(d["seen"]) == 1)
+		ctx.finish()
+
+
+SCENARIOS = {
+	"spawn_position": {"fn": spawn_position},
+	"slot_busy_while_exploding": {"fn": slot_busy_while_exploding},
+	"auto_fire_off": {"fn": auto_fire_off},
+}
+
+if __name__ == "__main__":
+	harness.main(SCENARIOS)
