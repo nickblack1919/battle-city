@@ -50,7 +50,8 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
   a press, like on NES), enemy AI (CLASSIC - random paths, sometimes towards the castle; NES - like on NES: at
   stage start enemies drive in random directions, later chase players, then go to the castle; a blocked tank
   waits or turns), gamepads: which gamepad every player uses (AUTO, OFF or gamepad number) and gamepad fire /
-  start buttons (Enter, then press the gamepad button; left arrow - default buttons).
+  start buttons (Enter, then press the gamepad button; left arrow - default buttons), language (EN / RU; Russian
+  text uses pygame default font, the game font has no Cyrillic letters).
 - **DEMO** - after 20 seconds in the menu without input the computer plays a 2 player game; any key returns to menu.
 
 Campaign and endless mode have hiscore tables for every difficulty preset: players with top 10 score enter their names after game over.

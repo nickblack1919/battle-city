@@ -6,7 +6,7 @@ import pygame
 from pygame.locals import *
 from sys import exit as quit	# builtin quit() is missing in Mac app (PyInstaller)
 
-from battlecity import config, state
+from battlecity import config, lang, state
 from battlecity.bonus import Bonus
 from battlecity.castle import Castle
 from battlecity.effects import Label
@@ -98,16 +98,9 @@ class Game():
 		self.font = pygame.font.Font("fonts/prstart.ttf", 16)
 
 		# pre-render game over text
-		self.im_game_over = pygame.Surface((64, 40))
-		self.im_game_over.set_colorkey((0,0,0))
-		self.im_game_over.blit(self.font.render("GAME", False, (127, 64, 64)), [0, 0])
-		self.im_game_over.blit(self.font.render("OVER", False, (127, 64, 64)), [0, 20])
+		self.prerenderTexts()
 		self.game_over_y = 416+40
 		
-		# pre-render pause text
-		self.im_pause = pygame.Surface((80, 120))
-		self.im_pause.set_colorkey((0,0,0))
-		self.im_pause.blit(self.font.render("PAUSE", False, (127, 64, 64)), [0, 0])
 
 		# number of players. here is defined preselected menu value
 		self.nr_of_players = 1
@@ -165,6 +158,24 @@ class Game():
 		del state.bullets[:]
 		del state.enemies[:]
 		del state.bonuses[:]
+
+	def prerenderTexts(self):
+		""" Pre-render "game over" and "pause" texts in current language """
+		color = (127, 64, 64)
+		game, over = self.text("GAME", False, color), self.text("OVER", False, color)
+		self.im_game_over = pygame.Surface((max(game.get_width(), over.get_width()), 40))
+		self.im_game_over.set_colorkey((0,0,0))
+		self.im_game_over.blit(game, [(self.im_game_over.get_width() - game.get_width()) // 2, 0])
+		self.im_game_over.blit(over, [(self.im_game_over.get_width() - over.get_width()) // 2, 20])
+
+		pause = self.text("PAUSE", False, color)
+		self.im_pause = pygame.Surface(pause.get_size())
+		self.im_pause.set_colorkey((0,0,0))
+		self.im_pause.blit(pause, [0, 0])
+
+	def text(self, text, antialias, color, translate = True):
+		""" Render text with game font in current language (translate False - as is) """
+		return lang.render(self.font, 16, text, antialias, color, translate)
 
 	def toggleDebugMode(self): 
 		self.debug_mode = not self.debug_mode
@@ -369,7 +380,7 @@ class Game():
 			title = "VERSUS"
 		else:
 			title = "STAGE " + str(self.stage)
-		text = self.font.render(title, False, pygame.Color("black"))
+		text = self.text(title, False, pygame.Color("black"))
 		state.screen.blit(text, [(416 - text.get_width()) // 2, (416 - text.get_height()) // 2])
 
 		for i in range(config.STAGE_SCREEN_TIME // 20):
@@ -1044,8 +1055,8 @@ class Game():
 		font = Label.getFont()
 		black = pygame.Color("black")
 
-		state.screen.blit(font.render("EDITOR", False, black), [420, 8])
-		state.screen.blit(font.render("LVL %d%s" % (level_nr, "*" if modified else ""), False, black), [420, 24])
+		state.screen.blit(lang.render(font, 8, "EDITOR", False, black), [420, 8])
+		state.screen.blit(lang.render(font, 8, "LVL %d%s" % (level_nr, "*" if modified else ""), False, black), [420, 24])
 
 		tile_images = {"#": level.tile_brick, "@": level.tile_steel, "~": level.tile_water, "%": level.tile_grass, "-": level.tile_froze}
 		char, name = self.EDITOR_TILES[brush]
@@ -1053,11 +1064,11 @@ class Game():
 			state.screen.blit(tile_images[char], [440, 44])
 		else:
 			pygame.draw.rect(state.screen, black, [440, 44, 16, 16], 1)
-		state.screen.blit(font.render(name, False, black), [420, 66])
+		state.screen.blit(lang.render(font, 8, name, False, black), [420, 66])
 
 		hints = ["1-5 TILE", "0 ERASE", "SPC DRAW", "S SAVE", "D RESET", "[ ] LVL", "T TEST", "ESC MENU"]
 		for i, hint in enumerate(hints):
-			state.screen.blit(font.render(hint, False, black), [418, 100 + i * 14])
+			state.screen.blit(lang.render(font, 8, hint, False, black), [418, 100 + i * 14])
 
 		self.flip()
 
@@ -1107,7 +1118,7 @@ class Game():
 		yellow = pygame.Color(255, 200, 0)
 
 		def center(text, y, color):
-			surface = self.font.render(text, False, color)
+			surface = self.text(text, False, color)
 			state.screen.blit(surface, [(480 - surface.get_width()) // 2, y])
 
 		center(["I", "II"][self.versus_winner] + "-PLAYER WINS", 150, yellow)
@@ -1255,7 +1266,7 @@ class Game():
 		yellow = pygame.Color(255, 200, 0)
 
 		def center(text, y, color):
-			surface = self.font.render(text, False, color)
+			surface = self.text(text, False, color)
 			state.screen.blit(surface, [(480 - surface.get_width()) // 2, y])
 
 		center("NEW HIGH SCORE", 80, yellow)
@@ -1265,7 +1276,7 @@ class Game():
 		# big letters with cursor under current one
 		x = (480 - 3 * 40) // 2
 		for i, letter in enumerate(name):
-			surface = pygame.transform.scale(self.font.render(letter, False, white), [32, 32])
+			surface = pygame.transform.scale(self.text(letter, False, white, False), [32, 32])
 			state.screen.blit(surface, [x + i * 40, 220])
 			if i == position:
 				pygame.draw.rect(state.screen, yellow, [x + i * 40, 256, 32, 4])
@@ -1281,13 +1292,13 @@ class Game():
 		white = pygame.Color("white")
 		yellow = pygame.Color(255, 200, 0)
 
-		title = self.font.render("HIGH SCORES - " + mode.upper(), False, yellow)
+		title = self.text(lang.tr("HIGH SCORES") + " - " + lang.tr(mode.upper()), False, yellow, False)
 		state.screen.blit(title, [(480 - title.get_width()) // 2, 30])
-		preset = self.font.render(config.CURRENT_PRESET or "CUSTOM", False, yellow)
+		preset = self.text(config.CURRENT_PRESET or "CUSTOM", False, yellow)
 		state.screen.blit(preset, [(480 - preset.get_width()) // 2, 54])
 		for i, entry in enumerate(table):
 			row = "%2d. %-3s %8d" % (i + 1, entry[0], entry[1])
-			state.screen.blit(self.font.render(row, False, white), [96, 90 + i * 28])
+			state.screen.blit(self.text(row, False, white, False), [96, 90 + i * 28])
 
 		for frame in range(duration // 20):
 			self.flip()
@@ -1400,6 +1411,7 @@ class Game():
 		items.append({"label": "NES SPEED", "value": config.NES_VERSION, "type": "nes"})
 		items.append({"label": "AUTO FIRE", "value": "ON" if config.AUTO_FIRE else "OFF", "type": "autofire"})
 		items.append({"label": "ENEMY AI", "value": config.ENEMY_AI, "type": "ai"})
+		items.append({"label": "LANGUAGE", "value": config.LANGUAGE, "type": "lang"})
 		for player_nr in range(len(config.GAMEPAD_ASSIGN)):
 			assign = config.GAMEPAD_ASSIGN[player_nr]
 			value = assign if assign in ("AUTO", "OFF") else "PAD %d" % (assign + 1)
@@ -1516,6 +1528,10 @@ class Game():
 			self.toggleFullScreen()
 		elif kind == "autofire":
 			config.AUTO_FIRE = not config.AUTO_FIRE
+		elif kind == "lang":
+			index = lang.LANGUAGES.index(config.LANGUAGE) if config.LANGUAGE in lang.LANGUAGES else 0
+			config.LANGUAGE = lang.LANGUAGES[(index + change) % len(lang.LANGUAGES)]
+			self.prerenderTexts()
 		elif kind == "ai":
 			names = config.ENEMY_AI_TYPES
 			index = names.index(config.ENEMY_AI) if config.ENEMY_AI in names else 0
@@ -1569,7 +1585,7 @@ class Game():
 		white = pygame.Color("white")
 		yellow = pygame.Color(255, 200, 0)
 
-		title = self.font.render("SETTINGS", False, white)
+		title = self.text("SETTINGS", False, white)
 		state.screen.blit(title, [(480 - title.get_width()) // 2, 16])
 
 		# list scrolls: selected item is always visible
@@ -1581,12 +1597,15 @@ class Game():
 			y = 52 + (i - offset) * 20
 			color = yellow if i == selected else white
 			if i == selected:
-				state.screen.blit(self.font.render(">", False, yellow), [16, y])
-			state.screen.blit(self.font.render(item["label"], False, color), [40, y])
+				state.screen.blit(self.text(">", False, yellow), [16, y])
+			state.screen.blit(self.text(item["label"], False, color), [40, y])
 			waiting_text = waiting_key if isinstance(waiting_key, str) else "PRESS KEY"
 			value = waiting_text if i == selected and waiting_key else item["value"]
-			if value:
-				state.screen.blit(self.font.render(value[:10], False, color), [288, y])
+			if value and item["type"] == "control":
+				# key names aren't translated
+				state.screen.blit(self.text(value[:10], False, color, False), [288, y])
+			elif value:
+				state.screen.blit(self.text(lang.tr(value)[:14], False, color, False), [288, y])
 
 		self.flip()
 
@@ -1702,21 +1721,21 @@ class Game():
 		purple = pygame.Color(127, 64, 64)
 		pink = pygame.Color(191, 160, 128)
 
-		state.screen.blit(self.font.render("HI-SCORE", False, purple), [105, 35])
-		state.screen.blit(self.font.render(str(hiscore), False, pink), [295, 35])
+		state.screen.blit(self.text("HI-SCORE", False, purple), [105, 35])
+		state.screen.blit(self.text(str(hiscore), False, pink), [295, 35])
 
-		state.screen.blit(self.font.render("STAGE"+str(self.stage).rjust(3), False, white), [170, 65])
+		state.screen.blit(self.text("STAGE"+str(self.stage).rjust(3), False, white), [170, 65])
 
-		state.screen.blit(self.font.render("I-PLAYER", False, purple), [25, 95])
+		state.screen.blit(self.text("I-PLAYER", False, purple), [25, 95])
 
 		#player 1 global score
-		state.screen.blit(self.font.render(str(state.players[0].score).rjust(8), False, pink), [25, 125])
+		state.screen.blit(self.text(str(state.players[0].score).rjust(8), False, pink), [25, 125])
 
 		if self.nr_of_players >= 2:
-			state.screen.blit(self.font.render("II-PLAYER", False, purple), [310, 95])
+			state.screen.blit(self.text("II-PLAYER", False, purple), [310, 95])
 
 			#player 2 global score
-			state.screen.blit(self.font.render(str(state.players[1].score).rjust(8), False, pink), [325, 125])
+			state.screen.blit(self.text(str(state.players[1].score).rjust(8), False, pink), [325, 125])
 
 		# tanks and arrows
 		for i in range(4):
@@ -1725,7 +1744,7 @@ class Game():
 			if self.nr_of_players >= 2:
 				state.screen.blit(img_arrows[1], [258, 168+(i*45)])
 
-		state.screen.blit(self.font.render("TOTAL", False, white), [70, 335])
+		state.screen.blit(self.text("TOTAL", False, white), [70, 335])
 
 		# total underline
 		pygame.draw.line(state.screen, white, [170, 330], [307, 330], 4)
@@ -1746,13 +1765,13 @@ class Game():
 					state.sounds["score"].play()
 
 				# erase previous text
-				state.screen.blit(self.font.render(str(n-1).rjust(2), False, black), [170, 168+(i*45)])
+				state.screen.blit(self.text(str(n-1).rjust(2), False, black), [170, 168+(i*45)])
 				# print new number of enemies
-				state.screen.blit(self.font.render(str(n).rjust(2), False, white), [170, 168+(i*45)])
+				state.screen.blit(self.text(str(n).rjust(2), False, white), [170, 168+(i*45)])
 				# erase previous text
-				state.screen.blit(self.font.render(str((n-1) * (i+1) * 100).rjust(4)+" PTS", False, black), [25, 168+(i*45)])
+				state.screen.blit(self.text(str((n-1) * (i+1) * 100).rjust(4)+" PTS", False, black), [25, 168+(i*45)])
 				# print new total points per enemy
-				state.screen.blit(self.font.render(str(n * (i+1) * 100).rjust(4)+" PTS", False, white), [25, 168+(i*45)])
+				state.screen.blit(self.text(str(n * (i+1) * 100).rjust(4)+" PTS", False, white), [25, 168+(i*45)])
 				self.flip()
 				self.delayFrames(8)
 
@@ -1764,11 +1783,11 @@ class Game():
 					if n > 0 and config.play_sounds:
 						state.sounds["score"].play()
 
-					state.screen.blit(self.font.render(str(n-1).rjust(2), False, black), [277, 168+(i*45)])
-					state.screen.blit(self.font.render(str(n).rjust(2), False, white), [277, 168+(i*45)])
+					state.screen.blit(self.text(str(n-1).rjust(2), False, black), [277, 168+(i*45)])
+					state.screen.blit(self.text(str(n).rjust(2), False, white), [277, 168+(i*45)])
 
-					state.screen.blit(self.font.render(str((n-1) * (i+1) * 100).rjust(4)+" PTS", False, black), [325, 168+(i*45)])
-					state.screen.blit(self.font.render(str(n * (i+1) * 100).rjust(4)+" PTS", False, white), [325, 168+(i*45)])
+					state.screen.blit(self.text(str((n-1) * (i+1) * 100).rjust(4)+" PTS", False, black), [325, 168+(i*45)])
+					state.screen.blit(self.text(str(n * (i+1) * 100).rjust(4)+" PTS", False, white), [325, 168+(i*45)])
 
 					self.flip()
 					self.delayFrames(8)
@@ -1779,22 +1798,22 @@ class Game():
 
 		# total tanks
 		tanks = sum([i for i in state.players[0].trophies.values()]) - state.players[0].trophies["bonus"]
-		state.screen.blit(self.font.render(str(tanks).rjust(2), False, white), [170, 335])
+		state.screen.blit(self.text(str(tanks).rjust(2), False, white), [170, 335])
 		if self.nr_of_players >= 2:
 			tanks = sum([i for i in state.players[1].trophies.values()]) - state.players[1].trophies["bonus"]
-			state.screen.blit(self.font.render(str(tanks).rjust(2), False, white), [277, 335])
+			state.screen.blit(self.text(str(tanks).rjust(2), False, white), [277, 335])
 
 		# third player: short table, there is no room for detailed one
 		if self.nr_of_players == 3:
-			state.screen.blit(self.font.render("III-PLAYER", False, purple), [25, 375])
-			state.screen.blit(self.font.render(str(state.players[2].score).rjust(8), False, pink), [325, 375])
+			state.screen.blit(self.text("III-PLAYER", False, purple), [25, 375])
+			state.screen.blit(self.text(str(state.players[2].score).rjust(8), False, pink), [325, 375])
 			kills = [state.players[2].trophies["enemy" + str(i)] for i in range(4)]
 			kills_text = "KILLS " + " ".join([str(k) for k in kills]) + " = " + str(sum(kills))
-			state.screen.blit(self.font.render(kills_text, False, white), [25, 395])
+			state.screen.blit(self.text(kills_text, False, white), [25, 395])
 
 		if kills_bonus_player != None:
 			player_names = ["I", "II", "III"]
-			bonus_text = self.font.render(player_names[kills_bonus_player] + "-PLAYER BONUS " + str(config.TWO_PLAYER_KILLS_BONUS), False, white)
+			bonus_text = self.text(player_names[kills_bonus_player] + "-PLAYER BONUS " + str(config.TWO_PLAYER_KILLS_BONUS), False, white)
 			state.screen.blit(bonus_text, [(480 - bonus_text.get_width()) // 2, 355])
 
 		self.flip()
@@ -1838,12 +1857,12 @@ class Game():
 		self.drawEffectTimers()
 
 		if self.game_paused:
-			state.screen.blit(self.im_pause, [176, 188])
+			state.screen.blit(self.im_pause, [(416 - self.im_pause.get_width()) // 2, 188])
 
 		if self.game_over:
 			if self.game_over_y > 188:
 				self.game_over_y -= config.GAME_OVER_TEXT_SPEED
-			state.screen.blit(self.im_game_over, [176, self.game_over_y]) # 176=(416-64)/2
+			state.screen.blit(self.im_game_over, [(416 - self.im_game_over.get_width()) // 2, self.game_over_y])
 
 		self.drawSidebar()
 
@@ -1874,7 +1893,7 @@ class Game():
 
 		hidden_enemies = len(self.level.enemies_left) - max_icons
 		if hidden_enemies > 0 and pygame.font.get_init():
-			state.screen.blit(self.font.render("+"+str(hidden_enemies), False, pygame.Color('black')), [x+4, ypos])
+			state.screen.blit(self.text("+"+str(hidden_enemies), False, pygame.Color('black')), [x+4, ypos])
 
 		# players' lives
 		if pygame.font.get_init():
@@ -1883,12 +1902,12 @@ class Game():
 				lives_left = state.players[n].lives - 1
 				if lives_left < 0:
 					lives_left = 0 
-				state.screen.blit(self.font.render(str(n+1)+"P", False, text_color), [x+20, y+210+n*42])
-				state.screen.blit(self.font.render(str(lives_left), False, text_color), [x+35, y+227+n*42])
+				state.screen.blit(self.text(str(n+1)+"P", False, text_color), [x+20, y+210+n*42])
+				state.screen.blit(self.text(str(lives_left), False, text_color), [x+35, y+227+n*42])
 				state.screen.blit(self.player_life_image, [x+18, y+227+n*42])
 
 			state.screen.blit(self.flag_image, [x+17, y+280+75])
-			state.screen.blit(self.font.render(str(self.stage), False, text_color), [x+35, y+312+75])
+			state.screen.blit(self.text(str(self.stage), False, text_color), [x+35, y+312+75])
 
 
 	def drawIntroScreen(self, put_on_surface = True):
@@ -1907,10 +1926,10 @@ class Game():
 
 			hiscore = self.loadHiscore()
 
-			state.screen.blit(self.font.render("HI- "+str(hiscore), True, pygame.Color('white')), [170, 35])
+			state.screen.blit(self.text("HI- "+str(hiscore), True, pygame.Color('white')), [170, 35])
 
 			for i, item in enumerate(items):
-				state.screen.blit(self.font.render(item[0], True, pygame.Color('white')), [165, 228 + i * 20])
+				state.screen.blit(self.text(item[0], True, pygame.Color('white')), [165, 228 + i * 20])
 
 		# selected item marker
 		marker = self.player_image if self.menu_index == 0 else self.player_image_green
