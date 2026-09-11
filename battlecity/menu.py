@@ -185,8 +185,21 @@ class MenuMixin():
 			player.demo_position = player.rect.topleft
 			player.pressed = [direction == player.demo_direction for direction in range(4)]
 			player.fire_pressed = False
-			if player.demo_frames % 6 == 0:
+			if player.demo_frames % 6 == 0 and not self.demoFacesCastle(player):
 				self.playerFire(player)
+
+	def demoFacesCastle(self, player):
+		""" Demo: player's bullet would fly into own castle """
+		r = player.rect
+		if player.direction == self.DIR_UP:
+			ray = pygame.Rect(r.centerx - 4, 0, 8, r.top)
+		elif player.direction == self.DIR_DOWN:
+			ray = pygame.Rect(r.centerx - 4, r.bottom, 8, max(0, 416 - r.bottom))
+		elif player.direction == self.DIR_LEFT:
+			ray = pygame.Rect(0, r.centery - 4, r.left, 8)
+		else:
+			ray = pygame.Rect(r.right, r.centery - 4, max(0, 416 - r.right), 8)
+		return any([castle.active and ray.colliderect(castle.rect) for castle in self.castles()])
 
 	def menuItems(self):
 		""" Main menu items: [label, action, argument] """

@@ -85,11 +85,40 @@ def debug_keys(ctx):
 		ctx.finish()
 
 
+def demo_doesnt_shoot_castle(ctx):
+	""" Computer player in demo doesn't fire into own castle """
+	g, game = ctx.g, ctx.game
+	if ctx.frame != 5:
+		return
+	clear_enemies(ctx)
+	game.demo = True
+	g["DEMO_TIME"] = 10 ** 9
+	del g["bullets"][:]
+	p = g["players"][0]
+	for other in g["players"][1:]:
+		other.startSpawning(10 ** 9)
+	p.rect.topleft = [192, 320]
+	p.rotate(p.DIR_DOWN, False)
+	p.demo_direction = p.DIR_DOWN
+	p.demo_frames = 7
+	game.demoControl()
+	ctx.check("demo player facing castle doesn't fire", not [b for b in g["bullets"] if b.owner_class is p])
+	p.rotate(p.DIR_UP, False)
+	p.demo_direction = p.DIR_UP
+	p.demo_frames = 7
+	p.demo_position = None
+	game.demoControl()
+	ctx.check("demo player facing away from castle fires", [b for b in g["bullets"] if b.owner_class is p])
+	game.demo = False
+	ctx.finish()
+
+
 SCENARIOS = {
 	"snap_next_to_tank": {"fn": snap_next_to_tank},
 	"stun_and_freeze": {"fn": stun_and_freeze},
 	"continue_preset": {"fn": continue_preset, "menu": continue_menu, "setup": write_savegame},
 	"debug_keys": {"fn": debug_keys},
+	"demo_doesnt_shoot_castle": {"fn": demo_doesnt_shoot_castle},
 }
 
 if __name__ == "__main__":
