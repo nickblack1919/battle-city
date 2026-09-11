@@ -498,6 +498,9 @@ class Tank():
 		elif self.side == self.SIDE_PLAYER:
 			if not config.FRIENDLY_FIRE:
 				return False
+			# NES: helmet protects from partner's bullet too
+			if self.shielded:
+				return True
 			if not self.paralised:
 				self.setParalised(True)
 				self.timer_uuid_paralise = state.gtimer.add(config.FRIENDLY_FIRE_STUN_TIME, lambda :self.setParalised(False), 1)

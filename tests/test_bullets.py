@@ -75,7 +75,64 @@ def auto_fire_off(ctx):
 		ctx.finish()
 
 
+def point_blank_tank(ctx):
+	""" Auto fire at enemy right next to player: bullet explodes on the tank, next shot waits for explosion """
+	g, d = ctx.g, ctx.data
+	if ctx.frame == 1:
+		p = prepare(ctx)
+		Enemy = g["Enemy"]
+		ctx.game.level.enemies_left[:] = [Enemy.TYPE_ARMOR]
+		# level 1, row 24: free cells left of player 1
+		enemy = Enemy(ctx.game.level, 1, [p.rect.left - 32, p.rect.top])
+		enemy.state = enemy.STATE_ALIVE
+		enemy.aquired_position = True
+		enemy.paused = True
+		enemy.bonus = None
+		enemy.health = 100000
+		g["enemies"].append(enemy)
+		g["AUTO_FIRE"] = True
+		p.rotate(p.DIR_LEFT, False)
+		d["enemy"] = enemy
+		d["hits"] = 0
+		d["health"] = enemy.health
+		return [ctx.key(p.controls[0])]
+
+	enemy = d["enemy"]
+	if enemy.health < d["health"]:
+		d["hits"] += (d["health"] - enemy.health) // 100
+		d["health"] = enemy.health
+		if "first_hit" not in d:
+			d["first_hit"] = True
+			bullets = player_bullets(ctx)
+			ctx.check("bullet explodes on the tank", bullets and bullets[0].state == bullets[0].STATE_EXPLODING)
+	if ctx.frame == 61:
+		# explosion 9-10 frames + new shot: about 11 frames per hit (was every 5 frames)
+		ctx.check("point blank auto fire: %d hits in 60 frames (about 5-6, at most 7; bug gave 12)" % d["hits"], 2 <= d["hits"] <= 7)
+		ctx.finish()
+
+
+def helmet_absorbs(ctx):
+	g = ctx.g
+	if ctx.frame != 1:
+		return
+	p = prepare(ctx)
+	Enemy, Bullet = g["Enemy"], g["Bullet"]
+	ctx.game.level.enemies_left[:] = [Enemy.TYPE_BASIC]
+	enemy = Enemy(ctx.game.level, 1, [0, 0])
+	bullet = Bullet(ctx.game.level, [p.rect.left, p.rect.top], Bullet.DIR_DOWN)
+	bullet.owner = Bullet.OWNER_ENEMY
+	bullet.owner_class = enemy
+	bullet.rect.topleft = [p.rect.left + 12, p.rect.top + 12]
+	g["bullets"].append(bullet)
+	bullet.update()
+	ctx.check("bullet vanishes on helmet (no explosion)", bullet.state == bullet.STATE_REMOVED and p.state == p.STATE_ALIVE)
+	ctx.finish()
+
+
 SCENARIOS = {
+	# auto fire delay uses real time
+	"point_blank_tank": {"fn": point_blank_tank, "real_time": True},
+	"helmet_absorbs": {"fn": helmet_absorbs},
 	"spawn_position": {"fn": spawn_position},
 	"slot_busy_while_exploding": {"fn": slot_busy_while_exploding},
 	"auto_fire_off": {"fn": auto_fire_off},

@@ -179,15 +179,21 @@ class Bullet():
 			if player.state == player.STATE_ALIVE and self.rect.colliderect(player.rect):
 				# versus: other player's bullet is hostile
 				friendly_fire = self.owner == self.OWNER_PLAYER and (state.game.mode != "versus" or self.owner_class is player)
+				absorbed_by_helmet = player.shielded
 				if player.bulletImpact(friendly_fire, self.damage, self.owner_class, self.direction):
-					self.destroy()
+					# NES: bullet explodes on a tank (its slot stays busy), vanishes on helmet
+					if absorbed_by_helmet:
+						self.destroy()
+					else:
+						self.explode()
 					return
 
 		# check for collisions with enemies
 		for enemy in state.enemies:
 			if enemy.state == enemy.STATE_ALIVE and self.rect.colliderect(enemy.rect):
 				if enemy.bulletImpact(self.owner == self.OWNER_ENEMY, self.damage, self.owner_class, self.direction):
-					self.destroy()
+					# NES: bullet explodes on a tank, tank can't fire again until explosion ends
+					self.explode()
 					return
 
 		# protected castle: protection absorbs the hit, enemy shooter explodes,
@@ -205,7 +211,7 @@ class Bullet():
 		for target in state.game.castles():
 			if target.active and self.rect.colliderect(target.rect):
 				target.destroy()
-				self.destroy()
+				self.explode()
 				return
 
 	def destroyBrickStrip(self, tile):
