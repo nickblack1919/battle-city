@@ -137,8 +137,8 @@ def demo_time(ctx):
 	if ctx.frame == 1:
 		g["DEMO_TIME"] = 2000
 	if ctx.frame > 1 and ctx.in_function("showMenu"):
-		# 2000 ms = 100 frames since stage start; frames of players' spawn animation (about 38) aren't counted here
-		ctx.check("demo ends after DEMO_TIME (%d frames)" % ctx.frame, 50 <= ctx.frame <= 110)
+		# time since stage start (harness frames skip spawn animation and curtain, their number varies)
+		ctx.check("demo ends after DEMO_TIME (%d ms)" % game.level_time, 2000 <= game.level_time <= 2100)
 		ctx.finish()
 	if ctx.frame > 400:
 		ctx.check("demo ends after DEMO_TIME", False)

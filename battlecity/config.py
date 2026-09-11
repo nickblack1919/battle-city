@@ -173,6 +173,14 @@ SMART_REACTION_FRAMES = 12	# SMART AI fires after target was in line of fire for
 SMART_BRICK_COST = 4	# SMART AI: brick cell costs like n empty cells on the way
 SMART_PATH_CELLS = 2	# SMART AI finds way again every n cells
 SMART_STUCK_MOVES = 4	# SMART AI blocked by tank n times drives aside
+SMART_BRICK_SHOT_COST = 3	# SMART AI: brick cell between place and target costs like n cells of way
+SMART_DANGER_COST = 10	# SMART AI: place the target player looks at costs like n cells of way (comes from a side)
+SMART_CROWD_COST = 6	# SMART AI: place near other enemy's place costs like n cells of way (enemies surround player)
+SMART_GOAL_STICKINESS = 8	# SMART AI keeps chosen place while it costs at most n more than the best one
+SMART_DODGE_CHANCE = 60	# % player's bullets SMART AI tries to dodge (sharp turn aside)
+SMART_DODGE_REACTION_FRAMES = 6	# NES frames before SMART AI reacts to a bullet
+SMART_JUKE_CHANCE = 35	# % SMART AI steps out of player's line of fire when its own bullet isn't ready
+SMART_FEINT_CHANCE = 8	# % SMART AI turns aside from its way for one cell (hard to predict)
 ENEMY_AI = "CLASSIC"
 
 # interface language: EN or RU (settings screen)

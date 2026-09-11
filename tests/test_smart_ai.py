@@ -119,6 +119,95 @@ def deadlock(ctx):
 		ctx.finish()
 
 
+def behind_obstacle(ctx, kind):
+	""" Enemy above a wall, player under it: enemy doesn't drive back and forth, it finds a place and hits the player """
+	g, game, d = ctx.g, ctx.game, ctx.data
+	p = g["players"][0]
+	if ctx.frame == 1:
+		level = game.level
+		if kind == "brick":
+			tiles = []
+		else:
+			tiles = [(x, 160, level.TILE_STEEL) for x in range(128, 304, 16)]
+		enemy = setup_field(ctx, tiles)
+		if kind == "brick":
+			for x in range(128, 304, 16):
+				level.addBrick(x, 160)
+			level.updateObstacleRects()
+		# castle away from enemy's way
+		g["castle"].rect.topleft = (384, 384)
+		level.updateObstacleRects()
+		enemy.rect.topleft = [192, 64]
+		enemy.smart_role = "player"
+		p.state = p.STATE_ALIVE
+		p.rect.topleft = [192, 240]
+		d["enemy"] = enemy
+		d["hit"] = None
+		original = p.bulletImpact
+		def bulletImpact(friendly_fire = False, damage = 100, tank = None, direction = 0):
+			if tank is enemy and d["hit"] == None:
+				d["hit"] = ctx.frame
+			return original(friendly_fire, damage, tank, direction)
+		p.bulletImpact = bulletImpact
+	p.shielded = True
+	if d["hit"] != None or ctx.frame == 900:
+		ctx.check("enemy behind %s hits player (frame %s)" % (kind, d["hit"]), d["hit"] != None)
+		ctx.finish()
+
+
+def dodge(ctx, chance):
+	""" Player shoots at enemy from afar: enemy dodges the bullet (SMART_DODGE_CHANCE 100) or is hit (0) """
+	g, game, d = ctx.g, ctx.game, ctx.data
+	if ctx.frame == 1:
+		enemy = setup_field(ctx, [])
+		g["castle"].rect.topleft = (384, 384)
+		game.level.updateObstacleRects()
+		g["SMART_DODGE_CHANCE"] = chance
+		g["SMART_FEINT_CHANCE"] = 0
+		g["SMART_JUKE_CHANCE"] = 0
+		enemy.rect.topleft = [192, 64]
+		enemy.rotate(enemy.DIR_RIGHT, False)
+		# enemy is busy: it goes to the castle far away, doesn't turn to the player
+		enemy.smart_role = "castle"
+		enemy.health = 100
+		p = g["players"][0]
+		p.state = p.STATE_ALIVE
+		p.shielded = True
+		p.rect.topleft = [192, 320]
+		p.rotate(p.DIR_UP, False)
+		p.fire()
+		d["enemy"] = enemy
+	enemy = d["enemy"]
+	if enemy.state != enemy.STATE_ALIVE or ctx.frame == 120:
+		if chance:
+			ctx.check("enemy dodges player's bullet (%s)" % (enemy.rect.topleft,), enemy.state == enemy.STATE_ALIVE)
+		else:
+			ctx.check("enemy that doesn't dodge is hit", enemy.state != enemy.STATE_ALIVE)
+		ctx.finish()
+
+
+def juke(ctx):
+	""" Player aims at enemy and enemy's bullet isn't ready: enemy steps out of the line of fire """
+	g, game = ctx.g, ctx.game
+	if ctx.frame != 1:
+		return
+	enemy = setup_field(ctx, [])
+	g["SMART_JUKE_CHANCE"] = 100
+	enemy.rect.topleft = [192, 64]
+	enemy.smart_role = "player"
+	p = g["players"][0]
+	p.state = p.STATE_ALIVE
+	p.rect.topleft = [192, 320]
+	p.rotate(p.DIR_UP, False)
+	ctx.check("bullet ready: no juke", not enemy.smartJuke(enemy.DIR_DOWN))
+	Bullet = g["Bullet"]
+	bullet = Bullet(game.level, [0, 0], Bullet.DIR_RIGHT)
+	bullet.owner, bullet.owner_class = Bullet.OWNER_ENEMY, enemy
+	g["bullets"].append(bullet)
+	ctx.check("player aims, bullet not ready: steps aside", enemy.smartJuke(enemy.DIR_DOWN) and enemy.direction in (enemy.DIR_LEFT, enemy.DIR_RIGHT))
+	ctx.finish()
+
+
 def playing(ctx):
 	""" Real level with SMART AI: enemies drive, don't get into walls, don't stay stuck """
 	g, game, d = ctx.g, ctx.game, ctx.data
@@ -162,6 +251,11 @@ SCENARIOS = {
 	"bricks": {"fn": bricks},
 	"aim": {"fn": aim},
 	"deadlock": {"fn": deadlock},
+	"behind_bricks": {"fn": lambda ctx: behind_obstacle(ctx, "brick")},
+	"behind_steel": {"fn": lambda ctx: behind_obstacle(ctx, "steel")},
+	"dodge": {"fn": lambda ctx: dodge(ctx, 100)},
+	"no_dodge": {"fn": lambda ctx: dodge(ctx, 0)},
+	"juke": {"fn": juke},
 	"playing": {"fn": playing},
 }
 
