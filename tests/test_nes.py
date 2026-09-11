@@ -102,7 +102,7 @@ def presets(ctx):
 	ctx.check("GOOD preset: 5 enemies on screen", g["MAX_ACTIVE_ENEMIES"] == 5)
 	ctx.check("current preset remembered", g["CURRENT_PRESET"] == "GOOD")
 	game.respawnPlayer(p)
-	ctx.check("respawn uses current preset superpower (1)", p.superpowers == 1)
+	ctx.check("respawn uses current preset superpower (0, like on NES)", p.superpowers == 0)
 	ctx.finish()
 
 
