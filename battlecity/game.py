@@ -1301,6 +1301,7 @@ class Game():
 		# frame rate of NES version: speeds and timings
 		items.append({"label": "NES SPEED", "value": config.NES_VERSION, "type": "nes"})
 		items.append({"label": "AUTO FIRE", "value": "ON" if config.AUTO_FIRE else "OFF", "type": "autofire"})
+		items.append({"label": "ENEMY AI", "value": config.ENEMY_AI, "type": "ai"})
 		items.append({"label": "RESET CONTROLS", "value": "", "type": "reset"})
 		items.append({"label": "BACK", "value": "", "type": "back"})
 		return items
@@ -1391,6 +1392,10 @@ class Game():
 			self.toggleFullScreen()
 		elif kind == "autofire":
 			config.AUTO_FIRE = not config.AUTO_FIRE
+		elif kind == "ai":
+			names = config.ENEMY_AI_TYPES
+			index = names.index(config.ENEMY_AI) if config.ENEMY_AI in names else 0
+			config.ENEMY_AI = names[(index + change) % len(names)]
 		elif kind == "nes":
 			names = sorted(config.NES_VERSIONS)
 			index = names.index(config.NES_VERSION) if config.NES_VERSION in names else 0
@@ -2079,6 +2084,8 @@ class Game():
 
 		# NES: first enemy appears immediately, then after spawn interval
 		self.spawn_timer = 0 if config.ENEMY_SPAWN_TIMEOUT == None else self.enemySpawnInterval()
+		# ms since stage start: NES enemy AI changes goals with time
+		self.level_time = 0
 		if self.mode == "versus":
 			state.gtimer.add(config.VERSUS_BONUS_TIMEOUT, lambda :self.spawnVersusBonus())
 
@@ -2243,6 +2250,8 @@ class Game():
 						else:
 							player.slide = 0
 				player.update(time_passed)
+
+			self.level_time += time_passed
 
 			# enemy spawn timer: when no place for new enemy, it appears as soon as place is free (NES)
 			if not self.game_over and self.active:

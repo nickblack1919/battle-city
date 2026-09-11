@@ -621,6 +621,14 @@ class Enemy(Tank):
 		# list of map coords where tank should go next
 		self.path = self.generatePath(self.direction)
 
+		# NES AI: px moved but not used yet (AI works with NES px = 2 px), waiting moves, turn on next move
+		self.nes_px = 0
+		self.nes_wait = 0
+		self.nes_turn = False
+		if config.ENEMY_AI == "NES":
+			# NES: new enemy drives down
+			self.rotate(self.DIR_DOWN, False)
+
 		# 100ms - 1000ms is duration between shots
 		self.timer_uuid_fire = state.gtimer.add(config.ENEMY_FIRE_TIMER, lambda :self.fire())
 
@@ -753,6 +761,12 @@ class Enemy(Tank):
 		self.move_credit += self.speed
 		steps = int(self.move_credit + 1e-9)
 		self.move_credit -= steps
+		if config.ENEMY_AI == "NES":
+			self.nes_px += steps
+			while self.nes_px >= 2:
+				self.nes_px -= 2
+				self.moveStepNes()
+			return
 		for step in range(steps):
 			# NES: tank on 8 px grid sometimes spends a move choosing direction
 			if self.rect.left % 16 == 0 and self.rect.top % 16 == 0 and random.random() < config.ENEMY_GRID_PAUSE_CHANCE:
@@ -850,6 +864,107 @@ class Enemy(Tank):
 			if config.DEBUG_COORDINATES:
 				print("Move center: " + str(self.rect.center))
 
+
+	# NES direction numbers (0 up, 1 left, 2 down, 3 right) to ours
+	NES_DIRECTIONS = [0, 3, 2, 1]
+	# NES direction to destination by [sign of dy + 1][sign of dx + 1]: vertical move first / horizontal first
+	NES_VERTICAL_FIRST = [[0, 0, 0], [1, 0, 3], [2, 2, 2]]
+	NES_HORIZONTAL_FIRST = [[1, 0, 3], [1, 0, 3], [1, 2, 3]]
+
+	def chooseNesGoal(self):
+		""" NES AI goal by time since stage start (64 NES frames ticks) and enemy spawn interval:
+		first random direction, then chase player, then go to castle """
+		game = state.game
+		interval = game.enemySpawnInterval() // config.nesFrames(1)
+		ticks = getattr(game, "level_time", 0) // config.nesFrames(64)
+
+		if interval // 8 >= ticks:
+			self.rotate(random.randint(0, 3), False)
+			return
+
+		target = state.castle.rect.center
+		if interval // 4 >= ticks:
+			players = [player for player in state.players if player.state == player.STATE_ALIVE]
+			if players:
+				# NES: odd enemies chase player 2 if they are alive
+				odd = self in state.enemies and state.enemies.index(self) % 2 == 1
+				target = players[1 if odd and len(players) > 1 else 0].rect.center
+		self.rotate(self.directionTo(target), False)
+
+	def directionTo(self, target):
+		""" NES: direction towards point, randomly vertical or horizontal first """
+		def sign(v):
+			# compare in NES px (2 px)
+			v = int(v / 2.0)
+			return (v > 0) - (v < 0)
+		sx = sign(target[0] - self.rect.centerx) + 1
+		sy = sign(target[1] - self.rect.centery) + 1
+		table = self.NES_HORIZONTAL_FIRST if random.randint(0, 1) else self.NES_VERTICAL_FIRST
+		return self.NES_DIRECTIONS[table[sy][sx]]
+
+	def moveStepNes(self):
+		""" NES AI: move 2 px (one NES px). On 8 NES px grid new goal with 1/16 chance.
+		Blocked tank: 3/4 waits 2 moves, 1/4 turns (on grid) or turns around """
+		if self.state != self.STATE_ALIVE or self.paused or self.paralised:
+			return
+
+		if self.nes_wait > 0:
+			self.nes_wait -= 1
+			return
+
+		aligned = self.rect.left % 16 == 0 and self.rect.top % 16 == 0
+		if self.nes_turn:
+			self.nes_turn = False
+			if random.randint(0, 1):
+				self.rotate((self.direction + random.choice((1, -1))) % 4, False)
+			else:
+				self.chooseNesGoal()
+			return
+
+		if aligned and random.randint(0, 15) == 0:
+			self.chooseNesGoal()
+			return
+
+		dx, dy = [(0, -2), (2, 0), (0, 2), (-2, 0)][self.direction]
+		new_rect = self.rect.move(dx, dy)
+
+		blocked = not pygame.Rect(0, 0, 416, 416).contains(new_rect) or new_rect.collidelist(self.level.obstacleRectsFor(self.canSwim())) != -1
+
+		if not blocked and not self.aquired_position:
+			# just spawned: drive through tanks until free
+			collision = False
+			for enemy in state.enemies:
+				if enemy != self and enemy.state != enemy.STATE_DEAD and new_rect.colliderect(enemy.rect):
+					collision = True
+					# overlapping tanks: positioned or older tank drives away first
+					if enemy.aquired_position or state.enemies.index(enemy) < state.enemies.index(self):
+						return
+			for player in state.players:
+				if player.state == player.STATE_ALIVE and new_rect.colliderect(player.rect):
+					collision = True
+			if not collision:
+				self.aquired_position = True
+		elif not blocked:
+			for tank in state.enemies + state.players:
+				if tank != self and tank.state == tank.STATE_ALIVE and getattr(tank, "aquired_position", True) and tankBlocks(new_rect, self.direction, tank):
+					blocked = True
+					break
+
+		if blocked:
+			if random.randint(0, 3):
+				self.nes_wait = 2
+			elif aligned:
+				self.nes_turn = True
+			else:
+				self.rotate((self.direction + 2) % 4, False)
+			return
+
+		if config.ENEMY_PICKUP_BONUSES:
+			for bonus in state.bonuses:
+				if new_rect.colliderect(bonus.rect):
+					self.bonus_aquired = bonus
+
+		self.rect.topleft = new_rect.topleft
 
 	def update(self, time_passed):
 		Tank.update(self, time_passed)

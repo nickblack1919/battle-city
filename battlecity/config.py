@@ -154,7 +154,11 @@ T_SIZE = 32
 EXTRA_LIFE_SCORE = 20000	# extra life every n points, 0 - disabled
 EXTRA_LIFE_ONCE = False	# NES: extra life only once, at 20000
 TWO_PLAYER_KILLS_BONUS = 1000	# 2+ players: player who destroyed most tanks on stage gets these points
-ENEMY_AI_BASE_CHANCE = 30	# % chance enemy prefers directions towards player's castle
+ENEMY_AI_BASE_CHANCE = 30	# % chance enemy prefers directions towards player's castle (CLASSIC AI)
+# CLASSIC - random paths, sometimes towards castle; NES - like NES: random directions at stage start,
+# then chasing players, then going to castle; blocked tank waits or turns
+ENEMY_AI_TYPES = ["CLASSIC", "NES"]
+ENEMY_AI = "CLASSIC"
 
 # NEW ENEMIES (disabled in CLASSIC preset)
 ENABLE_NEW_ENEMIES = True
@@ -285,7 +289,7 @@ def levelFile(level_nr):
 
 def loadSettings():
 	""" Apply settings saved on settings screen """
-	global play_sounds, START_LEVEL, START_FULLSCREEN, PLAYER_CONTROLS, AUTO_FIRE
+	global play_sounds, START_LEVEL, START_FULLSCREEN, PLAYER_CONTROLS, AUTO_FIRE, ENEMY_AI
 
 	try:
 		with open(dataFile(SETTINGS_FILE), "r") as f:
@@ -299,6 +303,8 @@ def loadSettings():
 		if settings.get("nes_version") in NES_VERSIONS:
 			applyNesVersion(settings["nes_version"])
 		AUTO_FIRE = bool(settings.get("auto_fire", AUTO_FIRE))
+		if settings.get("enemy_ai") in ENEMY_AI_TYPES:
+			ENEMY_AI = settings["enemy_ai"]
 		play_sounds = bool(settings.get("sound", play_sounds))
 		START_FULLSCREEN = bool(settings.get("fullscreen", START_FULLSCREEN))
 		# command line argument has priority
@@ -320,6 +326,7 @@ def saveSettings(fullscreen):
 		"start_level": START_LEVEL,
 		"nes_version": NES_VERSION,
 		"auto_fire": AUTO_FIRE,
+		"enemy_ai": ENEMY_AI,
 		"controls": PLAYER_CONTROLS,
 	}
 	try:

@@ -47,7 +47,9 @@ then to players 1 and 2; gamepad Start pauses the game.
   right mouse erase, `[` `]` level, S save, D back to original level, T save and play.
 - **SETTINGS** - difficulty preset, sound, full screen, start level, controls, NES speed (DENDY / NTSC),
   auto fire (ON by default - holding fire button shoots again when bullet slot is free; OFF - every shot needs
-  a press, like on NES).
+  a press, like on NES), enemy AI (CLASSIC - random paths, sometimes towards the castle; NES - like on NES: at
+  stage start enemies drive in random directions, later chase players, then go to the castle; a blocked tank
+  waits or turns).
 
 Campaign and endless mode have hiscore tables: players with top 10 score enter their names after game over.
 
@@ -121,6 +123,8 @@ venv/bin/python tests/run_all.py
 ```
 
 Tests start the game with dummy video and audio drivers and fake input, every scenario in its own process.
+Scenario processes run in parallel (all files share one pool); output is printed per file in a fixed order.
+Worker count defaults to the number of CPUs and can be set with `BATTLE_CITY_TEST_WORKERS`, e.g. `BATTLE_CITY_TEST_WORKERS=1 venv/bin/python tests/run_all.py` runs sequentially.
 One test file: `venv/bin/python tests/test_versus.py`, one scenario: `venv/bin/python tests/test_versus.py bonus`.
 
 ## Project structure
