@@ -64,7 +64,8 @@ class Tank():
 
 		# fire button is held (auto fire)
 		self.fire_pressed = False
-		self.last_fire_time = 0
+		# first shot doesn't wait for auto fire delay
+		self.last_fire_time = -10 ** 9
 
 		# gamepad assigned to this tank and its state: up, right, down, left / fire
 		self.gamepad = None

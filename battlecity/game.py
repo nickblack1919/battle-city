@@ -2134,7 +2134,8 @@ class Game():
 									break
 
 					for player in state.players:
-						if player.state == player.STATE_ALIVE:
+						# keys pressed during spawn animation work when tank appears
+						if player.state in (player.STATE_ALIVE, player.STATE_SPAWNING):
 							try:
 								index = player.controls.index(event.key)
 							except:
@@ -2153,7 +2154,8 @@ class Game():
 									player.pressed[3] = True
 				elif event.type == pygame.KEYUP and not self.game_over and self.active:
 					for player in state.players:
-						if player.state == player.STATE_ALIVE:
+						# keys pressed during spawn animation work when tank appears
+						if player.state in (player.STATE_ALIVE, player.STATE_SPAWNING):
 							try:
 								index = player.controls.index(event.key)
 							except:

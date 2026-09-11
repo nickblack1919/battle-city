@@ -173,6 +173,9 @@ class Bullet():
 
 		# check for collisions with players
 		for player in state.players:
+			# bullet starts inside its own tank: own tank is never hit
+			if player is self.owner_class:
+				continue
 			if player.state == player.STATE_ALIVE and self.rect.colliderect(player.rect):
 				# versus: other player's bullet is hostile
 				friendly_fire = self.owner == self.OWNER_PLAYER and (state.game.mode != "versus" or self.owner_class is player)
