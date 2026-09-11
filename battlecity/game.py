@@ -13,6 +13,7 @@ from battlecity.effects import Label
 from battlecity.gamepad import Gamepad, sdl_controller
 from battlecity.level import Level
 from battlecity.tank import Enemy, Player
+from battlecity.bot import Bot
 from battlecity.menu import MenuMixin
 from battlecity.settings import SettingsMixin
 from battlecity.editor import EditorMixin
@@ -109,6 +110,9 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 
 		# number of players. here is defined preselected menu value
 		self.nr_of_players = 1
+
+		# player 2 is computer partner (1 PLAYER + BOT)
+		self.bot = False
 
 		# selected main menu item
 		self.menu_index = 0
@@ -277,6 +281,9 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		used = []
 		auto = []
 		for player_nr, player in enumerate(state.players):
+			# bot isn't controlled by gamepads
+			if player.bot:
+				continue
 			assign = config.GAMEPAD_ASSIGN[player_nr] if player_nr < len(config.GAMEPAD_ASSIGN) else "AUTO"
 			if assign == "AUTO":
 				auto.append(player)
@@ -304,6 +311,12 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			player.pad_fire = player.gamepad.held("fire")
 			if player.gamepad.pressed("fire") and player.state == player.STATE_ALIVE and not self.game_over and self.active:
 				self.playerFire(player)
+
+	def botControl(self):
+		""" Computer partner presses its buttons """
+		for player in state.players:
+			if player.bot:
+				player.bot.update()
 
 	def destroyTimer(self, timer):
 		if timer:	
@@ -799,6 +812,10 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 					self.level, 0, [x, y], direction, (6*config.S_SIZE*config.T_SIZE, 0, 16*2, 16*2), 2
 				)
 				player.controls = list(config.PLAYER_CONTROLS[1])
+				# computer partner: P2 keys and gamepads don't control it
+				if self.bot and self.mode != "versus":
+					player.controls = []
+					player.bot = Bot(self, player)
 				state.players.append(player)
 
 			# third player
@@ -902,7 +919,10 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 				lives_left = state.players[n].lives - 1
 				if lives_left < 0:
 					lives_left = 0 
-				state.screen.blit(self.text(str(n+1)+"P", False, text_color), [x+20, y+210+n*42])
+				if state.players[n].bot:
+					state.screen.blit(self.text("BOT", False, text_color), [x+8, y+210+n*42])
+				else:
+					state.screen.blit(self.text(str(n+1)+"P", False, text_color), [x+20, y+210+n*42])
 				state.screen.blit(self.text(str(lives_left), False, text_color), [x+35, y+227+n*42])
 				state.screen.blit(self.player_life_image, [x+18, y+227+n*42])
 
@@ -1203,11 +1223,11 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 					if self.game_paused and not config.DEBUG_UNFREEZE_PLAYERS_ON_PAUSE:
 						continue
 
-					# borrow life from active players
+					# borrow life from active players (human's lives never go to the bot)
 					if event.key == pygame.K_b:
 						dead_player = None
 						for player in state.players:
-							if player.state == player.STATE_DEAD:
+							if player.state == player.STATE_DEAD and not player.bot:
 								dead_player = player
 						
 						if dead_player:
@@ -1262,6 +1282,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 				self.demoControl()
 			else:
 				self.applyGamepads()
+				self.botControl()
 
 			engine_moving = False
 			for player in state.players:

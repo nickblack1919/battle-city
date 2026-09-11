@@ -1634,6 +1634,9 @@ class Player(Tank):
 		# versus: how many times this player destroyed the other one
 		self.versus_kills = 0
 
+		# computer partner driving this tank (bot.Bot), None - human player
+		self.bot = None
+
 		# store how many bonuses in this stage this player has collected
 		self.trophies = config.emptyTrophies()
 

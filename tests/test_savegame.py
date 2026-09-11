@@ -36,10 +36,10 @@ def continue_menu(ctx):
 		return [ctx.key(pygame.K_RETURN)]
 	if f == 2:
 		labels = [item[0] for item in game.menuItems()]
-		ctx.check("menu has CONTINUE when game is saved: %s" % labels, labels[3] == "CONTINUE")
-	if f in (2, 3, 4):
+		ctx.check("menu has CONTINUE when game is saved: %s" % labels, labels[4] == "CONTINUE")
+	if f in (2, 3, 4, 5):
 		return [ctx.key(pygame.K_DOWN)]
-	if f == 5:
+	if f == 6:
 		return [ctx.key(pygame.K_RETURN)]
 	return []
 
@@ -102,15 +102,15 @@ def broken_menu(ctx):
 	f = ctx.menu_frame
 	if f == 1:
 		return [ctx.key(pygame.K_RETURN)]
-	if f in (2, 3, 4):
+	if f in (2, 3, 4, 5):
 		return [ctx.key(pygame.K_DOWN)]
-	if f == 5:
+	if f == 6:
 		# CONTINUE with broken file: stays in menu
 		return [ctx.key(pygame.K_RETURN)]
-	if f == 7:
+	if f == 8:
 		ctx.check("broken saved game doesn't start the game", ctx.in_function("showMenu"))
-		return [ctx.key(pygame.K_UP), ctx.key(pygame.K_UP), ctx.key(pygame.K_UP)]
-	if f == 9:
+		return [ctx.key(pygame.K_UP), ctx.key(pygame.K_UP), ctx.key(pygame.K_UP), ctx.key(pygame.K_UP)]
+	if f == 10:
 		return [ctx.key(pygame.K_RETURN)]
 	return []
 

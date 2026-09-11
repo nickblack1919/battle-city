@@ -98,9 +98,10 @@ class MenuMixin():
 
 			if activate:
 				label, action, argument = items[self.menu_index]
-				if action == "play":
+				if action in ("play", "play_bot"):
 					self.mode = "campaign"
 					self.nr_of_players = argument
+					self.bot = action == "play_bot"
 					self.stage = config.START_LEVEL - 1
 					del state.players[:]
 					return self.nextLevel
@@ -111,19 +112,22 @@ class MenuMixin():
 						self.mode = "campaign"
 						self.test_play = True
 						self.nr_of_players = 1
+						self.bot = False
 						del state.players[:]
 						return self.nextLevel
 					self.drawIntroScreen()
 				elif action == "versus":
 					self.mode = "versus"
 					self.nr_of_players = 2
+					self.bot = False
 					self.stage = 0
 					self.versus_winner = None
 					del state.players[:]
 					return self.nextLevel
-				elif action == "endless":
+				elif action in ("endless", "endless_bot"):
 					self.mode = "endless"
 					self.nr_of_players = argument
+					self.bot = action == "endless_bot"
 					self.stage = config.START_LEVEL - 1
 					self.first_stage = config.START_LEVEL
 					del state.players[:]
@@ -142,6 +146,7 @@ class MenuMixin():
 		self.demo = True
 		self.mode = "campaign"
 		self.nr_of_players = 2
+		self.bot = False
 		self.stage = random.randint(0, 34)
 		self.loaded_players_stats = None
 		del state.players[:]
@@ -192,6 +197,8 @@ class MenuMixin():
 		""" Main menu items: [label, action, argument] """
 		items = [
 			["1 PLAYER", "play", 1],
+			# player 2 is computer partner
+			["1 PLAYER + BOT", "play_bot", 2],
 			["2 PLAYERS", "play", 2],
 			["3 PLAYERS", "play", 3],
 		]
@@ -199,11 +206,18 @@ class MenuMixin():
 		if os.path.isfile(config.dataFile(config.SAVEGAME_FILE)):
 			items.append(["CONTINUE", "continue", None])
 		items.append(["ENDLESS 1P", "endless", 1])
+		items.append(["ENDLESS 1P + BOT", "endless_bot", 2])
 		items.append(["ENDLESS 2P", "endless", 2])
 		items.append(["VERSUS", "versus", 2])
 		items.append(["LEVEL EDITOR", "editor", None])
 		items.append(["SETTINGS", "settings", None])
 		return items
+
+	def menuLayout(self, count):
+		""" Menu item step and y of the first item for count items """
+		step = 20 if count <= 9 else 18
+		top = min(228, 412 - 16 - (count - 1) * step)
+		return step, top
 
 	def drawIntroScreen(self, put_on_surface = True):
 		""" Draw intro (menu) screen
@@ -217,6 +231,9 @@ class MenuMixin():
 		items = self.menuItems()
 		self.menu_index = min(self.menu_index, len(items) - 1)
 
+		# long menu: items closer to each other and higher (title goes up too), last item fits on screen
+		step, top = self.menuLayout(len(items))
+
 		if pygame.font.get_init():
 
 			hiscore = self.loadHiscore()
@@ -224,14 +241,14 @@ class MenuMixin():
 			state.screen.blit(self.text("HI- "+str(hiscore), True, pygame.Color('white')), [170, 35])
 
 			for i, item in enumerate(items):
-				state.screen.blit(self.text(item[0], True, pygame.Color('white')), [165, 228 + i * 20])
+				state.screen.blit(self.text(item[0], True, pygame.Color('white')), [165, top + i * step])
 
 		# selected item marker
 		marker = self.player_image if self.menu_index == 0 else self.player_image_green
-		state.screen.blit(marker, [125, 223 + self.menu_index * 20])
+		state.screen.blit(marker, [125, top - 5 + self.menu_index * step])
 
-		self.writeInBricks("battle", [65, 80])
-		self.writeInBricks("city", [129, 160])
+		self.writeInBricks("battle", [65, 80 + top - 228])
+		self.writeInBricks("city", [129, 160 + top - 228])
 
 		if put_on_surface:
 			self.flip()
