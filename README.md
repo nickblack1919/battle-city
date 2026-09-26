@@ -130,8 +130,9 @@ the gap (`PLAYER_TURN_ASSIST` in config).
 Ice like on NES: a tank starting to move on ice slides 56 px, buttons are ignored during the first part of it,
 the rest is slid after the button is released; sliding stops when the tank leaves ice.
 
-Superpowers: 1 fast bullets, 2 two bullets, 3 bullets clear grass, 4 bullets destroy steel, 5 three bullets and
-frontal armor, 6 bullets destroy walls and fly on, 9 castle protection (absorbs one hit).
+Superpowers: 1 fast bullets, 2 two bullets, 3 bullets clear grass and armor (player's tank takes one hit more,
+`PLAYER_ARMOR_SUPERPOWER` in config; a new star repairs it), 4 bullets destroy steel, 5 three bullets and frontal
+armor, 6 bullets destroy walls and fly on, 9 castle protection (absorbs one hit).
 The same ladder works for players and enemies (an enemy picking up a star gives 2 superpowers to all enemies on
 screen). `NES_STARS = True` in config gives players the NES ladder instead: 1 fast bullets, 2 two bullets,
 3 bullets destroy steel and whole brick cells, grass stays, more stars do nothing.

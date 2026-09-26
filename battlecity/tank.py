@@ -312,6 +312,10 @@ class Tank():
 		if self.superpowers >= 2:
 			self.max_active_bullets = 2
 
+		# 3 - armor: player takes one hit more (a new star repairs it)
+		if self.side == self.SIDE_PLAYER and config.PLAYER_ARMOR_SUPERPOWER > 0 and self.superpowers >= config.PLAYER_ARMOR_SUPERPOWER:
+			self.health = max(self.health, config.PLAYER_START_HEALTH * 2)
+
 		# NES stars: 3rd star - bullets destroy steel, nothing more
 		if config.NES_STARS and self.side == self.SIDE_PLAYER:
 			if self.superpowers >= 3:
