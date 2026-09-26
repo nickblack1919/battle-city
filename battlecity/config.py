@@ -130,7 +130,8 @@ PLAYER_START_LIFE = 3	# NES: 3 (sidebar shows lives left: 2)
 PLAYER_START_HEALTH = 100
 PLAYER_START_SCORE = 0
 PLAYER_START_MAX_ACTIVE_BULLETS = 1
-PLAYER_ARMOR_SUPERPOWER = 3	# from this superpower player's tank takes one hit more (0 - no armor from stars)
+# player's tank takes one hit more from every of these superpowers (empty list - no armor from stars)
+PLAYER_ARMOR_SUPERPOWERS = [3, 6]
 AUTO_FIRE = True	# holding fire button fires again as soon as bullet slot is free. NES (False): every shot needs a press
 PLAYER_AUTO_FIRE_DELAY = 100	# min ms between shots while fire button is held
 # not NES (there bullets cancel each other): player's bullet destroys enemy's bullet and flies on,

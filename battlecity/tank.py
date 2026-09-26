@@ -258,10 +258,14 @@ class Tank():
 			if not self.visible:
 				return
 			state.screen.blit(self.image, self.rect.topleft)
-			if self.shielded:
-				state.screen.blit(self.shield_image, [self.rect.left, self.rect.top])
 			if self.protected:
 				state.screen.blit(self.protected_image, [self.rect.left, self.rect.top])
+			# armor frame is drawn over the frontal armor one (same picture, brighter for double armor)
+			armor = self.armorLevel()
+			if armor:
+				state.screen.blit(self.armor_images[min(armor, len(self.armor_images)) - 1], self.rect.topleft)
+			if self.shielded:
+				state.screen.blit(self.shield_image, [self.rect.left, self.rect.top])
 			if self.ship:
 				pygame.draw.rect(state.screen, (60, 140, 255), self.rect, 1)
 		elif self.state == self.STATE_EXPLODING:
@@ -276,6 +280,12 @@ class Tank():
 			self.dbg_label.position = self.rect.bottomleft
 			self.dbg_label.text = str(self.rect.topleft) + " " + str(self.rect.size)
 			self.dbg_label.draw()
+
+	def armorLevel(self):
+		""" How many hits more than usual the tank can take now (shown on the tank) """
+		if self.side != self.SIDE_PLAYER or not config.PLAYER_ARMOR_SUPERPOWERS:
+			return 0
+		return max(0, int(self.health // config.PLAYER_START_HEALTH) - 1)
 
 	def explode(self):
 		""" start tanks's explosion """
@@ -312,9 +322,11 @@ class Tank():
 		if self.superpowers >= 2:
 			self.max_active_bullets = 2
 
-		# 3 - armor: player takes one hit more (a new star repairs it)
-		if self.side == self.SIDE_PLAYER and config.PLAYER_ARMOR_SUPERPOWER > 0 and self.superpowers >= config.PLAYER_ARMOR_SUPERPOWER:
-			self.health = max(self.health, config.PLAYER_START_HEALTH * 2)
+		# armor: player takes one hit more from 3rd superpower and one more from 6th (a new star repairs it)
+		if self.side == self.SIDE_PLAYER:
+			armor = len([superpower for superpower in config.PLAYER_ARMOR_SUPERPOWERS if self.superpowers >= superpower])
+			if armor:
+				self.health = max(self.health, config.PLAYER_START_HEALTH * (1 + armor))
 
 		# NES stars: 3rd star - bullets destroy steel, nothing more
 		if config.NES_STARS and self.side == self.SIDE_PLAYER:
@@ -1820,6 +1832,13 @@ class Player(Tank):
 
 		self.protected = False
 		self.protected_image = state.sprites2.subsurface((10+player_sprite_nr)*32+4, 9*32, 16*2, 16*2)
+
+		# armor: player's frame around the tank, lighter for one armor, almost white for double one
+		self.armor_images = []
+		for light in (70, 160):
+			image = self.protected_image.copy()
+			image.fill((light, light, light), special_flags=pygame.BLEND_RGB_ADD)
+			self.armor_images.append(image)
 
 		# until player moves out of other tanks after respawn, they don't block him
 		self.aquired_position = False
