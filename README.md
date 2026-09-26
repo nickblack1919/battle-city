@@ -123,6 +123,10 @@ two corner points of its front edge, so tanks slightly crossing each other's pat
 by map cells under the front edge: a cell (16 px) with any part of a wall blocks the tank, so a brick cell needs
 two shots.
 
+Turning into a narrow passage is easy (helpful with a gamepad): a turning tank is put on the grid line from which
+the passage is open, and a tank between cells slides sideways to it instead of getting stuck on the wall next to
+the gap (`PLAYER_TURN_ASSIST` in config).
+
 Ice like on NES: a tank starting to move on ice slides 56 px, buttons are ignored during the first part of it,
 the rest is slid after the button is released; sliding stops when the tank leaves ice.
 

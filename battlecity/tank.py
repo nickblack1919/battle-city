@@ -415,6 +415,8 @@ class Tank():
 			#print "Before fixing: " + str(self.rect.left) + ", " + str(self.rect.top)
 				
 			# snap to 16 px grid: nearest grid line, or the other one if a wall or tank is in the way
+			# or if the tank couldn't drive on from there (narrow passage is on the other line)
+			free = []
 			for new_x in self.gridCandidates(self.rect.left):
 				for new_y in self.gridCandidates(self.rect.top):
 					new_rect = pygame.Rect([new_x, new_y], [32, 32])
@@ -431,11 +433,20 @@ class Tank():
 					if collision:
 						continue
 
-					self.rect.left = new_x
-					self.rect.top = new_y
-					if config.DEBUG_COORDINATES:
-						print("After fixing: " + str(self.rect.center))
-					return
+					free.append(new_rect)
+					step = [(0, -1), (1, 0), (0, 1), (-1, 0)][direction]
+					if not tilesBlock(self.level, new_rect.move(step[0], step[1]), direction, self.canSwim()):
+						free.insert(0, new_rect)
+						break
+				else:
+					continue
+				break
+
+			if free:
+				self.rect.topleft = free[0].topleft
+				if config.DEBUG_COORDINATES:
+					print("After fixing: " + str(self.rect.center))
+			return
 
 	def gridCandidates(self, value):
 		""" 16 px grid lines to snap coordinate to: nearest first, then the other neighbour """
@@ -1889,19 +1900,11 @@ class Player(Tank):
 
 		# collisions with tiles
 		if tilesBlock(self.level, player_rect, direction, self.canSwim()):
+			# tank between cells in front of a narrow passage: help it in
+			return self.turnAssist(direction)
+
+		if self.tankInWay(player_rect, direction):
 			return
-
-		# collisions with other players
-		for player in state.players:
-			if player != self and player.state == player.STATE_ALIVE and player_rect.colliderect(player.rect) == True:
-				if player.aquired_position and tankBlocks(player_rect, direction, player):
-					return
-
-		# collisions with enemies (exploding and spawning tanks don't block, like on NES)
-		for enemy in state.enemies:
-			if enemy.state == enemy.STATE_ALIVE and player_rect.colliderect(enemy.rect) == True:
-				if enemy.aquired_position and self.aquired_position and tankBlocks(player_rect, direction, enemy):
-					return
 
 		# collisions with bonuses
 		for bonus in state.bonuses:
@@ -1916,6 +1919,53 @@ class Player(Tank):
 
 		return True
 
+
+	def tankInWay(self, new_rect, direction):
+		""" Other tank blocks the move (exploding and spawning tanks don't block, like on NES) """
+		for player in state.players:
+			if player != self and player.state == player.STATE_ALIVE and new_rect.colliderect(player.rect):
+				if player.aquired_position and tankBlocks(new_rect, direction, player):
+					return True
+
+		for enemy in state.enemies:
+			if enemy.state == enemy.STATE_ALIVE and new_rect.colliderect(enemy.rect):
+				if enemy.aquired_position and self.aquired_position and tankBlocks(new_rect, direction, enemy):
+					return True
+		return False
+
+	def turnAssist(self, direction):
+		""" Turning into a narrow passage while between cells: tank slides sideways (1 px per step) to the
+		grid line where the passage is open, instead of getting stuck on the wall next to it
+		@return True if tank moved sideways
+		"""
+		if not config.PLAYER_TURN_ASSIST:
+			return
+
+		steps = [(0, -1), (1, 0), (0, 1), (-1, 0)]
+		if direction in (self.DIR_UP, self.DIR_DOWN):
+			offset = self.rect.left % CELL
+			sides = [(self.DIR_LEFT, offset), (self.DIR_RIGHT, CELL - offset)]
+		else:
+			offset = self.rect.top % CELL
+			sides = [(self.DIR_UP, offset), (self.DIR_DOWN, CELL - offset)]
+		if offset == 0:
+			return
+
+		for side, distance in sorted(sides, key=lambda side_distance: side_distance[1]):
+			if distance > config.PLAYER_TURN_ASSIST_PX:
+				continue
+			dx, dy = steps[side]
+			aligned = self.rect.move(dx * distance, dy * distance)
+			ahead = aligned.move(steps[direction][0], steps[direction][1])
+			# passage must be open from that grid line
+			if tilesBlock(self.level, aligned, side, self.canSwim()) or tilesBlock(self.level, ahead, direction, self.canSwim()):
+				continue
+			side_rect = self.rect.move(dx, dy)
+			if tilesBlock(self.level, side_rect, side, self.canSwim()) or self.tankInWay(side_rect, side):
+				continue
+			self.rect.topleft = side_rect.topleft
+			self.aquired_position = True
+			return True
 
 	def reset(self):
 		""" reset player """
