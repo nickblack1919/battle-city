@@ -106,7 +106,8 @@ ENEMY_FIRE_TIMER = 1000 // GAME_FRAME_TIMING
 ENEMY_GRID_PAUSE_CHANCE = 1 / 32.0	# NES: enemy on 8 px grid spends a move choosing direction with 1/16 chance (2 steps here)
 HEAD_SHIELD_WHEN_PROTECTED = True	# protected player tank isn't hurt by bullets hitting its front
 ENABLE_PLAYER_PROTECTION = True	# player gets frontal armor at superpower 5
-# NES stars: 1 fast bullets, 2 two bullets, 3 bullets destroy steel and whole bricks (grass stays), more stars do nothing
+# NES stars (players only): 1 fast bullets, 2 two bullets, 3 bullets destroy steel and whole bricks (grass stays),
+# more stars do nothing. False - full ladder (see updateSuperpowers) for players and enemies
 NES_STARS = False
 
 # bonuses which can appear (names of Bonus.BONUS_* types), repeated types are more frequent
@@ -304,7 +305,8 @@ PRESETS = {
 		"ENABLE_PLAYER_PROTECTION": False,
 		"ENEMY_AI_BASE_CHANCE": 50,
 		"ENABLE_NEW_ENEMIES": False,
-		"NES_STARS": True,
+		# NES star ladder was only for players, enemies always had the full one: same ladder for everybody
+		"NES_STARS": False,
 	},
 	"GOOD": {
 		"ALLOW_MULTI_BONUS": True,

@@ -128,7 +128,9 @@ the rest is slid after the button is released; sliding stops when the tank leave
 
 Superpowers: 1 fast bullets, 2 two bullets, 3 bullets clear grass, 4 bullets destroy steel, 5 three bullets and
 frontal armor, 6 bullets destroy walls and fly on, 9 castle protection (absorbs one hit).
-CLASSIC (NES stars): 1 fast bullets, 2 two bullets, 3 bullets destroy steel and whole brick cells, grass stays.
+The same ladder works for players and enemies (an enemy picking up a star gives 2 superpowers to all enemies on
+screen). `NES_STARS = True` in config gives players the NES ladder instead: 1 fast bullets, 2 two bullets,
+3 bullets destroy steel and whole brick cells, grass stays, more stars do nothing.
 
 Like on NES, a grey curtain closes before the "STAGE N" screen and opens over the new stage; while a player tank
 moves its engine is heard, but only when neither stage start music nor enemy engine hum is playing (e.g. after

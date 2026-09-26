@@ -40,6 +40,19 @@ def stars(ctx):
 	clear(ctx)
 	g["applyPreset"]("CLASSIC")
 	p = g["players"][0]
+
+	# CLASSIC: same full ladder for players and enemies
+	ctx.check("CLASSIC uses full ladder", not g["NES_STARS"])
+	full = []
+	for superpowers in range(7):
+		p.superpowers = superpowers
+		p.updateSuperpowers()
+		full.append((p.bullet_speed == g["FAST_BULLET_SPEED"], p.max_active_bullets, p.bullet_power))
+	ctx.check("full ladder: %s" % full, full == [
+		(False, 1, 1), (True, 1, 1), (True, 2, 1), (True, 2, 2), (True, 2, 3), (True, 3, 3), (True, 3, 4)])
+
+	# NES ladder is still there (NES_STARS)
+	g["NES_STARS"] = True
 	result = []
 	for superpowers in range(6):
 		p.superpowers = superpowers
