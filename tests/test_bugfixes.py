@@ -51,8 +51,16 @@ def bugfixes(ctx):
 		d["esc_frame"] = ctx.total_frames
 
 	elif phase == "esc" and ctx.total_frames > d["esc_frame"] + 20:
-		d["phase"] = "done"
-		return ctx.expect_exit("ESC quits on level 2")
+		d["phase"] = "confirm"
+		return [ctx.key(harness.pygame.K_ESCAPE)]
+
+	elif phase == "confirm" and ctx.in_function("confirmExitToMenu"):
+		d["phase"] = "menu"
+		return [ctx.key(harness.pygame.K_y)]
+
+	elif phase == "menu" and ctx.in_function("showMenu"):
+		ctx.check("ESC on level 2 exits to main menu", not game.running)
+		ctx.finish()
 
 
 SCENARIOS = {

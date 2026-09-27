@@ -41,6 +41,8 @@ PHRASES = {
 	"ENTER YOUR NAME": "ВВЕДИ ИМЯ",
 	"ENTER - DONE": "ENTER - ГОТОВО",
 	"ENTER - MENU": "ENTER - МЕНЮ",
+	"EXIT TO MENU?": "ВЫЙТИ В МЕНЮ?",
+	"Y - YES   N - NO": "Y - ДА   N - НЕТ",
 	"HIGH SCORES": "РЕКОРДЫ",
 	"1-5 TILE": "1-5 ТАЙЛ",
 	"SPC DRAW": "ПРОБЕЛ",

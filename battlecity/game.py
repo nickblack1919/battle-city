@@ -972,6 +972,45 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 
 		print("Stage "+str(self.stage)+" completed")
 
+	def confirmExitToMenu(self):
+		""" ESC in game: ask before leaving the level to the main menu
+		@return True if player agreed (level is stopped)
+		"""
+		box = pygame.Rect(40, 176, 400, 72)
+		while True:
+			self.clock.tick(config.GAME_FRAME_TIMING)
+
+			state.screen.fill((0, 0, 0), box)
+			pygame.draw.rect(state.screen, (127, 64, 64), box, 2)
+			for i, line in enumerate(("EXIT TO MENU?", "Y - YES   N - NO")):
+				text = self.text(line, False, pygame.Color("white"))
+				state.screen.blit(text, [(480 - text.get_width()) // 2, box.top + 14 + i * 28])
+			self.flip()
+
+			self.updateGamepads()
+			for gamepad in self.gamepads:
+				if gamepad.pressed("fire"):
+					return self.exitToMenu()
+				if gamepad.pressed("start"):
+					return False
+
+			for event in self.events():
+				if event.type == pygame.QUIT:
+					quit()
+				elif event.type == pygame.KEYDOWN:
+					if event.key in (pygame.K_y, pygame.K_RETURN):
+						return self.exitToMenu()
+					if event.key in (pygame.K_n, pygame.K_ESCAPE):
+						return False
+
+	def exitToMenu(self):
+		""" Leave the level to the main menu """
+		if state.sounds:
+			pygame.mixer.stop()
+		self.engine_sound = False
+		self.endLevel(self.showMenu)
+		return True
+
 	def stageFinished(self):
 		""" Some time after the last enemy: demo returns to menu, endless starts next wave,
 		otherwise (or if game got over meanwhile) scores screen """
@@ -1174,7 +1213,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 						quit()
 					elif event.type == pygame.KEYDOWN and not self.game_over and self.active:
 						if event.key == pygame.K_ESCAPE:
-							quit()
+							self.confirmExitToMenu()
 						if self.isFullScreenKey(event):
 							self.toggleFullScreen()
 						elif event.key == pygame.K_RETURN:
@@ -1205,14 +1244,11 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 					quit()
 				# ESC works always, also during "game over" animation
 				elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-					quit()
+					self.confirmExitToMenu()
 				elif event.type == pygame.KEYDOWN and not self.game_over and self.active:
 
-					# Controls: ESC - quit, Enter - pause, p - debug enemy freeze, v - debug mesh,
+					# Controls: ESC - exit to menu, Enter - pause, p - debug enemy freeze, v - debug mesh,
 					# ctrl+f / cmd+f / alt+enter - full screen, m  - mute sounds, b - borrow life from active player
-					# toggle game quit
-					if event.key == pygame.K_ESCAPE:
-						quit()
 					# toggle full screen
 					if self.isFullScreenKey(event):
 						self.toggleFullScreen()

@@ -33,7 +33,7 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
 | Ctrl+F / Cmd+F / Alt+Enter | full screen / window |
 | M | sound on / off |
 | B | borrow a life from partner for a player without lives (bot never gets a human's life) |
-| ESC | quit (in editor and settings: back to menu) |
+| ESC | in game: exit to main menu (asks Y / N), in editor and settings: back to menu, in menu: quit |
 | P | freeze enemies (debug, only with `DEBUG_KEYS = True` in config) |
 | V | debug sprites and grid (debug, only with `DEBUG_KEYS = True` in config) |
 

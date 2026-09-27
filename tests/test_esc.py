@@ -1,14 +1,24 @@
-""" ESC quits the game on every screen """
+""" ESC quits the game on the screens outside a level (in a level it asks to exit to menu) """
 
 import harness
 
 
 def gameover_animation(ctx):
+	""" In a level ESC asks to exit to the main menu, also during the game over animation """
 	if ctx.frame == 20:
 		ctx.g["castle"].destroy()
 	if ctx.frame == 30:
 		ctx.check("game over animation is running", ctx.game.game_over and ctx.in_function("nextLevel"))
-		return ctx.expect_exit("ESC quits during game over animation")
+		return [ctx.key(harness.pygame.K_ESCAPE)]
+	if ctx.frame == 32:
+		ctx.check("ESC asks to exit during game over animation", ctx.in_function("confirmExitToMenu"))
+		return [ctx.key(harness.pygame.K_y)]
+	if ctx.frame > 32 and ctx.in_function("showMenu"):
+		ctx.check("exited to main menu", not ctx.game.running)
+		ctx.finish()
+	if ctx.frame > 90:
+		ctx.check("exited to main menu", False)
+		ctx.finish()
 
 
 def gameover_screen(ctx):
