@@ -136,12 +136,61 @@ def pause_sounds(ctx):
 		ctx.finish()
 
 
+class FakeMusic(object):
+	""" Stands in for the game over music """
+
+	def __init__(self, length):
+		self.length = length
+		self.played = 0
+		self.stopped = 0
+
+	def get_length(self):
+		return self.length
+
+	def play(self, *args):
+		self.played += 1
+
+	def stop(self):
+		self.stopped += 1
+
+
+def game_over_music(ctx, press_key):
+	""" NES: music plays on the game over screen, the screen stays until it ends, a key skips it """
+	g, game, d = ctx.g, ctx.game, ctx.data
+	if ctx.frame == 1:
+		clear(ctx)
+		g["play_sounds"] = True
+		d["music"] = FakeMusic(1.0)
+		g["sounds"]["gameover"] = d["music"]
+		game.endLevel(game.gameOverScreen)
+		return
+	if ctx.in_function("gameOverScreen"):
+		if "start" not in d:
+			d["start"] = ctx.frame
+			ctx.check("music plays on the game over screen", d["music"].played == 1)
+		if press_key and ctx.frame == d["start"] + 5:
+			return [ctx.key(pygame.K_RETURN)]
+	if d.get("start") and ctx.in_function("showMenu"):
+		frames = ctx.frame - d["start"]
+		if press_key:
+			ctx.check("key skips the screen (%d frames) and stops the music" % frames, frames < 30 and d["music"].stopped > 0)
+		else:
+			# 1 s of music = 50 frames
+			ctx.check("screen stays until the music ends (%d frames)" % frames, 40 <= frames <= 70)
+		ctx.finish()
+	if ctx.frame > 400:
+		ctx.check("game over screen finished", False)
+		ctx.finish()
+
+
 SCENARIOS = {
 	"bonus_disappears": {"fn": bonus_disappears},
 	"stun_blink": {"fn": stun_blink, "players": 2},
 	"scores_bonus": {"fn": scores_bonus, "players": 2},
 	"stage_select": {"fn": stage_select},
 	"pause_sounds": {"fn": pause_sounds},
+	"game_over_music": {"fn": lambda ctx: game_over_music(ctx, False)},
+	"game_over_music_skip": {"fn": lambda ctx: game_over_music(ctx, True)},
 }
 
 if __name__ == "__main__":

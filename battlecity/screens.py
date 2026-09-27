@@ -144,23 +144,35 @@ class ScreensMixin():
 		self.writeInBricks("over", [125, 220])
 		self.flip()
 
-		while 1:
-			time_passed = self.clock.tick(50)
+		# NES (00:C61B): music starts on this screen and the screen stays until it ends,
+		# a button press skips the screen and stops the music
+		music = state.sounds.get("gameover") if config.play_sounds else None
+		if music:
+			music.play()
+		length = music.get_length() if music else config.GAME_OVER_SCREEN_TIME / 1000.0
+		frames = int(length * config.GAME_FRAME_TIMING)
+
+		while frames > 0:
+			frames -= 1
+			self.clock.tick(config.GAME_FRAME_TIMING)
 			self.flip()
 
 			# gamepad A / Start returns to menu
 			self.updateGamepads()
 			for gamepad in self.gamepads:
 				if gamepad.pressed("fire") or gamepad.pressed("start"):
-					return self.showMenu
+					frames = 0
 			for event in self.events():
 				if event.type == pygame.QUIT:
 					quit()
 				elif event.type == pygame.KEYDOWN:
 					if event.key == pygame.K_ESCAPE:
 						quit()
-					if event.key == pygame.K_RETURN:
-						return self.showMenu
+					frames = 0
+
+		if music:
+			music.stop()
+		return self.showMenu
 
 	def showVersusResult(self):
 		""" Versus result screen: winner and kills. Any key / gamepad button returns to menu """

@@ -736,10 +736,10 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		print("Game Over")
 		if self.mode in ("campaign", "random") and not self.test_play:
 			self.deleteSavedGame()
+		# NES: game over music plays on the game over screen, not here
 		if config.play_sounds:
 			for sound in state.sounds:
 				state.sounds[sound].stop()
-			state.sounds["gameover"].play()
 
 		self.game_over_y = 416+40
 

@@ -14,6 +14,7 @@ from pygame.locals import *
 NES_VERSIONS = {"DENDY": 50, "NTSC": 60}
 NES_VERSION = "DENDY"
 GAME_FRAME_TIMING = 50	# frames per second of this game
+GAME_OVER_SCREEN_TIME = 4000	# ms the game over screen stays when there is no music to wait for
 
 def nesFrames(frames):
 	""" Duration of n NES frames in ms """

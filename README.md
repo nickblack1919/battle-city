@@ -145,6 +145,9 @@ The same ladder works for players and enemies (an enemy picking up a star gives 
 screen). `NES_STARS = True` in config gives players the NES ladder instead: 1 fast bullets, 2 two bullets,
 3 bullets destroy steel and whole brick cells, grass stays, more stars do nothing.
 
+Like on NES, the game over music starts on the "GAME OVER" screen and the screen stays until the music ends
+(any key or gamepad button skips it).
+
 Like on NES, a grey curtain closes before the "STAGE N" screen and opens over the new stage; while a player tank
 moves its engine is heard, but only when neither stage start music nor enemy engine hum is playing (e.g. after
 the last enemy is destroyed),
