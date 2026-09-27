@@ -195,7 +195,7 @@ tanks on a stage gets 1000 points, if they have lives left.
 | Fast | 200 | |
 | Power | 300 | fast bullets |
 | Armor | 400 | several hits |
-| Stealth | 300 | almost invisible, shows itself when firing or hit (from stage 5) |
+| Stealth | 300 | invisible, only a faint shadow is seen: shows itself for 1 s every 6 s (`STEALTH_SHOW_TIME`, `STEALTH_HIDE_TIME`), and when firing or hit (from stage 5) |
 | Mortar | 400 | shells fly over walls (from stage 5) |
 | Boss | 2000 | last enemy of every 5th stage, drops bonuses |
 

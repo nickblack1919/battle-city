@@ -72,6 +72,50 @@ def types(ctx):
 	ctx.finish()
 
 
+def stealth_cycle(ctx):
+	""" Stealth tank shows itself for 1 s and hides for 5 s, and its shadow is barely visible """
+	g, game = ctx.g, ctx.game
+	if ctx.frame != 10:
+		return
+	del g["enemies"][:]
+	stealth = make_enemy(ctx, g["Enemy"].TYPE_STEALTH, (64, 64))
+	screen = g["screen"]
+
+	ctx.check("stealth tank starts hidden", not stealth.stealthShowing())
+	ctx.check("shadow is barely visible (alpha %d)" % g["STEALTH_ALPHA"], g["STEALTH_ALPHA"] <= 16)
+
+	# count ms of showing and hiding over two full cycles
+	ms = int(round(1000.0 / g["GAME_FRAME_TIMING"]))
+	shown = hidden = 0
+	period = g["STEALTH_SHOW_TIME"] + g["STEALTH_HIDE_TIME"]
+	for i in range(2 * period // ms):
+		stealth.update(ms)
+		if stealth.stealthShowing():
+			shown += ms
+		else:
+			hidden += ms
+	ctx.check("visible about 2 s of two cycles (%d ms)" % shown, abs(shown - 2 * g["STEALTH_SHOW_TIME"]) <= 2 * ms)
+	ctx.check("hidden about 10 s of two cycles (%d ms)" % hidden, abs(hidden - 2 * g["STEALTH_HIDE_TIME"]) <= 2 * ms)
+
+	# showing tank is drawn as a normal tank, hidden one only as a shadow
+	stealth.stealth_time = 0
+	screen.fill([0, 0, 0])
+	stealth.draw()
+	showing = brightness(screen, stealth.rect)
+	stealth.stealth_time = g["STEALTH_SHOW_TIME"]
+	screen.fill([0, 0, 0])
+	stealth.draw()
+	shadow = brightness(screen, stealth.rect)
+	ctx.check("showing stealth tank is much brighter (%d vs %d)" % (showing, shadow), shadow * 10 < showing)
+
+	# firing shows it even during the hidden part of the cycle
+	stealth.reveal_frames = g["STEALTH_REVEAL_FRAMES"]
+	screen.fill([0, 0, 0])
+	stealth.draw()
+	ctx.check("firing reveals it while hiding", brightness(screen, stealth.rect) == showing)
+	ctx.finish()
+
+
 def mortar(ctx):
 	g, game = ctx.g, ctx.game
 	if ctx.frame != 10:
@@ -151,6 +195,7 @@ def composition(ctx):
 
 SCENARIOS = {
 	"types": {"fn": types},
+	"stealth_cycle": {"fn": stealth_cycle},
 	"mortar": {"fn": mortar},
 	"boss": {"fn": boss},
 	"composition": {"fn": composition},

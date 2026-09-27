@@ -176,6 +176,8 @@ class Tank():
 
 		# frames stealth tank stays visible
 		self.reveal_frames = 0
+		# stealth tank: ms since it appeared (showing / hiding cycle); starts hidden
+		self.stealth_time = config.STEALTH_SHOW_TIME
 
 		# frontal armor (player superpower 5+)
 		self.protected = False
@@ -840,7 +842,7 @@ class Enemy(Tank):
 	def draw(self):
 		""" Stealth tank is almost invisible until it fires or gets hit, boss has health bar """
 
-		if self.type == self.TYPE_STEALTH and self.state == self.STATE_ALIVE and not self.bonus and self.reveal_frames <= 0:
+		if self.type == self.TYPE_STEALTH and self.state == self.STATE_ALIVE and not self.bonus and self.reveal_frames <= 0 and not self.stealthShowing():
 			if self.visible:
 				image = self.image.copy()
 				image.set_alpha(config.STEALTH_ALPHA)
@@ -852,6 +854,15 @@ class Enemy(Tank):
 		if self.type == self.TYPE_BOSS and self.state == self.STATE_ALIVE:
 			width = int(32 * max(self.health, 0) / float(config.BOSS_HEALTH))
 			pygame.draw.rect(state.screen, (255, 60, 60), [self.rect.left, self.rect.top - 4, max(width, 1), 3])
+
+	def stealthShowing(self):
+		""" Stealth tank shows itself for a while every few seconds (STEALTH_SHOW_TIME, STEALTH_HIDE_TIME):
+		the rest of the time only its shadow is seen
+		"""
+		period = config.STEALTH_SHOW_TIME + config.STEALTH_HIDE_TIME
+		if config.STEALTH_SHOW_TIME <= 0 or period <= 0:
+			return False
+		return self.stealth_time % period < config.STEALTH_SHOW_TIME
 
 	def updateSprites(self):
 		self.image_up = self.getEnemyImage(self.DIR_UP, self.type, self.health, self.FLASHING_NO)
@@ -1738,6 +1749,8 @@ class Enemy(Tank):
 		Tank.update(self, time_passed)
 		if self.reveal_frames > 0:
 			self.reveal_frames -= 1
+		# stealth tank: ms lived, its showing / hiding cycle is counted from it
+		self.stealth_time += time_passed
 		if self.state == self.STATE_ALIVE and not self.paused:
 			self.move()
 

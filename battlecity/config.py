@@ -287,8 +287,11 @@ NEW_ENEMIES_FROM_STAGE = 5	# stealth and mortar tanks appear from this stage (wa
 BOSS_EVERY_STAGES = 5	# boss is the last enemy of every n-th stage (wave)
 BOSS_HEALTH = 2000
 BOSS_BONUS_EVERY = 500	# boss drops a bonus every n damage
-STEALTH_ALPHA = 40	# stealth tank transparency (0-255) while hidden
+STEALTH_ALPHA = 10	# stealth tank transparency (0-255) while hidden: barely a shadow
 STEALTH_REVEAL_FRAMES = 30	# stealth tank is visible for n frames after firing or being hit
+# stealth tank shows itself for STEALTH_SHOW_TIME ms and hides for STEALTH_HIDE_TIME ms, again and again
+STEALTH_SHOW_TIME = 1000
+STEALTH_HIDE_TIME = 5000
 
 # enemy types: basic, fast, power, armor, stealth, mortar, boss
 ENEMY_POINTS = [100, 200, 300, 400, 300, 400, 2000]

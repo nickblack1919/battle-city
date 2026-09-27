@@ -85,7 +85,7 @@ class Bot():
 		for enemy in state.enemies:
 			if enemy.state != enemy.STATE_ALIVE:
 				continue
-			if enemy.type == Enemy.TYPE_STEALTH and not enemy.bonus and enemy.reveal_frames <= 0:
+			if enemy.type == Enemy.TYPE_STEALTH and not enemy.bonus and enemy.reveal_frames <= 0 and not enemy.stealthShowing():
 				if abs(enemy.rect.centerx - p.rect.centerx) + abs(enemy.rect.centery - p.rect.centery) > 96:
 					continue
 			result.append(enemy)
