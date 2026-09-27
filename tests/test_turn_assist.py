@@ -88,8 +88,54 @@ def assist_off(ctx):
 	ctx.finish()
 
 
+def open_ground(ctx):
+	""" Turning on open ground or along a single wall doesn't correct tank's position """
+	g, game = ctx.g, ctx.game
+	if ctx.frame != 1:
+		return
+	level, myRect = game.level, g["myRect"]
+	del game.level.enemies_left[:]
+	del g["enemies"][:]
+	level.mapr = []
+	level.updateObstacleRects()
+	p = g["players"][0]
+	p.shielded = True
+
+	# empty field: tank between cells drives on, its position isn't touched
+	p.rect.topleft = [50, 96]
+	p.rotate(p.DIR_UP, False)
+	p.move_credit = 0
+	for i in range(10):
+		p.move(p.DIR_UP, 1)
+	ctx.check("open ground: tank isn't moved sideways (%s)" % (p.rect.topleft,), p.rect.left == 50 and p.rect.top < 96)
+
+	# one wall cell in front of tank's shoulder: passage beside it is wide, no correction
+	for cy in range(4, 6):
+		level.mapr.append(myRect(4 * 16, cy * 16, 16, 16, level.TILE_STEEL))
+	level.updateObstacleRects()
+	p.rect.topleft = [50, 96]
+	p.rotate(p.DIR_UP, False)
+	p.move_credit = 0
+	for i in range(20):
+		p.move(p.DIR_UP, 1)
+	ctx.check("single wall: tank stops instead of sliding (%s)" % (p.rect.topleft,), p.rect.topleft == (50, 96))
+
+	# same wall with the passage closed on the other side: now it is narrow, assist helps in
+	for cy in range(4, 6):
+		level.mapr.append(myRect(1 * 16, cy * 16, 16, 16, level.TILE_STEEL))
+	level.updateObstacleRects()
+	p.rect.topleft = [34, 96]
+	p.rotate(p.DIR_UP, False)
+	p.move_credit = 0
+	for i in range(20):
+		p.move(p.DIR_UP, 1)
+	ctx.check("narrow passage: tank slides in (%s)" % (p.rect.topleft,), p.rect.left == 32 and p.rect.top < 96)
+	ctx.finish()
+
+
 SCENARIOS = {
 	"into_passage": {"fn": into_passage},
+	"open_ground": {"fn": open_ground},
 	"no_passage": {"fn": no_passage},
 	"assist_off": {"fn": assist_off},
 }

@@ -137,7 +137,9 @@ spawn points are used in turn even if a tank stands there; bullets of two player
 
 Turning into a narrow passage is easy (helpful with a gamepad): a turning tank is put on the grid line from which
 the passage is open, and a tank between cells slides sideways to it instead of getting stuck on the wall next to
-the gap (`PLAYER_TURN_ASSIST` in config).
+the gap (`PLAYER_TURN_ASSIST` in config). The correction works only for a passage as wide as the tank (walls or
+the field edge on both sides of it): turning on open ground or along a single wall never moves the tank, it is
+put on the nearest grid line like on NES.
 
 Ice like on NES: a tank starting to move on ice slides 56 px, buttons are ignored during the first part of it,
 the rest is slid after the button is released; sliding stops when the tank leaves ice.

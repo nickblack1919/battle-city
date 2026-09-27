@@ -60,6 +60,31 @@ def frontEdgeCells(new_rect, direction):
 	x = left if direction == Tank.DIR_LEFT else right
 	return set([(x // CELL, y // CELL) for y in list(range(top, bottom, CELL)) + [bottom]])
 
+def cellBlocked(level, cell, can_swim):
+	""" Cell (cx, cy) has a wall in it; cells outside the field count as walls """
+	cx, cy = cell
+	if not (0 <= cx < 416 // CELL and 0 <= cy < 416 // CELL):
+		return True
+	obstacles = level.obstacleRectsFor(can_swim)
+	return pygame.Rect(cx * CELL, cy * CELL, CELL, CELL).collidelist(obstacles) != -1
+
+def narrowPassage(level, aligned, direction, can_swim):
+	""" Cells in front of a tank standing on the grid at aligned are a passage as wide as the tank:
+	the cells flanking them on both sides are walls (or the field edge).
+	Turn assist only helps a tank into such a passage, turning elsewhere doesn't move it
+	"""
+	step = [(0, -1), (1, 0), (0, 1), (-1, 0)][direction]
+	cells = sorted(frontEdgeCells(aligned.move(step[0], step[1]), direction))
+	if len(cells) != 2:
+		return False
+	if direction in (Tank.DIR_UP, Tank.DIR_DOWN):
+		(cx, cy), (other_cx, _) = cells[0], cells[1]
+		flanks = [(cx - 1, cy), (other_cx + 1, cy)]
+	else:
+		(cx, cy), (_, other_cy) = cells[0], cells[1]
+		flanks = [(cx, cy - 1), (cx, other_cy + 1)]
+	return all([cellBlocked(level, flank, can_swim) for flank in flanks])
+
 def tilesBlock(level, new_rect, direction, can_swim):
 	""" Walls block move to new_rect (NES rule): cells under the front edge are checked,
 	a cell with any part of a wall (even one brick quarter) blocks the tank """
@@ -458,8 +483,8 @@ class Tank():
 			# snap to 16 px grid: nearest grid line, or the other one if a wall or tank is in the way
 			# or if the tank couldn't drive on from there (narrow passage is on the other line)
 			free = []
-			for new_x in self.gridCandidates(self.rect.left):
-				for new_y in self.gridCandidates(self.rect.top):
+			for x_nr, new_x in enumerate(self.gridCandidates(self.rect.left)):
+				for y_nr, new_y in enumerate(self.gridCandidates(self.rect.top)):
 					new_rect = pygame.Rect([new_x, new_y], [32, 32])
 
 					collision = False
@@ -476,7 +501,11 @@ class Tank():
 
 					free.append(new_rect)
 					step = [(0, -1), (1, 0), (0, 1), (-1, 0)][direction]
-					if config.PLAYER_TURN_ASSIST and not tilesBlock(self.level, new_rect.move(step[0], step[1]), direction, self.canSwim()):
+					# the farther grid line is chosen only for a narrow passage: turning elsewhere
+					# puts the tank on the nearest line, like on NES
+					nearest_lines = x_nr == 0 and y_nr == 0
+					if config.PLAYER_TURN_ASSIST and not tilesBlock(self.level, new_rect.move(step[0], step[1]), direction, self.canSwim()) \
+							and (nearest_lines or narrowPassage(self.level, new_rect, direction, self.canSwim())):
 						free.insert(0, new_rect)
 						break
 				else:
@@ -2036,8 +2065,11 @@ class Player(Tank):
 			dx, dy = steps[side]
 			aligned = self.rect.move(dx * distance, dy * distance)
 			ahead = aligned.move(steps[direction][0], steps[direction][1])
-			# passage must be open from that grid line
+			# passage must be open from that grid line, and it must be a narrow one:
+			# turning on open ground (or along a single wall) doesn't correct tank's position
 			if tilesBlock(self.level, aligned, side, self.canSwim()) or tilesBlock(self.level, ahead, direction, self.canSwim()):
+				continue
+			if not narrowPassage(self.level, aligned, direction, self.canSwim()):
 				continue
 			side_rect = self.rect.move(dx, dy)
 			if tilesBlock(self.level, side_rect, side, self.canSwim()) or self.tankInWay(side_rect, side):
