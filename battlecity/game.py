@@ -409,6 +409,24 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 
 		pygame.display.update()
 
+	def giveShip(self, player, ms):
+		""" Player can drive over water for ms """
+		player.ship = True
+		player.drive_out = False
+		self.destroyTimer(player.ship_timer)
+		player.ship_timer = state.gtimer.add(ms, lambda :self.endShip(player), 1)
+
+	def shipLeft(self, player):
+		""" ms of ship bonus the player still has (0 without ship) """
+		if not player.ship or player.ship_timer is None:
+			return 0
+		left = state.gtimer.remaining(player.ship_timer)
+		return max(0, int(left[0])) if left else 0
+
+	def shipCarried(self, player):
+		""" ms of ship bonus the player takes to the next stage (remembered when the scores screen opened) """
+		return max(self.shipLeft(player), getattr(player, "carried_ship_ms", 0))
+
 	def endShip(self, player):
 		""" Ship bonus time is over (player still on water can drive out) """
 		player.ship = False
@@ -552,9 +570,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		elif bonus.bonus == bonus.BONUS_SHIP:
 			if config.play_sounds:
 				state.sounds["bonus"].play()
-			player.ship = True
-			self.destroyTimer(player.ship_timer)
-			player.ship_timer = state.gtimer.add(config.BONUS_SHIP_TIMEOUT, lambda :self.endShip(player), 1)
+			self.giveShip(player, config.BONUS_SHIP_TIMEOUT)
 		elif bonus.bonus == bonus.BONUS_HELMET:
 			if config.play_sounds:
 				state.sounds["bonus"].play()
@@ -841,11 +857,18 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 				player.lives = stats["lives"]
 				player.superpowers = stats["superpowers"]
 				player.next_extra_life = stats["next_extra_life"]
+			loaded_ships = [stats.get("ship", 0) for stats in self.loaded_players_stats]
 			self.loaded_players_stats = None
+		else:
+			loaded_ships = []
 
 		for player in state.players:
 			player.level = self.level
 			self.respawnPlayer(player, True, player.superpowers)
+		# saved game: players keep the ship they had
+		for player, ms in zip(state.players, loaded_ships):
+			if ms > 0:
+				self.giveShip(player, ms)
 
 		self.assignGamepads()
 
@@ -1131,6 +1154,11 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			state.castle2 = Castle()
 			state.castle2.rect.topleft = (12 * self.TILE_SIZE, 0)
 			state.castle2.owner = 1
+		# ship bonus stays with the player on the next stage (with the time it has left);
+		# timers are cleared below and players are reset, so remember it first
+		ships_left = [self.shipCarried(player) for player in state.players]
+		for player in state.players:
+			player.carried_ship_ms = 0
 		del state.gtimer.timers[:]
 
 		self.stage += 1
@@ -1172,6 +1200,9 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		state.gtimer.add(4330, lambda :self.playBackgroundSound(), 1)
 
 		self.reloadPlayers()
+		for player, ms in zip(state.players, ships_left):
+			if ms > 0:
+				self.giveShip(player, ms)
 		self.togglePlayersFreeze(False)
 
 		# NES: first enemy appears immediately, then after spawn interval

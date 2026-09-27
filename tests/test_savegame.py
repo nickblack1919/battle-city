@@ -121,12 +121,67 @@ def broken_game(ctx):
 		ctx.finish()
 
 
+def ship_next_stage(ctx):
+	""" Ship bonus picked up on a stage stays with the player on the next stage (time left) and is saved """
+	g, game, d = ctx.g, ctx.game, ctx.data
+	p = g["players"][0]
+	if ctx.frame == 100:
+		game.giveShip(p, 20000)
+	if ctx.frame == 150:
+		d["left"] = game.shipLeft(p)
+		finish_level(ctx)
+	if ctx.frame > 150 and game.stage == 2 and game.running and "checked" not in d:
+		d["checked"] = True
+		with open(savegame_file()) as f:
+			saved = json.load(f)["players"][0].get("ship", 0)
+		left = game.shipLeft(p)
+		ctx.check("player still has the ship on stage 2", p.ship)
+		# the ship keeps running during the level finish pause, then continues on stage 2 from what was left
+		ctx.check("ship keeps the time it had left (%d ms, %d when the stage ended)" % (left, saved), saved - 2000 <= left <= saved <= d["left"])
+		ctx.check("ship time saved with the game (%d ms)" % saved, saved > 15000)
+		ctx.finish()
+
+
+def ship_savegame():
+	data = {
+		"stage": 2,
+		"nr_of_players": 1,
+		"preset": "EXTREME",
+		"players": [{"score": 100, "lives": 2, "superpowers": 1, "next_extra_life": 20000, "ship": 12000}],
+	}
+	with open(savegame_file(), "w") as f:
+		json.dump(data, f)
+
+
+def continue_ship_menu(ctx):
+	f = ctx.menu_frame
+	if f == 1:
+		return [ctx.key(pygame.K_RETURN)]
+	if f in (2, 3, 4, 5):
+		return [ctx.key(pygame.K_DOWN)]
+	if f == 6:
+		return [ctx.key(pygame.K_RETURN)]
+	return []
+
+
+def continue_with_ship(ctx):
+	g, game = ctx.g, ctx.game
+	if ctx.frame != 1:
+		return
+	p = g["players"][0]
+	ctx.check("saved ship is back after CONTINUE", p.ship)
+	ctx.check("with its time left (%d ms)" % game.shipLeft(p), 10000 <= game.shipLeft(p) <= 12000)
+	ctx.finish()
+
+
 SCENARIOS = {
 	"continue": {"fn": continue_game, "menu": continue_menu, "setup": write_savegame},
 	"no_savegame": {"fn": no_savegame},
 	"save_after_stage": {"fn": save_after_stage},
 	"delete_after_game_over": {"fn": delete_after_game_over, "setup": write_savegame},
 	"broken_savegame": {"fn": broken_game, "menu": broken_menu, "setup": broken_savegame},
+	"ship_next_stage": {"fn": ship_next_stage},
+	"continue_with_ship": {"fn": continue_with_ship, "menu": continue_ship_menu, "setup": ship_savegame},
 }
 
 if __name__ == "__main__":

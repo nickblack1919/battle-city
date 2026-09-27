@@ -225,6 +225,10 @@ class ScreensMixin():
 		# stop game main loop (if any)
 		self.running = False
 
+		# ship bonus goes on to the next stage: remember its time before timers are cleared
+		for player in state.players:
+			player.carried_ship_ms = self.shipLeft(player)
+
 		# clear all timers
 		del state.gtimer.timers[:]
 
@@ -652,7 +656,9 @@ class ScreensMixin():
 				"score": player.score,
 				"lives": player.lives,
 				"superpowers": player.superpowers,
-				"next_extra_life": player.next_extra_life
+				"next_extra_life": player.next_extra_life,
+				# ms of ship bonus left: it stays with the player on the next stage
+				"ship": self.shipCarried(player)
 			} for player in state.players],
 		}
 		try:
@@ -677,7 +683,8 @@ class ScreensMixin():
 				"score": int(player["score"]),
 				"lives": int(player["lives"]),
 				"superpowers": int(player["superpowers"]),
-				"next_extra_life": int(player.get("next_extra_life", config.EXTRA_LIFE_SCORE))
+				"next_extra_life": int(player.get("next_extra_life", config.EXTRA_LIFE_SCORE)),
+				"ship": max(0, int(player.get("ship", 0)))
 			} for player in data["players"]]
 		except (IOError, ValueError, KeyError, TypeError, AttributeError):
 			print("Can't load saved game")
