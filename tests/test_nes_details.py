@@ -136,6 +136,22 @@ def stage_select(ctx):
 	change, start = game.stageScreenInput()
 	ctx.check("button B: previous stage (%s)" % change, change == -1 and not start)
 	game.gamepads = []
+
+	# every player's own keys choose the stage, arrows work always
+	keys = game.stageScreenKeys()
+	p1, p2 = g["PLAYER_CONTROLS"]
+	ctx.check("P1 keys raise and lower the stage (%s)" % keys, keys.get(p1[1]) == 1 and keys.get(p1[2]) == 1 and keys.get(p1[3]) == -1 and keys.get(p1[4]) == -1)
+	ctx.check("P2 keys raise and lower the stage", keys.get(p2[1]) == 1 and keys.get(p2[2]) == 1 and keys.get(p2[3]) == -1 and keys.get(p2[4]) == -1)
+	ctx.check("arrows always change the stage", keys.get(pygame.K_UP) == 1 and keys.get(pygame.K_DOWN) == -1)
+	ctx.check("fire key doesn't change the stage", p1[0] not in keys and p2[0] not in keys)
+	# harness replaces the event queue, so key events are given to the screen directly
+	original_events = game.events
+	for key, expected in ((p1[1], 1), (p1[3], -1), (p2[2], 1), (p2[4], -1), (pygame.K_RETURN, 0)):
+		game.events = lambda events = [ctx.key(key)]: events
+		change, start = game.stageScreenInput()
+		ctx.check("key %s changes the stage by %d (%s, start %s)" % (pygame.key.name(key), expected, change, start), change == expected and start == (key == pygame.K_RETURN))
+	game.events = original_events
+
 	game.drawStageTitle()
 	ctx.check("stage screen drawn without a hint", True)
 	ctx.finish()

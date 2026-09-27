@@ -74,8 +74,21 @@ class ScreensMixin():
 			date = self.text(self.daily_date.strftime("%Y-%m-%d"), False, pygame.Color("black"), False)
 			state.screen.blit(date, [(416 - date.get_width()) // 2, (416 - date.get_height()) // 2 + 28])
 
+	def stageScreenKeys(self):
+		""" Keys changing the stage number: every player's own up / right raise it, down / left lower it
+		(controls can be changed on settings screen), arrows work always
+		@return ({key: 1 or -1}, ...)
+		"""
+		keys = {pygame.K_UP: 1, pygame.K_RIGHT: 1, pygame.K_DOWN: -1, pygame.K_LEFT: -1}
+		for controls in config.PLAYER_CONTROLS:
+			fire, up, right, down, left = controls
+			for key, change in ((up, 1), (right, 1), (down, -1), (left, -1)):
+				keys.setdefault(key, change)
+		return keys
+
 	def stageScreenInput(self):
-		""" Stage screen: gamepad buttons and arrows change the stage number, start begins the stage
+		""" Stage screen: controls of all players (gamepads and keyboard) change the stage number,
+		start begins the stage. On a gamepad A raises the stage number, B lowers it
 		@return (1 next stage / -1 previous one / 0, start pressed)
 		"""
 		change = 0
@@ -89,6 +102,7 @@ class ScreensMixin():
 			elif gamepad.pressed("down") or gamepad.pressed("left") or gamepad.pressedButton(config.GAMEPAD_B_BUTTON):
 				change = -1
 
+		keys = self.stageScreenKeys()
 		for event in self.events():
 			if event.type == pygame.QUIT:
 				quit()
@@ -98,10 +112,8 @@ class ScreensMixin():
 					self.drawStageTitle()
 				elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
 					start = True
-				elif event.key in (pygame.K_UP, pygame.K_RIGHT):
-					change = 1
-				elif event.key in (pygame.K_DOWN, pygame.K_LEFT):
-					change = -1
+				elif event.key in keys:
+					change = keys[event.key]
 		return change, start
 
 	def openCurtain(self):

@@ -34,7 +34,7 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
 | M | sound on / off |
 | B | borrow a life from partner for a player without lives (bot never gets a human's life) |
 | ESC | in game: exit to main menu (asks Y / N), in editor and settings: back to menu, in menu: quit |
-| arrows / gamepad d-pad / gamepad A and B | on the first "STAGE N" screen of a new game: choose the stage (campaign and random levels), Enter / gamepad Start begins it |
+| both players' movement keys / arrows / gamepad d-pad / gamepad A and B | on the first "STAGE N" screen of a new game: choose the stage (up, right, A - next, down, left, B - previous; campaign and random levels), Enter / Space / gamepad Start begins it |
 | P | freeze enemies (debug, only with `DEBUG_KEYS = True` in config) |
 | V | debug sprites and grid (debug, only with `DEBUG_KEYS = True` in config) |
 
