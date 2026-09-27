@@ -172,6 +172,8 @@ def dodge(ctx, chance):
 		# enemy is busy: it goes to the castle far away, doesn't turn to the player
 		enemy.smart_role = "castle"
 		enemy.health = 100
+		# enemy doesn't shoot back: its bullet would cancel the player's one (no player priority)
+		enemy.max_active_bullets = 0
 		p = g["players"][0]
 		p.state = p.STATE_ALIVE
 		p.shielded = True

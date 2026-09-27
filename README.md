@@ -57,7 +57,8 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
 - **LEVEL EDITOR** - edit any of 35 levels: arrows / mouse move cursor, 1-5 tile, 0 eraser, space / left mouse draw,
   right mouse erase, `[` `]` level, G fill with generated map, S save, D back to original level, T save and play.
 - **SETTINGS** - difficulty preset, sound, full screen, start level, controls, NES speed (DENDY / NTSC),
-  auto fire (ON by default - holding fire button shoots again when bullet slot is free; OFF - every shot needs
+  auto fire (ON by default - holding fire button shoots again when bullet slot is free, with the timing of the
+  Dendy turbo button: a press every second NES frame; OFF - every shot needs
   a press, like on NES), enemy AI (CLASSIC - random paths, sometimes towards the castle; NES - like on NES: at
   stage start enemies drive in random directions, later chase players, then go to the castle; a blocked tank
   waits or turns; SMART - chooses the best place to shoot from (short way, few bricks between, from a side the player isn't
@@ -115,8 +116,8 @@ screen selects frame rate of the console: DENDY (PAL, 50 fps, default) or NTSC (
 | Ship | drive over water | enemies drive over water |
 
 Like on NES, a bullet appears on the edge of the tank and a tank can't fire again until its bullet finished flying
-and exploding. Two differences from NES make head-on fights winnable: after a hit on a tank the slot is free a bit
-earlier (5 NES frames), and player's bullets destroy enemy bullets and fly on (on NES bullets cancel each other).
+and exploding, also after a hit on a tank. Bullets flying into each other cancel each other, so nobody wins a
+head-on duel (`PLAYER_BULLETS_PRIORITY = True` in config gives player's bullets priority instead).
 
 Tanks collide like on NES: every tank marks map cells it occupies (not its top left cell), a moving tank checks only
 two corner points of its front edge, so tanks slightly crossing each other's path don't stop. Walls are checked

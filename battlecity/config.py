@@ -26,6 +26,7 @@ def applyNesVersion(name):
 	global BONUS_FORTRESS_WALLS_TIMEOUT, FORTRESS_BLINK_TIME, FORTRESS_BLINK_INTERVAL, BONUS_PLAYER_SHIELD_TIMEOUT
 	global BONUS_BLINK_INTERVAL, BONUS_PICKUP_LABEL_TIME, ENEMY_SPAWN_ANIMATION_TIME, PLAYER_SPAWN_ANIMATION_TIME
 	global PLAYER_START_SHIELD_TIMEOUT, CHANCE_OF_FIRE, GAME_OVER_TEXT_SPEED, BULLET_EXPLOSION_TIME, BULLET_TANK_HIT_SLOT_TIME
+	global PLAYER_AUTO_FIRE_DELAY
 	global DEFAULT_BULLET_SPEED, FAST_BULLET_SPEED, PLAYER_DEFAULT_SPEED, DEFAULT_ENEMY_SPEED, DEFAULT_ENEMY_SPEED_FAST
 	global ENEMY_EXPLOSION_TIME, FAST_ENEMY_EXPLOSION_TIME, PLAYER_EXPLOSION_TIME
 
@@ -50,9 +51,10 @@ def applyNesVersion(name):
 	PLAYER_START_SHIELD_TIMEOUT = nesFrames(192)	# after (re)spawn: 3 x 64 frames
 	# bullet explosion; tank can't fire again until its bullet stops exploding
 	BULLET_EXPLOSION_TIME = nesFrames(9)
-	# not NES: bullet which exploded on a tank frees its slot earlier, so shooting at a tank at point blank
-	# is a bit faster and explosion on enemy's front keeps stopping enemy bullets until the next shot
-	BULLET_TANK_HIT_SLOT_TIME = nesFrames(5)
+	# NES: bullet which exploded on a tank keeps its slot busy until the explosion ends (ms to free it earlier)
+	BULLET_TANK_HIT_SLOT_TIME = None
+	# auto fire like the turbo button of a Dendy gamepad: a new press every second frame
+	PLAYER_AUTO_FIRE_DELAY = nesFrames(2)
 	# tank explosion
 	ENEMY_EXPLOSION_TIME = nesFrames(48)
 	FAST_ENEMY_EXPLOSION_TIME = nesFrames(24)
@@ -133,10 +135,9 @@ PLAYER_START_MAX_ACTIVE_BULLETS = 1
 # player's tank takes one hit more from every of these superpowers (empty list - no armor from stars)
 PLAYER_ARMOR_SUPERPOWERS = [3, 6]
 AUTO_FIRE = True	# holding fire button fires again as soon as bullet slot is free. NES (False): every shot needs a press
-PLAYER_AUTO_FIRE_DELAY = 100	# min ms between shots while fire button is held
-# not NES (there bullets cancel each other): player's bullet destroys enemy's bullet and flies on,
-# so player shooting at an enemy head-on wins even if the enemy fires too
-PLAYER_BULLETS_PRIORITY = True
+# NES (False): bullets flying into each other cancel each other. True - player's bullet destroys enemy's
+# bullet and flies on, so player shooting at an enemy head-on wins even if the enemy fires too
+PLAYER_BULLETS_PRIORITY = False
 
 # CONTROLS: fire, up, right, down, left for players 1 and 2 (player 3 uses gamepad only)
 # can be changed on settings screen
