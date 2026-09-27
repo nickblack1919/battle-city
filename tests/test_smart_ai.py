@@ -150,7 +150,7 @@ def behind_obstacle(ctx, kind):
 			return original(friendly_fire, damage, tank, direction)
 		p.bulletImpact = bulletImpact
 	p.shielded = True
-	if d["hit"] != None or ctx.frame == 900:
+	if d["hit"] != None or ctx.frame == 1500:
 		ctx.check("enemy behind %s hits player (frame %s)" % (kind, d["hit"]), d["hit"] != None)
 		ctx.finish()
 

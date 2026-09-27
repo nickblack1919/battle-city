@@ -665,33 +665,21 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		for i in range(max(1, int(round(config.nesFrames(frames) * config.GAME_FRAME_TIMING / 1000.0)))):
 			self.delay(config.GAME_FRAME_TIMING)
 
-	def getFreeSpawningPosition(self):
-		""" Next enemy spawning position not occupied by any tank
-		@return list [x, y] or None if all positions are occupied
+	def nextSpawningPosition(self):
+		""" Next enemy spawning position: like on NES they are used in turn (center, right, left)
+		and a tank appears there even if another tank is standing on that place
+		@return list [x, y]
 		"""
 
-		# NES order: center, right, left
 		available_positions = [
 			[12 * self.TILE_SIZE, 0],
 			[24 * self.TILE_SIZE, 0],
 			[0, 0]
 		]
 
-		for i in range(len(available_positions)):
-			state.enemy_spawn_pos_index += 1
-			state.enemy_spawn_pos_index %= len(available_positions)
-			position = available_positions[state.enemy_spawn_pos_index]
-			spawn_rect = pygame.Rect(position, [32, 32])
-
-			occupied = False
-			for tank in state.enemies + state.players:
-				if tank.state != tank.STATE_DEAD and spawn_rect.colliderect(tank.rect):
-					occupied = True
-					break
-			if not occupied:
-				return position
-
-		return None
+		state.enemy_spawn_pos_index += 1
+		state.enemy_spawn_pos_index %= len(available_positions)
+		return available_positions[state.enemy_spawn_pos_index]
 
 	def spawnEnemy(self):
 		""" Spawn new enemy if needed
@@ -708,11 +696,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			return False
 		if len(self.level.enemies_left) < 1:
 			return False
-		# don't spawn on top of other tanks, try again later
-		position = self.getFreeSpawningPosition()
-		if position == None:
-			return False
-		enemy = Enemy(self.level, 1, position)
+		enemy = Enemy(self.level, 1, self.nextSpawningPosition())
 
 		if self.timefreeze:
 			enemy.paused = True
@@ -1355,8 +1339,9 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 					if player.slide > config.ICE_CONTROL_DISTANCE:
 						player.slide = player.slide - player.speed if player.move(player.direction) else 0
 					elif True in pressed:
-						# first pressed in order: up, right, down, left
-						direction = [self.DIR_UP, self.DIR_RIGHT, self.DIR_DOWN, self.DIR_LEFT][pressed.index(True)]
+						# NES reads D-pad bits in this order: right, left, down, up (sub_E451)
+						order = [(1, self.DIR_RIGHT), (3, self.DIR_LEFT), (2, self.DIR_DOWN), (0, self.DIR_UP)]
+						direction = [d for i, d in order if pressed[i]][0]
 						moved = player.move(direction)
 						if on_ice and player.slide <= 0:
 							player.slide = config.ICE_SLIDE_DISTANCE

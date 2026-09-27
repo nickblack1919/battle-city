@@ -110,6 +110,8 @@ HEAD_SHIELD_WHEN_PROTECTED = True	# protected player tank isn't hurt by bullets 
 ENABLE_PLAYER_PROTECTION = True	# player gets frontal armor at superpower 5
 # turning into a narrow passage between cells: tank slides sideways to the open grid line (n px at most)
 PLAYER_TURN_ASSIST = True
+# NES: a tank in its spawn animation occupies its cells and blocks other tanks
+SPAWNING_TANKS_BLOCK = True
 PLAYER_TURN_ASSIST_PX = 16
 # NES stars (players only): 1 fast bullets, 2 two bullets, 3 bullets destroy steel and whole bricks (grass stays),
 # more stars do nothing. False - full ladder (see updateSuperpowers) for players and enemies

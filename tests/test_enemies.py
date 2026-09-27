@@ -50,14 +50,20 @@ def spawn_free(ctx):
 			e.state = e.STATE_ALIVE
 			blockers.append(e)
 		enemies.extend(blockers)
-		ctx.check("all spawn points occupied -> no position", game.getFreeSpawningPosition() == None)
+		# like on NES: spawn points are used in turn, a tank appears even if the point is occupied
 		n = len(enemies)
+		order = [[192, 0], [384, 0], [0, 0]]
+		positions = [game.nextSpawningPosition() for i in range(4)]
+		start = order.index(positions[0])
+		ctx.check("spawn points in turn: center, right, left (%s)" % positions,
+			positions == [order[(start + i) % 3] for i in range(4)])
+		game.level.enemies_left[:] = [0, 0]
 		game.spawnEnemy()
-		ctx.check("no spawn on occupied points", len(enemies) == n)
-		blockers[1].rect.topleft = [192, 200]
-		ctx.check("free point is chosen", game.getFreeSpawningPosition() == [192, 0])
+		ctx.check("enemy spawns on occupied point", len(enemies) == n + 1)
+		first = enemies[-1].rect.topleft
 		game.spawnEnemy()
-		ctx.check("enemy spawns on free point", len(enemies) == n + 1 and enemies[-1].rect.topleft == (192, 0))
+		ctx.check("next enemy spawns on the next point (%s -> %s)" % (first, enemies[-1].rect.topleft),
+			len(enemies) == n + 2 and enemies[-1].rect.topleft != first)
 		ctx.finish()
 
 

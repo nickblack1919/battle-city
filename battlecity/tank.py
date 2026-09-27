@@ -42,6 +42,10 @@ def frontCells(new_rect, direction):
 		points = [(right, top), (right, bottom)]
 	return set([(x // CELL, y // CELL) for x, y in points])
 
+def tankSolid(tank):
+	""" Tank occupies its cells: NES marks cells of tanks in spawn animation too, exploding ones don't block """
+	return tank.state == Tank.STATE_ALIVE or (config.SPAWNING_TANKS_BLOCK and tank.state == Tank.STATE_SPAWNING)
+
 def tankBlocks(new_rect, direction, other):
 	""" Other tank blocks move to new_rect in direction (NES rule) """
 	return len(frontCells(new_rect, direction) & tankCells(other)) > 0
@@ -451,7 +455,7 @@ class Tank():
 
 					free.append(new_rect)
 					step = [(0, -1), (1, 0), (0, 1), (-1, 0)][direction]
-					if not tilesBlock(self.level, new_rect.move(step[0], step[1]), direction, self.canSwim()):
+					if config.PLAYER_TURN_ASSIST and not tilesBlock(self.level, new_rect.move(step[0], step[1]), direction, self.canSwim()):
 						free.insert(0, new_rect)
 						break
 				else:
@@ -467,7 +471,7 @@ class Tank():
 	def gridCandidates(self, value):
 		""" 16 px grid lines to snap coordinate to: nearest first, then the other neighbour """
 		nearest = self.nearest(value, 16)
-		if value % 16 == 0:
+		if value % 16 == 0 or not config.PLAYER_TURN_ASSIST:
 			return [nearest]
 		lower = value // 16 * 16
 		return [nearest, lower + 16 if nearest == lower else lower]
@@ -492,8 +496,8 @@ class Tank():
 				del self.explosion
 
 	def nearest(self, num, base):
-		""" Round number to nearest divisible """
-		return int(round(float(num) / (base * 1.0)) * base)
+		""" Round number to nearest divisible, halves up (NES: (pos + 4) & $F8) """
+		return int((num + base // 2) // base) * base
 
 	def canSwim(self):
 		""" Tank can drive over water: ship bonus is active or tank is still on water
@@ -508,7 +512,9 @@ class Tank():
 		return on_water and self.drive_out
 
 	def onIce(self):
-		return self.rect.collidelist(self.level.ice_rects) != -1
+		""" NES (sub_E181): only the cell the tank marks as occupied (its middle one) counts """
+		cell = pygame.Rect((self.rect.left // CELL + 1) * CELL, (self.rect.top // CELL + 1) * CELL, CELL, CELL)
+		return cell.collidelist(self.level.ice_rects) != -1
 
 	def getOppositeDirection(self, direction):
 		""" Get direction opposite to specified one """
@@ -694,7 +700,7 @@ class Enemy(Tank):
 		self.rotate(self.direction, False)
 
 		if position == None:
-			position = state.game.getFreeSpawningPosition() or [0, 0]
+			position = state.game.nextSpawningPosition()
 		self.rect.topleft = position
 				
 		# when enemies are spawned they don't aquire poisiton until they find available tile
@@ -703,6 +709,9 @@ class Enemy(Tank):
 
 		# list of map coords where tank should go next
 		self.path = self.generatePath(self.direction)
+
+		# frames of movement (NES: normal tanks move on every other frame)
+		self.move_frame = 0
 
 		# NES AI: px moved but not used yet (AI works with NES px = 2 px), waiting moves, turn on next move
 		self.nes_px = 0
@@ -859,8 +868,16 @@ class Enemy(Tank):
 
 	def move(self):
 		""" Move enemy with its speed: speed can be fractional, whole px steps are made,
-		the rest is kept for next frame """
-		self.move_credit += self.speed
+		the rest is kept for next frame. Like on NES (sub_DBF1) normal tanks move on every other frame,
+		even and odd tanks on alternating ones """
+		self.move_frame += 1
+		if self.speed <= config.DEFAULT_ENEMY_SPEED:
+			index = state.enemies.index(self) if self in state.enemies else 0
+			if (index ^ self.move_frame) & 1:
+				return
+			self.move_credit += self.speed * 2
+		else:
+			self.move_credit += self.speed
 		steps = int(self.move_credit + 1e-9)
 		self.move_credit -= steps
 		if config.ENEMY_AI in ("NES", "SMART"):
@@ -946,14 +963,14 @@ class Enemy(Tank):
 			# collisions with other enemies (spawning enemies are obstacles too)
 			for enemy in state.enemies:
 				# like on NES: only alive tanks mark cells, spawning and exploding ones don't block
-				if enemy != self and enemy.aquired_position and enemy.state == enemy.STATE_ALIVE and tankBlocks(new_rect, self.direction, enemy):
+				if enemy != self and enemy.aquired_position and tankSolid(enemy) and tankBlocks(new_rect, self.direction, enemy):
 					self.turnRandom()
 					self.path = self.generatePath(self.direction)
 					return
 
 			# collisions with players
 			for player in state.players:
-				if player.state == player.STATE_ALIVE and tankBlocks(new_rect, self.direction, player):
+				if tankSolid(player) and tankBlocks(new_rect, self.direction, player):
 					self.turnRandom()
 					self.path = self.generatePath(self.direction)
 					return
@@ -1070,7 +1087,7 @@ class Enemy(Tank):
 				self.aquired_position = True
 		else:
 			for tank in state.enemies + state.players:
-				if tank != self and tank.state == tank.STATE_ALIVE and getattr(tank, "aquired_position", True) and tankBlocks(new_rect, self.direction, tank):
+				if tank != self and tankSolid(tank) and getattr(tank, "aquired_position", True) and tankBlocks(new_rect, self.direction, tank):
 					return "tank"
 
 		if config.ENEMY_PICKUP_BONUSES:
@@ -1609,7 +1626,7 @@ class Enemy(Tank):
 					return "brick"
 			return "wall"
 		for tank in state.enemies + state.players:
-			if tank != self and tank.state == tank.STATE_ALIVE and getattr(tank, "aquired_position", True) and tankBlocks(new_rect, direction, tank):
+			if tank != self and tankSolid(tank) and getattr(tank, "aquired_position", True) and tankBlocks(new_rect, direction, tank):
 				return "tank"
 		return None
 
@@ -1894,9 +1911,9 @@ class Player(Tank):
 		if self.state != self.STATE_ALIVE:
 			return
 
-		# rotate player
+		# rotate player: NES puts the tank on the grid only on a 90 degrees turn (sub_DB75)
 		if self.direction != direction:
-			self.rotate(direction)
+			self.rotate(direction, (self.direction + 2) % 4 != direction)
 
 		if self.paralised or px == 0:
 			return
@@ -1946,12 +1963,12 @@ class Player(Tank):
 	def tankInWay(self, new_rect, direction):
 		""" Other tank blocks the move (exploding and spawning tanks don't block, like on NES) """
 		for player in state.players:
-			if player != self and player.state == player.STATE_ALIVE and new_rect.colliderect(player.rect):
+			if player != self and tankSolid(player) and new_rect.colliderect(player.rect):
 				if player.aquired_position and tankBlocks(new_rect, direction, player):
 					return True
 
 		for enemy in state.enemies:
-			if enemy.state == enemy.STATE_ALIVE and new_rect.colliderect(enemy.rect):
+			if tankSolid(enemy) and new_rect.colliderect(enemy.rect):
 				if enemy.aquired_position and self.aquired_position and tankBlocks(new_rect, direction, enemy):
 					return True
 		return False

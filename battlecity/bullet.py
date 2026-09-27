@@ -172,9 +172,14 @@ class Bullet():
 
 		# check for collisions with other bullets
 		for bullet in state.bullets:
-			if self.state == self.STATE_ACTIVE and bullet.owner != self.owner and bullet != self and bullet.state != bullet.STATE_REMOVED and previous_rect.union(self.rect).colliderect(bullet.rect):
+			# NES (sub_E910): bullets cancel each other when |dx| and |dy| < 6 NES px; a player's bullet is
+			# always one of the pair (two enemy bullets fly through each other), own bullets never meet
+			if self.state == self.STATE_ACTIVE and bullet != self and bullet.state != bullet.STATE_REMOVED \
+					and bullet.owner_class is not self.owner_class \
+					and (self.owner == self.OWNER_PLAYER or bullet.owner == self.OWNER_PLAYER) \
+					and previous_rect.union(self.rect).inflate(4, 4).colliderect(bullet.rect.inflate(4, 4)):
 				# player's bullet destroys enemy's bullet and flies on (PLAYER_BULLETS_PRIORITY)
-				if config.PLAYER_BULLETS_PRIORITY and self.owner == self.OWNER_PLAYER:
+				if config.PLAYER_BULLETS_PRIORITY and self.owner == self.OWNER_PLAYER and bullet.owner == self.OWNER_ENEMY:
 					bullet.destroy()
 					continue
 				# bullets cancel each other without explosion

@@ -120,9 +120,14 @@ and exploding, also after a hit on a tank. Bullets flying into each other cancel
 head-on duel (`PLAYER_BULLETS_PRIORITY = True` in config gives player's bullets priority instead).
 
 Tanks collide like on NES: every tank marks map cells it occupies (not its top left cell), a moving tank checks only
-two corner points of its front edge, so tanks slightly crossing each other's path don't stop. Walls are checked
-by map cells under the front edge: a cell (16 px) with any part of a wall blocks the tank, so a brick cell needs
-two shots.
+two corner points of its front edge, so tanks slightly crossing each other's path don't stop; a tank in its spawn
+animation marks its cells too (`SPAWNING_TANKS_BLOCK`), an exploding one doesn't. Walls are checked by map cells
+under the front edge: a cell (16 px) with any part of a wall blocks the tank, so a brick cell needs two shots.
+
+More NES details: the D-pad is read as right, left, down, up (that direction wins when two are held); turning back
+doesn't put the tank on the grid, a 90 degrees turn does; ice is taken from the one cell the tank marks; normal
+enemies move 2 px on every other frame (fast ones every frame), even and odd tanks on alternating frames; enemy
+spawn points are used in turn even if a tank stands there; bullets of two players cancel each other too.
 
 Turning into a narrow passage is easy (helpful with a gamepad): a turning tank is put on the grid line from which
 the passage is open, and a tank between cells slides sideways to it instead of getting stuck on the wall next to
