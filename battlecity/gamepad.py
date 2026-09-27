@@ -28,6 +28,9 @@ class Gamepad():
 		self.joystick = None
 		self.state = {}
 		self.prev = {}
+		# numbers of held buttons, for the ones we read by number (A, B)
+		self.buttons = set()
+		self.prev_buttons = set()
 
 		if index == None:
 			return
@@ -101,11 +104,18 @@ class Gamepad():
 	def update(self):
 		""" Read new state, remember previous one (call once per frame) """
 		self.prev = self.state
+		self.prev_buttons = self.buttons
 		try:
 			self.state = self.read()
+			self.buttons = self.buttonsHeld()
 		except pygame.error:
 			# device was disconnected
 			self.state = {}
+			self.buttons = set()
+
+	def pressedButton(self, button):
+		""" True only on the frame this button (SDL controller / joystick number) was pressed """
+		return button in self.buttons and button not in self.prev_buttons
 
 	def held(self, name):
 		return self.state.get(name, False)

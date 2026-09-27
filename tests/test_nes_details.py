@@ -110,8 +110,34 @@ def stage_select(ctx):
 	game.stage = stage
 	change, start = game.stageScreenInput()
 	ctx.check("stage screen input: change and start (%s, %s)" % (change, start), change == 0 and start == False)
-	game.drawStageTitle(True)
-	ctx.check("stage screen shows the start hint after a change", True)
+
+	# buttons A and B of any gamepad choose the stage
+	Gamepad = g["Gamepad"]
+
+	class FakeGamepad(Gamepad):
+		def __init__(self):
+			Gamepad.__init__(self)
+			self.held_buttons = set()
+
+		def read(self):
+			return {"up": False, "right": False, "down": False, "left": False, "fire": False, "start": False}
+
+		def buttonsHeld(self):
+			return set(self.held_buttons)
+
+	pad = FakeGamepad()
+	game.gamepads = [pad]
+	pad.held_buttons = set([g["GAMEPAD_A_BUTTON"]])
+	change, start = game.stageScreenInput()
+	ctx.check("button A: next stage (%s)" % change, change == 1 and not start)
+	pad.held_buttons = set()
+	game.stageScreenInput()
+	pad.held_buttons = set([g["GAMEPAD_B_BUTTON"]])
+	change, start = game.stageScreenInput()
+	ctx.check("button B: previous stage (%s)" % change, change == -1 and not start)
+	game.gamepads = []
+	game.drawStageTitle()
+	ctx.check("stage screen drawn without a hint", True)
 	ctx.finish()
 
 

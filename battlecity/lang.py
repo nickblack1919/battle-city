@@ -42,7 +42,6 @@ PHRASES = {
 	"ENTER - DONE": "ENTER - ГОТОВО",
 	"ENTER - MENU": "ENTER - МЕНЮ",
 	"EXIT TO MENU?": "ВЫЙТИ В МЕНЮ?",
-	"PRESS START": "НАЖМИ СТАРТ",
 	"Y - YES   N - NO": "Y - ДА   N - НЕТ",
 	"HIGH SCORES": "РЕКОРДЫ",
 	"1-5 TILE": "1-5 ТАЙЛ",

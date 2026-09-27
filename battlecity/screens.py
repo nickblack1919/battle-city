@@ -40,7 +40,7 @@ class ScreensMixin():
 		# next stages just show the number for a moment
 		select = self.stage_select and not self.demo and not self.test_play
 		self.stage_select = False
-		self.drawStageTitle(select)
+		self.drawStageTitle()
 
 		frames = config.STAGE_SCREEN_TIME // 20
 		frame = 0
@@ -53,12 +53,12 @@ class ScreensMixin():
 				break
 			if change and select:
 				self.stage = max(1, min(35, self.stage + change))
-				self.drawStageTitle(select)
+				self.drawStageTitle()
 
 		self.stage_screen = False
 
-	def drawStageTitle(self, select = False):
-		""" Grey screen with the stage number (select: stage can be chosen here, waiting for start) """
+	def drawStageTitle(self):
+		""" Grey screen with the stage number """
 		state.screen.fill(self.CURTAIN_COLOR)
 		if self.mode == "endless":
 			title = "WAVE " + str(self.stage - self.first_stage + 1)
@@ -73,9 +73,6 @@ class ScreensMixin():
 		if self.mode == "daily" and self.daily_date != None:
 			date = self.text(self.daily_date.strftime("%Y-%m-%d"), False, pygame.Color("black"), False)
 			state.screen.blit(date, [(416 - date.get_width()) // 2, (416 - date.get_height()) // 2 + 28])
-		if select:
-			hint = self.text("PRESS START", False, pygame.Color("black"))
-			state.screen.blit(hint, [(416 - hint.get_width()) // 2, (416 - hint.get_height()) // 2 + 56])
 
 	def stageScreenInput(self):
 		""" Stage screen: gamepad buttons and arrows change the stage number, start begins the stage
@@ -87,9 +84,9 @@ class ScreensMixin():
 		for gamepad in self.gamepads:
 			if gamepad.pressed("start"):
 				start = True
-			elif gamepad.pressed("up") or gamepad.pressed("right") or gamepad.pressed("fire"):
+			elif gamepad.pressed("up") or gamepad.pressed("right") or gamepad.pressedButton(config.GAMEPAD_A_BUTTON):
 				change = 1
-			elif gamepad.pressed("down") or gamepad.pressed("left"):
+			elif gamepad.pressed("down") or gamepad.pressed("left") or gamepad.pressedButton(config.GAMEPAD_B_BUTTON):
 				change = -1
 
 		for event in self.events():

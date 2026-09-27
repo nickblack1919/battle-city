@@ -317,11 +317,12 @@ class Tank():
 		if self.state != self.STATE_DEAD:
 			self.state = self.STATE_EXPLODING
 			animation = self.explosionTime()[0]
-			# NES: small, medium and then the big explosion, which stays for the rest of the animation
+			# small, medium and big explosion, every picture for the same time (no frame hangs)
 			images = [
 				state.sprites.subsurface(0, 80*2, 32*2, 32*2),
 				state.sprites.subsurface(32*2, 80*2, 32*2, 32*2),
-			] + [state.sprites.subsurface(64*2, 80*2, 32*2, 32*2)] * 4
+				state.sprites.subsurface(64*2, 80*2, 32*2, 32*2),
+			]
 			self.explosion = Explosion(self.rect.topleft, max(1, animation // len(images)), images)
 			
 

@@ -265,6 +265,9 @@ CRT_FILTER = "OFF"
 # fire / start button numbers, None - default buttons (A, B, X, Y fire, Start)
 GAMEPAD_ASSIGN = ["AUTO", "AUTO", "AUTO"]
 GAMEPAD_FIRE_BUTTON = None
+# buttons A and B by number (SDL controller / joystick): they choose the stage on the first stage screen
+GAMEPAD_A_BUTTON = 0
+GAMEPAD_B_BUTTON = 1
 GAMEPAD_START_BUTTON = None
 
 # DEMO: computer plays after n ms in menu without input (0 - no demo), demo lasts n ms
