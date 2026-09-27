@@ -134,6 +134,9 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		# playing level from editor: no saved game changes, back to menu after the stage
 		self.test_play = False
 
+		# first stage screen of a new game: stage can be chosen there and it waits for start
+		self.stage_select = False
+
 		# preset chosen by player before continuing saved game with other preset
 		self.preset_before_continue = None
 

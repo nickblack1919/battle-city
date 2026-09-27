@@ -298,18 +298,31 @@ class Tank():
 			return 0
 		return max(0, int(self.health // config.PLAYER_START_HEALTH) - 1)
 
+	def explosionTime(self):
+		""" NES: destroyed tank shows 6 explosion pictures (3 steps each) and then its points (6 steps);
+		one step takes as long as one move of that tank
+		@return (ms of the explosion animation, ms the points stay)
+		"""
+		if self.side == self.SIDE_PLAYER:
+			duration = config.PLAYER_EXPLOSION_TIME
+		elif self.type == Enemy.TYPE_FAST:
+			duration = config.FAST_ENEMY_EXPLOSION_TIME
+		else:
+			duration = config.ENEMY_EXPLOSION_TIME
+		points_time = duration // 4
+		return duration - points_time, points_time
+
 	def explode(self):
 		""" start tanks's explosion """
 		if self.state != self.STATE_DEAD:
 			self.state = self.STATE_EXPLODING
-			# NES durations, explosion has 3 images
-			if self.side == self.SIDE_PLAYER:
-				duration = config.PLAYER_EXPLOSION_TIME
-			elif self.type == Enemy.TYPE_FAST:
-				duration = config.FAST_ENEMY_EXPLOSION_TIME
-			else:
-				duration = config.ENEMY_EXPLOSION_TIME
-			self.explosion = Explosion(self.rect.topleft, max(1, duration // 3))
+			animation = self.explosionTime()[0]
+			# NES: small, medium and then the big explosion, which stays for the rest of the animation
+			images = [
+				state.sprites.subsurface(0, 80*2, 32*2, 32*2),
+				state.sprites.subsurface(32*2, 80*2, 32*2, 32*2),
+			] + [state.sprites.subsurface(64*2, 80*2, 32*2, 32*2)] * 4
+			self.explosion = Explosion(self.rect.topleft, max(1, animation // len(images)), images)
 			
 
 	def updateSuperpowers(self):
@@ -588,7 +601,10 @@ class Tank():
 					if config.play_sounds:
 						state.sounds["explosion"].play()
 
-					state.labels.append(Label(self.rect.topleft, str(points), 500))
+					# NES: points appear in place of the explosion when it is over
+					animation, points_time = self.explosionTime()
+					position = self.rect.topleft
+					state.gtimer.add(animation, lambda :state.labels.append(Label(position, str(points), points_time)), 1)
 
 					# big explosion
 					if self.type == self.TYPE_ARMOR:

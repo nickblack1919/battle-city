@@ -36,29 +36,29 @@ class ScreensMixin():
 			self.flip()
 			self.delayFrames(1)
 
-		self.drawStageTitle()
+		# NES: on the first stage of a new game the stage can be chosen here and the screen waits for start;
+		# next stages just show the number for a moment
+		select = self.stage_select and not self.demo and not self.test_play
+		self.stage_select = False
+		self.drawStageTitle(select)
 
 		frames = config.STAGE_SCREEN_TIME // 20
 		frame = 0
-		# stage was chosen here: screen waits for start instead of going away by itself
-		chosen = False
-		while chosen or frame < frames:
+		while select or frame < frames:
 			self.flip()
 			self.clock.tick(config.GAME_FRAME_TIMING)
 			frame += 1
 			change, start = self.stageScreenInput()
 			if start:
 				break
-			# stage can be chosen here, like on NES
-			if change and self.mode in ("campaign", "random") and not self.demo and not self.test_play:
+			if change and select:
 				self.stage = max(1, min(35, self.stage + change))
-				chosen = True
-				self.drawStageTitle(chosen)
+				self.drawStageTitle(select)
 
 		self.stage_screen = False
 
-	def drawStageTitle(self, chosen = False):
-		""" Grey screen with the stage number (chosen: stage was changed here, waiting for start) """
+	def drawStageTitle(self, select = False):
+		""" Grey screen with the stage number (select: stage can be chosen here, waiting for start) """
 		state.screen.fill(self.CURTAIN_COLOR)
 		if self.mode == "endless":
 			title = "WAVE " + str(self.stage - self.first_stage + 1)
@@ -73,7 +73,7 @@ class ScreensMixin():
 		if self.mode == "daily" and self.daily_date != None:
 			date = self.text(self.daily_date.strftime("%Y-%m-%d"), False, pygame.Color("black"), False)
 			state.screen.blit(date, [(416 - date.get_width()) // 2, (416 - date.get_height()) // 2 + 28])
-		if chosen:
+		if select:
 			hint = self.text("PRESS START", False, pygame.Color("black"))
 			state.screen.blit(hint, [(416 - hint.get_width()) // 2, (416 - hint.get_height()) // 2 + 56])
 

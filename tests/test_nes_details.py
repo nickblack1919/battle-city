@@ -93,6 +93,11 @@ def stage_select(ctx):
 	g, game = ctx.g, ctx.game
 	if ctx.frame != 1:
 		return
+	# first stage screen of a new game used the flag up
+	ctx.check("stage isn't chosen on the next stages", not game.stage_select)
+	game.stage_select = True
+	game.showStageScreen()
+	ctx.check("stage screen of a new game uses the flag up", not game.stage_select)
 	stage = game.stage
 	game.stage = max(1, min(35, game.stage + 1))
 	ctx.check("stage can be changed on the stage screen", game.stage == stage + 1)

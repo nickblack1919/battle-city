@@ -34,6 +34,7 @@ class MenuMixin():
 
 		self.demo = False
 		self.test_play = False
+		self.stage_select = False
 		# preset of continued saved game was only for that game
 		if self.preset_before_continue in config.PRESETS:
 			config.applyPreset(self.preset_before_continue)
@@ -103,6 +104,8 @@ class MenuMixin():
 					self.nr_of_players = argument
 					self.bot = action == "play_bot"
 					self.stage = config.START_LEVEL - 1
+					# NES: stage of a new game is chosen on the first stage screen
+					self.stage_select = True
 					del state.players[:]
 					return self.nextLevel
 				elif action == "editor":
@@ -134,6 +137,7 @@ class MenuMixin():
 					return self.nextLevel
 				elif action == "random":
 					# campaign on generated maps, seed is saved with the game
+					self.stage_select = True
 					self.mode = "random"
 					self.nr_of_players = argument
 					self.bot = False

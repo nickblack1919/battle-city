@@ -160,13 +160,15 @@ def run(scenario, argv=None, players=1, menu=None, real_time=False, max_frames=5
 			ctx.finish()
 
 		game = ctx.game
+
+		# "STAGE N" screen: don't count its frames, so scenario frame numbers match game loop.
+		# The screen of a new game waits for start, so press it (on other stage screens it just skips the wait)
+		if getattr(game, "stage_screen", False):
+			return [ctx.key(pygame.K_RETURN)]
+
 		if not hasattr(game, "level"):
 			ctx.menu_frame += 1
 			return menu(ctx) or []
-
-		# "STAGE N" screen: don't count its frames, so scenario frame numbers match game loop
-		if getattr(game, "stage_screen", False):
-			return []
 
 		# level start: don't count frames until players appear (spawn animation)
 		if getattr(game, "level", None) is not ctx.level:

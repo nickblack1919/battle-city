@@ -17,8 +17,14 @@ def labels(ctx):
 	enemies.append(enemy)
 	labels_before = len(g["labels"])
 	enemy.bulletImpact(False, 100, players[0])
-	ctx.check("score label created on kill", len(g["labels"]) == labels_before + 1)
+	# NES: points appear in place of the explosion when it is over
+	ctx.check("no label while the tank is exploding", len(g["labels"]) == labels_before)
+	animation = enemy.explosionTime()[0]
+	for i in range(animation // 20 + 2):
+		g["gtimer"].update(20)
+	ctx.check("score label created after the explosion", len(g["labels"]) == labels_before + 1)
 	ctx.check("label text is points (400 for armor tank)", g["labels"][-1].text == "400")
+	ctx.check("points appear where the tank was (%s)" % (tuple(g["labels"][-1].position),), tuple(g["labels"][-1].position) == (0, 0))
 	game.draw()
 	ctx.check("labels are drawn with shared font", Label.font != None)
 	ctx.check("armor tank explosion shakes screen", game.shake_frames > 0)

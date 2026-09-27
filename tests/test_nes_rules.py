@@ -105,9 +105,11 @@ def explosions(ctx):
 			d["frames"][enemy_type] = ctx.frame - 1
 	if len(d["frames"]) == 2 or ctx.frame > 100:
 		basic, fast = d["frames"].get(Enemy.TYPE_BASIC), d["frames"].get(Enemy.TYPE_FAST)
-		ctx.check("enemy explosion 48 NES frames (%s)" % basic, basic != None and abs(basic - 48) <= 3)
-		ctx.check("fast enemy explosion 24 NES frames (%s)" % fast, fast != None and abs(fast - 24) <= 3)
-		ctx.check("player explosion 32 NES frames", g["PLAYER_EXPLOSION_TIME"] == g["nesFrames"](32))
+		# NES: of the 24 steps 18 are the explosion animation and 6 show the points,
+		# so a normal enemy burns 36 frames, a fast one 18
+		ctx.check("enemy explosion animation 36 NES frames (%s)" % basic, basic != None and abs(basic - 36) <= 3)
+		ctx.check("fast enemy explosion animation 18 NES frames (%s)" % fast, fast != None and abs(fast - 18) <= 3)
+		ctx.check("whole explosion of a player is 32 NES frames", g["PLAYER_EXPLOSION_TIME"] == g["nesFrames"](32))
 		ctx.finish()
 
 

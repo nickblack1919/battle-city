@@ -34,7 +34,7 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
 | M | sound on / off |
 | B | borrow a life from partner for a player without lives (bot never gets a human's life) |
 | ESC | in game: exit to main menu (asks Y / N), in editor and settings: back to menu, in menu: quit |
-| arrows / gamepad d-pad | on the "STAGE N" screen: choose the stage (campaign and random levels); after a change the screen waits for Enter / gamepad Start |
+| arrows / gamepad d-pad | on the first "STAGE N" screen of a new game: choose the stage (campaign and random levels), Enter / gamepad Start begins it |
 | P | freeze enemies (debug, only with `DEBUG_KEYS = True` in config) |
 | V | debug sprites and grid (debug, only with `DEBUG_KEYS = True` in config) |
 
@@ -144,6 +144,9 @@ armor, 6 bullets destroy walls and fly on, 9 castle protection (absorbs one hit)
 The same ladder works for players and enemies (an enemy picking up a star gives 2 superpowers to all enemies on
 screen). `NES_STARS = True` in config gives players the NES ladder instead: 1 fast bullets, 2 two bullets,
 3 bullets destroy steel and whole brick cells, grass stays, more stars do nothing.
+
+Like on NES, a destroyed tank shows 6 explosion pictures and then its points in the same place (18 and 6 steps of
+the tank's own speed: 36 + 12 frames for a normal enemy, 18 + 6 for a fast one).
 
 Like on NES, the game over music starts on the "GAME OVER" screen and the screen stays until the music ends
 (any key or gamepad button skips it).
