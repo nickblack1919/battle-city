@@ -72,6 +72,8 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			state.sounds["fire"] = pygame.mixer.Sound("sounds/fire.ogg")
 			state.sounds["bonus"] = pygame.mixer.Sound("sounds/bonus.ogg")
 			state.sounds["bonusnew"] = pygame.mixer.Sound("sounds/bonusnew.ogg")
+			# NES 1000 points bonus jingle, synthesized by tools/nes_sfx.py
+			state.sounds["bonus1000"] = pygame.mixer.Sound("sounds/bonus1000.wav")
 			state.sounds["explosion"] = pygame.mixer.Sound("sounds/explosion.ogg")
 			state.sounds["boom"] = pygame.mixer.Sound("sounds/boom.ogg")
 			state.sounds["brick"] = pygame.mixer.Sound("sounds/brick.ogg")

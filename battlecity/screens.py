@@ -341,7 +341,10 @@ class ScreensMixin():
 			else:
 				state.screen.blit(points, [x, y + 24])
 			if config.play_sounds:
-				state.sounds["bonus"].play()
+				# NES jingle for the 1000 points bonus (tools/nes_sfx.py), old sound as a fallback
+				sound = state.sounds.get("bonus1000") or state.sounds.get("bonus")
+				if sound:
+					sound.play()
 
 		self.flip()
 

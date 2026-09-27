@@ -154,6 +154,9 @@ A bonus disappears after `BONUS_SPAWN_TIMEOUT` and, like on NES, when a new bonu
 partner's bullet blinks while stunned, like on NES. The bonus for most tanks destroyed is written under that
 player's column on the scores screen with a sound, like on NES.
 
+NES sound effects are synthesized from the game's disassembly (APU pulse channel, no ROM samples) and can be
+regenerated with `venv/bin/python tools/nes_sfx.py bonus1000 sounds/bonus1000.wav`.
+
 Like on NES, a bonus appears on one of 16 fixed places (not right under a player), tank explosions last 48 NES
 frames (fast tank 24, player 32), scores screen pauses are counted in NES frames.
 
