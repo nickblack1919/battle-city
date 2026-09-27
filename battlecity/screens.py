@@ -36,6 +36,25 @@ class ScreensMixin():
 			self.flip()
 			self.delayFrames(1)
 
+		self.drawStageTitle()
+
+		frames = config.STAGE_SCREEN_TIME // 20
+		frame = 0
+		while frame < frames:
+			self.flip()
+			self.clock.tick(config.GAME_FRAME_TIMING)
+			frame += 1
+			change = self.stageScreenInput()
+			# stage can be chosen here, like on NES
+			if change and self.mode in ("campaign", "random") and not self.demo and not self.test_play:
+				self.stage = max(1, min(35, self.stage + change))
+				self.drawStageTitle()
+				frame = 0
+
+		self.stage_screen = False
+
+	def drawStageTitle(self):
+		""" Grey screen with the stage number """
 		state.screen.fill(self.CURTAIN_COLOR)
 		if self.mode == "endless":
 			title = "WAVE " + str(self.stage - self.first_stage + 1)
@@ -51,11 +70,30 @@ class ScreensMixin():
 			date = self.text(self.daily_date.strftime("%Y-%m-%d"), False, pygame.Color("black"), False)
 			state.screen.blit(date, [(416 - date.get_width()) // 2, (416 - date.get_height()) // 2 + 28])
 
-		for i in range(config.STAGE_SCREEN_TIME // 20):
-			self.flip()
-			self.delay(50)
+	def stageScreenInput(self):
+		""" Stage screen: gamepad buttons and arrows change the stage number
+		@return 1 (next stage), -1 (previous one) or 0
+		"""
+		change = 0
+		self.updateGamepads()
+		for gamepad in self.gamepads:
+			if gamepad.pressed("up") or gamepad.pressed("right") or gamepad.pressed("fire"):
+				change = 1
+			elif gamepad.pressed("down") or gamepad.pressed("left"):
+				change = -1
 
-		self.stage_screen = False
+		for event in self.events():
+			if event.type == pygame.QUIT:
+				quit()
+			elif event.type == pygame.KEYDOWN:
+				if self.isFullScreenKey(event):
+					self.toggleFullScreen()
+					self.drawStageTitle()
+				elif event.key in (pygame.K_UP, pygame.K_RIGHT):
+					change = 1
+				elif event.key in (pygame.K_DOWN, pygame.K_LEFT):
+					change = -1
+		return change
 
 	def openCurtain(self):
 		""" NES: grey curtain opens from the middle of the screen showing the stage """
@@ -294,10 +332,16 @@ class ScreensMixin():
 			state.screen.blit(self.text(kills_text, False, white), [25, 395])
 
 		if kills_bonus_player != None:
-			player_names = ["I-PLAYER", "II-PLAYER", "III-PLAYER"]
-			name = "BOT" if state.players[kills_bonus_player].bot else player_names[kills_bonus_player]
-			bonus_text = self.text(name + " BONUS " + str(config.TWO_PLAYER_KILLS_BONUS), False, white)
-			state.screen.blit(bonus_text, [(480 - bonus_text.get_width()) // 2, 355])
+			# like on NES: under the column of that player, "BONUS" and points below it
+			x, y = [(25, 355), (310, 355), (325, 395)][kills_bonus_player]
+			state.screen.blit(self.text("BONUS", False, white), [x, y])
+			points = self.text(str(config.TWO_PLAYER_KILLS_BONUS) + " PTS", False, white)
+			if kills_bonus_player == 2:
+				state.screen.blit(points, [x - points.get_width() - 16, y])
+			else:
+				state.screen.blit(points, [x, y + 24])
+			if config.play_sounds:
+				state.sounds["bonus"].play()
 
 		self.flip()
 

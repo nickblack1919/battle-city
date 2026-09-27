@@ -34,6 +34,7 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
 | M | sound on / off |
 | B | borrow a life from partner for a player without lives (bot never gets a human's life) |
 | ESC | in game: exit to main menu (asks Y / N), in editor and settings: back to menu, in menu: quit |
+| arrows / gamepad d-pad | on the "STAGE N" screen: choose the stage (campaign and random levels) |
 | P | freeze enemies (debug, only with `DEBUG_KEYS = True` in config) |
 | V | debug sprites and grid (debug, only with `DEBUG_KEYS = True` in config) |
 
@@ -93,7 +94,7 @@ again, so the map depends only on seed and stage.
 
 | Preset | |
 |---|---|
-| CLASSIC | NES rules: 4 enemies on screen (6 in 2 player game), armor tank 4 hits, bonus carried by 4th / 11th / 18th tank, NES bonus set, bonus stays until picked up, enemies pick up bonuses too (not on NES), friendly fire stuns partner, one extra life, NES enemy spawn intervals, no new enemies |
+| CLASSIC | NES rules: 4 enemies on screen (6 in 2 player game), armor tank 4 hits, bonus carried by 4th / 11th / 18th tank, NES bonus set, enemies pick up bonuses too (not on NES), friendly fire stuns partner, one extra life, NES enemy spawn intervals, no new enemies |
 | GOOD (default) | more enemies, enemies pick up bonuses, player starts with one star, new enemies |
 | EXTREME | even more enemies in 2-3 player games |
 
@@ -148,6 +149,10 @@ Like on NES, a grey curtain closes before the "STAGE N" screen and opens over th
 moves its engine is heard, but only when neither stage start music nor enemy engine hum is playing (e.g. after
 the last enemy is destroyed),
 so it doesn't distract (the engine sound is the hum played faster, there is no separate sound file).
+
+A bonus disappears after `BONUS_SPAWN_TIMEOUT` and, like on NES, when a new bonus tank appears. A player hit by
+partner's bullet blinks while stunned, like on NES. The bonus for most tanks destroyed is written under that
+player's column on the scores screen with a sound, like on NES.
 
 Like on NES, a bonus appears on one of 16 fixed places (not right under a player), tank explosions last 48 NES
 frames (fast tank 24, player 32), scores screen pauses are counted in NES frames.

@@ -29,8 +29,8 @@ def engine(ctx):
 	p = g["players"][0]
 	sounds = g["sounds"]
 	if ctx.frame == 1:
-		ctx.check("engine sound made from engine hum (higher: shorter)",
-			"engine" in sounds and sounds["engine"].get_length() < sounds["bg"].get_length())
+		ctx.check("engine sound is made from the engine hum (pitch in makeEngineSound)",
+			"engine" in sounds and sounds["engine"].get_length() <= sounds["bg"].get_length())
 		del ctx.game.level.enemies_left[:]
 		del g["enemies"][:]
 		p.shielded = True

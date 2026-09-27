@@ -183,7 +183,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		del state.enemies[:]
 		del state.bonuses[:]
 
-	def makeEngineSound(self, sound, pitch = 1.5):
+	def makeEngineSound(self, sound, pitch = 1.0):
 		""" Engine sound of moving player tank: engine hum played faster (higher) """
 		frequency, size, channels = pygame.mixer.get_init()
 		if size != -16:
@@ -697,6 +697,9 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		if len(self.level.enemies_left) < 1:
 			return False
 		enemy = Enemy(self.level, 1, self.nextSpawningPosition())
+		# NES: bonus lying on the field is removed when a new bonus tank appears
+		if enemy.bonus and not config.ALLOW_MULTI_BONUS:
+			del state.bonuses[:]
 
 		if self.timefreeze:
 			enemy.paused = True
@@ -1038,9 +1041,8 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		if not self.game_paused:
 			#print "Game paused"
 			self.game_paused = True
-			# self.toggleEnemyFreeze(True)
-			pygame.mixer.stop()
-			self.engine_sound = False
+			# sounds continue from where they stopped after unpause (stage music, engine hum)
+			pygame.mixer.pause()
 			if not config.DEBUG_UNFREEZE_PLAYERS_ON_PAUSE:
 				self.togglePlayersFreeze(True)
 			if config.play_sounds:
@@ -1057,8 +1059,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 				if player.controls:
 					player.fire_pressed = player.controls[0] in self.held_keys
 					player.pressed = [key in self.held_keys for key in player.controls[1:]]
-			if self.bg_sound:
-				self.playBackgroundSound()
+			pygame.mixer.unpause()
 
 	def loadLevelEnemies(self, add):
 		levels_enemies = (
@@ -1125,14 +1126,16 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			state.castle2.owner = 1
 		del state.gtimer.timers[:]
 
-		# load level
 		self.stage += 1
+
+		# stage number can still be changed on the stage screen (gamepad / arrows)
+		self.showStageScreen()
+
+		# load level
 		if self.mode in ("random", "daily"):
 			self.level = Level(self.stage, levelgen.generateLevel(self.level_seed, self.stage))
 		else:
 			self.level = Level("versus" if self.mode == "versus" else self.stage)
-
-		self.showStageScreen()
 		self.timefreeze = False
 		self.enemy_freeze_end_timer = None
 		self.players_freeze_end_timer = None

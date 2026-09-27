@@ -198,6 +198,10 @@ class Tank():
 
 		self.timer_uuid_shield = None
 
+		# hit by partner's bullet: tank blinks while stunned
+		self.stun_blink = False
+		self.timer_uuid_stun_blink = None
+
 		self.dbg_label = Label(self.rect.bottomleft, str(self.rect.topleft))
 
 	def toggleVisibility(self):
@@ -260,6 +264,9 @@ class Tank():
 		if self.state == self.STATE_ALIVE:
 			# hidden state
 			if not self.visible:
+				return
+			# NES: stunned tank (hit by partner) blinks
+			if self.stun_blink:
 				return
 			state.screen.blit(self.image, self.rect.topleft)
 			if self.protected:
@@ -622,6 +629,24 @@ class Tank():
 			return
 		self.stunned = paralised
 		self.paralised = self.stunned or self.frozen
+
+		# NES: stunned tank blinks every 8 frames
+		if self.timer_uuid_stun_blink:
+			state.gtimer.destroy(self.timer_uuid_stun_blink)
+			self.timer_uuid_stun_blink = None
+		self.stun_blink = False
+		if paralised:
+			self.timer_uuid_stun_blink = state.gtimer.add(config.nesFrames(8), lambda :self.toggleStunBlink())
+
+	def toggleStunBlink(self):
+		""" Blinking of a stunned tank """
+		if not self.stunned or self.state != self.STATE_ALIVE:
+			if self.timer_uuid_stun_blink:
+				state.gtimer.destroy(self.timer_uuid_stun_blink)
+				self.timer_uuid_stun_blink = None
+			self.stun_blink = False
+			return
+		self.stun_blink = not self.stun_blink
 
 	def setFrozen(self, frozen = True):
 		""" Freeze tank (enemy clock bonus, pause): stun from partner's bullet stays """

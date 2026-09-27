@@ -98,7 +98,7 @@ MAX_ACTIVE_ENEMIES_2_PLAYERS = 10
 MAX_ACTIVE_ENEMIES_3_PLAYERS = 12
 ENEMY_SPAWN_TIMEOUT = 1000	# ms between enemy spawns, None - NES formula (depends on stage and players)
 BONUS_PLAYER_HIDDEN_TIMEOUT = 10000
-BONUS_SPAWN_TIMEOUT = 20000	# bonus disappears after n ms, 0 - stays until picked up (NES)
+BONUS_SPAWN_TIMEOUT = 20000	# bonus disappears after n ms, 0 - stays until picked up
 BONUS_SHIP_TIMEOUT = 20000	# ship bonus: tank can drive over water
 VERSUS_BONUS_TIMEOUT = 15000	# versus mode: new random bonus every n ms
 ICE_SLIDE_DISTANCE = 28 * 2	# px tank slides when it starts moving on ice, NES: 28 px
@@ -301,7 +301,7 @@ PRESETS = {
 		"ENEMY_PICKUP_BONUSES": True,	# NES: enemies don't pick up bonuses
 		"BONUS_FREQ": 7,
 		"BONUS_TANK_OFFSET": 3,
-		"BONUS_SPAWN_TIMEOUT": 0,
+		"BONUS_SPAWN_TIMEOUT": 20000,
 		"BONUS_TYPES": NES_BONUS_TYPES,
 		"FRIENDLY_FIRE": True,
 		"EXTRA_LIFE_ONCE": True,

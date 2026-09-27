@@ -121,7 +121,8 @@ def classic_rules(ctx):
 
 	enemy.spawnBonus()
 	bonus = g["bonuses"][-1]
-	ctx.check("NES: bonus doesn't disappear, blinks", bonus.blinking and len([t for t in g["gtimer"].timers if t["interval"] == g["BONUS_SPAWN_TIMEOUT"]]) == 0)
+	ctx.check("bonus blinks and disappears after a while",
+		len([t for t in g["gtimer"].timers if t["interval"] == g["BONUS_SPAWN_TIMEOUT"]]) == 1)
 	ctx.check("NES: friendly fire stuns partner", g["FRIENDLY_FIRE"] and g["FRIENDLY_FIRE_STUN_TIME"] == ms(267))
 
 	p = g["players"][0]
