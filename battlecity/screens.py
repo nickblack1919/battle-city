@@ -403,6 +403,13 @@ class ScreensMixin():
 				tables[key] = [[str(entry[0])[:3], int(entry[1])] for entry in data[key]][:config.HISCORES_COUNT]
 			except (ValueError, TypeError, AttributeError, IndexError, KeyError):
 				pass
+		# preset was renamed: old tables keep their scores
+		for key in list(tables):
+			for old_name, new_name in config.OLD_PRESET_NAMES.items():
+				if key.endswith(" " + old_name):
+					tables.setdefault(key[:-len(old_name)] + new_name, tables[key])
+					del tables[key]
+
 		# old tables without preset go to current preset
 		for mode in ("campaign", "endless"):
 			if mode in tables:

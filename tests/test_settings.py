@@ -71,6 +71,30 @@ def settings_game(ctx):
 		ctx.finish()
 
 
+def presets(ctx):
+	""" All four presets are on the settings screen, NES also sets AI, auto fire and turn assist """
+	g, game = ctx.g, ctx.game
+	if ctx.frame != 1:
+		return
+	ctx.check("preset names (%s)" % g["PRESET_NAMES"], g["PRESET_NAMES"] == ["NES", "NES+", "GOOD", "EXTREME"])
+	seen = []
+	for i in range(len(g["PRESET_NAMES"])):
+		game.changeSetting("preset", 1)
+		seen.append(g["CURRENT_PRESET"])
+	ctx.check("difficulty cycles through all presets (%s)" % seen, sorted(seen) == sorted(g["PRESET_NAMES"]))
+
+	g["applyPreset"]("NES")
+	ctx.check("NES preset: everything like on NES",
+		g["ENEMY_AI"] == "NES" and not g["AUTO_FIRE"] and not g["PLAYER_TURN_ASSIST"] and g["NES_STARS"]
+		and not g["ENEMY_PICKUP_BONUSES"] and not g["ENABLE_NEW_ENEMIES"] and g["PLAYER_ARMOR_SUPERPOWERS"] == [])
+	g["applyPreset"]("NES+")
+	ctx.check("NES+ preset: NES rules with our additions",
+		g["MAX_ACTIVE_ENEMIES"] == 4 and g["FRIENDLY_FIRE"] and g["ENABLE_NEW_ENEMIES"] and g["ENABLE_PLAYER_PROTECTION"]
+		and g["PLAYER_ARMOR_SUPERPOWERS"] == [3, 6] and len(set(g["BONUS_TYPES"])) == 8 and g["AUTO_FIRE"])
+	g["applyPreset"]("GOOD")
+	ctx.finish()
+
+
 def write_saved_settings():
 	settings = {
 		"preset": "CLASSIC",
@@ -89,7 +113,7 @@ def write_saved_settings():
 def saved_settings(ctx):
 	g, game = ctx.g, ctx.game
 	if ctx.frame == 1:
-		ctx.check("saved preset applied", g["CURRENT_PRESET"] == "CLASSIC" and g["MAX_ACTIVE_ENEMIES"] == 4)
+		ctx.check("old preset name CLASSIC loaded as NES+", g["CURRENT_PRESET"] == "NES+" and g["MAX_ACTIVE_ENEMIES"] == 4)
 		ctx.check("saved start level applied", game.stage == 5)
 		ctx.check("saved sound setting applied", g["play_sounds"] == False)
 		ctx.check("saved controls applied", g["players"][0].controls[0] == K.K_k)
@@ -109,6 +133,7 @@ def broken_settings(ctx):
 
 
 SCENARIOS = {
+	"presets": {"fn": presets},
 	"settings_screen": {"fn": settings_game, "menu": settings_menu},
 	"saved_settings": {"fn": saved_settings, "setup": write_saved_settings},
 	"broken_settings": {"fn": broken_settings, "setup": broken_settings_file},

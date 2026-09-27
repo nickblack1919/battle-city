@@ -94,9 +94,14 @@ again, so the map depends only on seed and stage.
 
 | Preset | |
 |---|---|
-| CLASSIC | NES rules: 4 enemies on screen (6 in 2 player game), armor tank 4 hits, bonus carried by 4th / 11th / 18th tank, NES bonus set, enemies pick up bonuses too (not on NES), friendly fire stuns partner, one extra life, NES enemy spawn intervals, no new enemies |
-| GOOD (default) | more enemies, enemies pick up bonuses, player starts with one star, new enemies |
+| NES | everything like in the original: 4 enemies on screen (6 in 2 player game), armor tank 4 hits, bonus carried by 4th / 11th / 18th tank, NES bonus set, bonus lies until it is picked up or a new bonus tank appears, enemies don't pick up bonuses, friendly fire stuns partner, one extra life, NES spawn intervals, no new enemy types, NES star ladder (no armor from stars), and it also switches enemy AI to NES, auto fire off and turn assist off |
+| NES+ | NES rules with our additions: all bonuses (pistol and ship too), new enemy types (stealth, mortar, boss), frontal armor at 5 superpowers, armor from 3rd and 6th superpower, enemies pick up bonuses, bonus disappears after a while |
+| GOOD (default) | more enemies on screen, shorter spawn intervals, armor tank 6 hits, no friendly fire, extra life every 20000 points |
 | EXTREME | even more enemies in 2-3 player games |
+
+Switching the difficulty also sets enemy AI, auto fire and turn assist: NES turns them to the original behaviour,
+the other presets set them back to the normal ones. The old preset name CLASSIC is loaded as NES+ (saved settings
+and hiscore tables keep their scores).
 
 In every preset timings are taken from NES version (disassembly, counted in NES frames): tank and bullet speeds,
 shield, helmet, shovel and clock durations, enemy fire rate, spawn animation, 3 lives. NES SPEED on settings
@@ -169,7 +174,7 @@ version: the game plays the one matching NES SPEED).
 Like on NES, a bonus appears on one of 16 fixed places (not right under a player), tank explosions last 48 NES
 frames (fast tank 24, player 32), scores screen pauses are counted in NES frames.
 
-Extra life every 20000 points (CLASSIC: only once, like on NES). In 2+ player games the player who destroyed most
+Extra life every 20000 points (NES and NES+: only once, like on NES). In 2+ player games the player who destroyed most
 tanks on a stage gets 1000 points, if they have lives left.
 
 ## Enemies

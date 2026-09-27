@@ -150,7 +150,7 @@ class SettingsMixin():
 
 
 		if kind == "preset":
-			names = ["CLASSIC", "GOOD", "EXTREME"]
+			names = config.PRESET_NAMES
 			index = names.index(config.CURRENT_PRESET) if config.CURRENT_PRESET in names else -change
 			config.applyPreset(names[(index + change) % len(names)])
 		elif kind == "sound":

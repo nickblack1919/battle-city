@@ -17,7 +17,7 @@ def bonus_disappears(ctx):
 	if ctx.frame != 1:
 		return
 	clear(ctx)
-	g["applyPreset"]("CLASSIC")
+	g["applyPreset"]("NES+")
 	ctx.check("bonus has a lifetime in CLASSIC too (%s ms)" % g["BONUS_SPAWN_TIMEOUT"], g["BONUS_SPAWN_TIMEOUT"] > 0)
 
 	Enemy = g["Enemy"]

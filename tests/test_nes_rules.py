@@ -38,7 +38,7 @@ def stars(ctx):
 	if ctx.frame != 1:
 		return
 	clear(ctx)
-	g["applyPreset"]("CLASSIC")
+	g["applyPreset"]("NES+")
 	p = g["players"][0]
 
 	# CLASSIC: same full ladder for players and enemies

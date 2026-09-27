@@ -194,7 +194,8 @@ def broken_files(ctx):
 	with open(g["dataFile"](g["HISCORES_FILE"]), "w") as f:
 		json.dump({"campaign GOOD": [["AAA", 5000]], "endless GOOD": [["BBB", "lots"]], "campaign CLASSIC": [["CCC", 900]]}, f)
 	tables = game.loadHiscores()
-	ctx.check("broken hiscore table doesn't spoil others (%s)" % sorted(tables), tables.get("campaign CLASSIC") == [["CCC", 900]])
+	# the table of the renamed preset keeps its scores
+	ctx.check("broken hiscore table doesn't spoil others (%s)" % sorted(tables), tables.get("campaign NES+") == [["CCC", 900]])
 
 	old = list(g["PLAYER_CONTROLS"][0])
 	game.setControl(0, 0, pygame.K_m)

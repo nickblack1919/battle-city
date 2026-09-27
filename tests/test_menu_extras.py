@@ -10,12 +10,12 @@ def hiscores_per_preset(ctx):
 	g, game = ctx.g, ctx.game
 	if ctx.frame != 1:
 		return
-	g["applyPreset"]("CLASSIC")
+	g["applyPreset"]("NES+")
 	# old file without presets
 	with open(g["dataFile"](g["HISCORES_FILE"]), "w") as f:
 		json.dump({"campaign": [["AAA", 500]]}, f)
 	tables = game.loadHiscores()
-	ctx.check("old table goes to current preset (%s)" % tables, tables.get("campaign CLASSIC") == [["AAA", 500]] and "campaign" not in tables)
+	ctx.check("old table goes to current preset (%s)" % tables, tables.get("campaign NES+") == [["AAA", 500]] and "campaign" not in tables)
 	game.saveHiscores(tables)
 	g["applyPreset"]("GOOD")
 	ctx.check("other preset has own table", game.loadHiscores().get("campaign GOOD") == None)

@@ -91,10 +91,11 @@ def presets(ctx):
 		return
 	p = g["players"][0]
 
-	g["applyPreset"]("CLASSIC")
-	ctx.check("CLASSIC preset: 4 enemies on screen", g["MAX_ACTIVE_ENEMIES"] == 4)
-	ctx.check("CLASSIC preset: enemies pick up bonuses", g["ENEMY_PICKUP_BONUSES"] == True)
-	ctx.check("CLASSIC preset: armor tank 4 hits", g["DEFAULT_ENEMY_ARMOR_HEALTH"] == 400)
+	g["applyPreset"]("NES+")
+	ctx.check("NES+ preset: 4 enemies on screen", g["MAX_ACTIVE_ENEMIES"] == 4)
+	ctx.check("NES+ preset: enemies pick up bonuses", g["ENEMY_PICKUP_BONUSES"] == True)
+	ctx.check("NES+ preset: armor tank 4 hits", g["DEFAULT_ENEMY_ARMOR_HEALTH"] == 400)
+	ctx.check("NES+ preset: new enemy types and all bonuses", g["ENABLE_NEW_ENEMIES"] and len(set(g["BONUS_TYPES"])) == 8)
 	game.respawnPlayer(p)
 	ctx.check("respawn uses current preset superpower (0)", p.superpowers == 0)
 

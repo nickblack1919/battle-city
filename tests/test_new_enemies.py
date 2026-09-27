@@ -141,10 +141,10 @@ def composition(ctx):
 	game.loadLevelEnemies(False)
 	ctx.check("stage 4: no new enemies", max(game.level.enemies_left) <= Enemy.TYPE_ARMOR)
 
-	g["applyPreset"]("CLASSIC")
+	g["applyPreset"]("NES")
 	game.stage = 5
 	game.loadLevelEnemies(False)
-	ctx.check("CLASSIC preset: no new enemies on stage 5", max(game.level.enemies_left) <= Enemy.TYPE_ARMOR)
+	ctx.check("NES preset: no new enemies on stage 5", max(game.level.enemies_left) <= Enemy.TYPE_ARMOR)
 	g["applyPreset"]("GOOD")
 	ctx.finish()
 

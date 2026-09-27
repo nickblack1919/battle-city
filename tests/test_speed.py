@@ -91,7 +91,7 @@ def nes_version_switch(ctx):
 	ctx.check("DENDY: player 1.5, fast enemy 2, bullet 4 px per frame",
 		abs(g["PLAYER_DEFAULT_SPEED"] - 1.5) < 0.01 and abs(g["DEFAULT_ENEMY_SPEED"] + g["DEFAULT_ENEMY_SPEED_FAST"] - 2.0) < 0.01 and abs(g["DEFAULT_BULLET_SPEED"] - 4) < 0.01)
 	ctx.check("DENDY: helmet 12.8 s", g["BONUS_PLAYER_SHIELD_TIMEOUT"] == 12800)
-	g["applyPreset"]("CLASSIC")
+	g["applyPreset"]("NES+")
 	ctx.check("preset doesn't reset NES speeds", abs(g["DEFAULT_ENEMY_SPEED_FAST"] - 1.0) < 0.01)
 	ctx.finish()
 

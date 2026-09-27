@@ -95,7 +95,7 @@ def classic_rules(ctx):
 	g, game, d = ctx.g, ctx.game, ctx.data
 	Enemy, Bonus = g["Enemy"], g["Bonus"]
 	ms = lambda frames: int(round(frames * 1000.0 / g["NES_FPS"]))
-	ctx.check("CLASSIC preset active", g["CURRENT_PRESET"] == "CLASSIC")
+	ctx.check("NES preset active", g["CURRENT_PRESET"] == "NES")
 	ctx.check("NES: 4 enemies on screen in 1 player game", game.level.max_active_enemies == 4)
 	ctx.check("NES: 6 enemies in 2 player game", g["MAX_ACTIVE_ENEMIES_2_PLAYERS"] == 6)
 	ctx.check("NES: first enemy appears immediately", len(g["enemies"]) == 1)
@@ -118,11 +118,15 @@ def classic_rules(ctx):
 
 	types = set([Bonus(game.level).bonus for i in range(200)])
 	ctx.check("NES bonus set (no pistol, ship)", Bonus.BONUS_PISTOL not in types and Bonus.BONUS_SHIP not in types)
+	ctx.check("NES: enemies don't pick up bonuses", not g["ENEMY_PICKUP_BONUSES"])
+	ctx.check("NES: NES star ladder, no armor from stars", g["NES_STARS"] and g["PLAYER_ARMOR_SUPERPOWERS"] == [])
+	ctx.check("NES: NES enemy AI, no auto fire, no turn assist",
+		g["ENEMY_AI"] == "NES" and not g["AUTO_FIRE"] and not g["PLAYER_TURN_ASSIST"])
 
 	enemy.spawnBonus()
 	bonus = g["bonuses"][-1]
-	ctx.check("bonus blinks and disappears after a while",
-		len([t for t in g["gtimer"].timers if t["interval"] == g["BONUS_SPAWN_TIMEOUT"]]) == 1)
+	ctx.check("NES: bonus blinks and lies until it is picked up",
+		bonus.blinking and g["BONUS_SPAWN_TIMEOUT"] == 0)
 	ctx.check("NES: friendly fire stuns partner", g["FRIENDLY_FIRE"] and g["FRIENDLY_FIRE_STUN_TIME"] == ms(267))
 
 	p = g["players"][0]
@@ -146,7 +150,7 @@ def classic_game(ctx):
 
 def write_classic_settings():
 	with open(os.path.join(harness.DATA_DIR, ".settings.json"), "w") as f:
-		json.dump({"preset": "CLASSIC"}, f)
+		json.dump({"preset": "NES"}, f)
 
 
 def write_ntsc_settings():

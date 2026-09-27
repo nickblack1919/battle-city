@@ -297,14 +297,16 @@ def emptyTrophies():
 	return trophies
 
 # DIFFICULTY PRESETS: every preset sets all these values, so presets can be switched at runtime
+# DIFFICULTY PRESETS: every preset sets all these values, so presets can be switched at runtime.
+# NES also sets enemy AI, auto fire and turn assist, other presets set them back to the normal ones
 PRESETS = {
-	# rules of original NES game
-	"CLASSIC": {
+	# everything exactly like in the original NES game
+	"NES": {
 		"ALLOW_MULTI_BONUS": False,
-		"ENEMY_PICKUP_BONUSES": True,	# NES: enemies don't pick up bonuses
+		"ENEMY_PICKUP_BONUSES": False,
 		"BONUS_FREQ": 7,
 		"BONUS_TANK_OFFSET": 3,
-		"BONUS_SPAWN_TIMEOUT": 20000,
+		"BONUS_SPAWN_TIMEOUT": 0,	# bonus lies until it is picked up or a new bonus tank appears
 		"BONUS_TYPES": NES_BONUS_TYPES,
 		"FRIENDLY_FIRE": True,
 		"EXTRA_LIFE_ONCE": True,
@@ -317,8 +319,36 @@ PRESETS = {
 		"ENABLE_PLAYER_PROTECTION": False,
 		"ENEMY_AI_BASE_CHANCE": 50,
 		"ENABLE_NEW_ENEMIES": False,
-		# NES star ladder was only for players, enemies always had the full one: same ladder for everybody
+		"NES_STARS": True,
+		"PLAYER_ARMOR_SUPERPOWERS": [],
+		"ENEMY_AI": "NES",
+		"AUTO_FIRE": False,
+		"PLAYER_TURN_ASSIST": False,
+	},
+	# NES rules with our additions: all bonuses, new enemy types, frontal armor, armor from stars
+	"NES+": {
+		"ALLOW_MULTI_BONUS": False,
+		"ENEMY_PICKUP_BONUSES": True,
+		"BONUS_FREQ": 7,
+		"BONUS_TANK_OFFSET": 3,
+		"BONUS_SPAWN_TIMEOUT": 20000,
+		"BONUS_TYPES": BONUS_TYPES,
+		"FRIENDLY_FIRE": True,
+		"EXTRA_LIFE_ONCE": True,
+		"PLAYER_START_SUPERPOWER": 0,
+		"DEFAULT_ENEMY_ARMOR_HEALTH": 400,
+		"MAX_ACTIVE_ENEMIES": 4,
+		"MAX_ACTIVE_ENEMIES_2_PLAYERS": 6,
+		"MAX_ACTIVE_ENEMIES_3_PLAYERS": 8,
+		"ENEMY_SPAWN_TIMEOUT": None,
+		"ENABLE_PLAYER_PROTECTION": True,
+		"ENEMY_AI_BASE_CHANCE": 50,
+		"ENABLE_NEW_ENEMIES": True,
 		"NES_STARS": False,
+		"PLAYER_ARMOR_SUPERPOWERS": [3, 6],
+		"ENEMY_AI": "CLASSIC",
+		"AUTO_FIRE": True,
+		"PLAYER_TURN_ASSIST": True,
 	},
 	"GOOD": {
 		"ALLOW_MULTI_BONUS": True,
@@ -339,6 +369,10 @@ PRESETS = {
 		"ENEMY_AI_BASE_CHANCE": 30,
 		"ENABLE_NEW_ENEMIES": True,
 		"NES_STARS": False,
+		"PLAYER_ARMOR_SUPERPOWERS": [3, 6],
+		"ENEMY_AI": "CLASSIC",
+		"AUTO_FIRE": True,
+		"PLAYER_TURN_ASSIST": True,
 	},
 	"EXTREME": {
 		"ALLOW_MULTI_BONUS": True,
@@ -359,19 +393,30 @@ PRESETS = {
 		"ENEMY_AI_BASE_CHANCE": 30,
 		"ENABLE_NEW_ENEMIES": True,
 		"NES_STARS": False,
+		"PLAYER_ARMOR_SUPERPOWERS": [3, 6],
+		"ENEMY_AI": "CLASSIC",
+		"AUTO_FIRE": True,
+		"PLAYER_TURN_ASSIST": True,
 	},
 }
+
+# order on the settings screen, from the most original to the hardest
+PRESET_NAMES = ["NES", "NES+", "GOOD", "EXTREME"]
+
+# preset was renamed: saved settings and hiscore tables of older versions
+OLD_PRESET_NAMES = {"CLASSIC": "NES+"}
 
 CURRENT_PRESET = None
 
 def applyPreset(name):
-	""" Set game settings from difficulty preset: CLASSIC, GOOD or EXTREME """
+	""" Set game settings from difficulty preset: NES, NES+, GOOD or EXTREME """
 	global CURRENT_PRESET
+	name = OLD_PRESET_NAMES.get(name, name)
 	globals().update(PRESETS[name])
 	CURRENT_PRESET = name
 
 if CLASSIC_MODE:
-	applyPreset("CLASSIC")
+	applyPreset("NES+")
 elif EXTREME_MODE:
 	applyPreset("EXTREME")
 elif GOOD_MODE:
@@ -427,8 +472,9 @@ def loadSettings():
 		return
 
 	# every setting separately: one broken value doesn't reset others
-	if settings.get("preset") in PRESETS:
-		applyPreset(settings["preset"])
+	preset = OLD_PRESET_NAMES.get(settings.get("preset"), settings.get("preset"))
+	if preset in PRESETS:
+		applyPreset(preset)
 	if settings.get("nes_version") in NES_VERSIONS:
 		applyNesVersion(settings["nes_version"])
 	AUTO_FIRE = bool(settings.get("auto_fire", AUTO_FIRE))
