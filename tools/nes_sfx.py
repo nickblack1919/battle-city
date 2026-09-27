@@ -35,12 +35,20 @@ Usage: venv/bin/python tools/nes_sfx.py bonus1000 sounds/bonus1000.wav
 
 import sys, os, math, wave, array
 
-# NTSC NES (the original console); the remake itself runs the game logic at PAL 50 fps,
-# but the effect was composed for the NTSC ROM, so it is rendered at 60 Hz.
-CPU_HZ = 1789773.0
-FRAME_HZ = 60.0
-QUARTER_FRAME_HZ = 240.0
+# NTSC console (Japan / USA) and PAL one (Dendy and other clones): different CPU clock and frame rate,
+# so the same effect is a bit lower and slower on PAL
+CONSOLES = {
+	"ntsc": (1789773.0, 60.0, 240.0),
+	"pal": (1662607.0, 50.0, 200.0),
+}
+CPU_HZ, FRAME_HZ, QUARTER_FRAME_HZ = CONSOLES["ntsc"]
 SAMPLE_RATE = 44100
+
+
+def setConsole(name):
+	""" Render for this console: ntsc or pal """
+	global CPU_HZ, FRAME_HZ, QUARTER_FRAME_HZ
+	CPU_HZ, FRAME_HZ, QUARTER_FRAME_HZ = CONSOLES[name]
 
 # tbl_ECE6 (0x002CF6, 00:ECE6): one chromatic octave of pulse periods, high byte first
 PERIOD_TABLE = [0x07F2, 0x0780, 0x0714, 0x06AE, 0x0643, 0x05F4,
@@ -160,9 +168,17 @@ def render(name, path, verbose=True):
 
 
 def main(argv):
+	console = "ntsc"
+	argv = list(argv)
+	for name in CONSOLES:
+		if "--" + name in argv:
+			console = name
+			argv.remove("--" + name)
 	if len(argv) != 3 or argv[1] not in SFX:
-		print("usage: %s <%s> <output.wav>" % (os.path.basename(argv[0]), "|".join(sorted(SFX))))
+		print("usage: %s <%s> <output.wav> [--ntsc|--pal]" % (os.path.basename(argv[0]), "|".join(sorted(SFX))))
 		return 1
+	setConsole(console)
+	print("console: %s (%d Hz CPU, %d fps)" % (console, CPU_HZ, FRAME_HZ))
 	render(argv[1], argv[2])
 	return 0
 

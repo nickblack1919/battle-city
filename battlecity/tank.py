@@ -863,13 +863,10 @@ class Enemy(Tank):
 		bonus = Bonus(self.level)
 
 		state.bonuses.append(bonus)
-		# bonus blinks during last seconds before it disappears
+		# NES: bonus blinks all the time it lies on the field
+		bonus.startBlinking()
 		if config.BONUS_SPAWN_TIMEOUT > 0:
-			state.gtimer.add(max(config.BONUS_SPAWN_TIMEOUT - config.BONUS_BLINK_TIME, 1), lambda :bonus.startBlinking(), 1)
 			state.gtimer.add(config.BONUS_SPAWN_TIMEOUT, lambda :bonus in state.bonuses and state.bonuses.remove(bonus), 1)
-		else:
-			# NES: bonus stays until picked up, always blinking
-			bonus.startBlinking()
 
 		# pickup the bonus immediately it it was placed on a player
 		for player in state.players:

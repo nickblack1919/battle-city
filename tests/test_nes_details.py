@@ -28,6 +28,7 @@ def bonus_disappears(ctx):
 	g["enemies"].append(enemy)
 	enemy.spawnBonus()
 	ctx.check("bonus on the field", len(g["bonuses"]) == 1)
+	ctx.check("bonus blinks from the start, like on NES", g["bonuses"][0].blinking)
 
 	# NES: a new bonus tank removes the bonus lying on the field
 	game.level.enemies_left[:] = [Enemy.TYPE_BASIC] * 10
@@ -102,7 +103,10 @@ def stage_select(ctx):
 	game.stage = max(1, min(35, game.stage - 1))
 	ctx.check("stage doesn't go below 1", game.stage == 1)
 	game.stage = stage
-	ctx.check("stage screen reads input", hasattr(game, "stageScreenInput") and hasattr(game, "drawStageTitle"))
+	change, start = game.stageScreenInput()
+	ctx.check("stage screen input: change and start (%s, %s)" % (change, start), change == 0 and start == False)
+	game.drawStageTitle(True)
+	ctx.check("stage screen shows the start hint after a change", True)
 	ctx.finish()
 
 

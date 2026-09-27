@@ -41,22 +41,34 @@ def loaded(ctx):
 	length = sounds["bonus1000"].get_length() if "bonus1000" in sounds else 0
 	# 28 NES frames at 60 fps = 0.467 s
 	ctx.check("length matches the note durations (%.3f s)" % length, 0.4 < length < 0.55)
+
+	ctx.check("generated file sounds/bonus1000_pal.wav is in the repo", os.path.exists(os.path.join(harness.GAME_DIR, "sounds", "bonus1000_pal.wav")))
+	ctx.check("PAL (DENDY) version is loaded", "bonus1000_pal" in sounds)
+	pal = sounds["bonus1000_pal"].get_length() if "bonus1000_pal" in sounds else 0
+	# 28 frames at 50 fps = 0.56 s, lower and slower than NTSC
+	ctx.check("PAL version is longer (%.3f s)" % pal, 0.5 < pal < 0.62 and pal > length)
 	ctx.finish()
 
 
-def played(ctx):
-	""" showScores plays the new jingle when the bonus text appears """
+def played(ctx, version):
+	""" showScores plays the jingle of the chosen console when the bonus text appears """
 	g, d = ctx.g, ctx.data
 	if ctx.frame == 1:
 		g["play_sounds"] = True
-		d["sound"] = FakeSound()
-		g["sounds"]["bonus1000"] = d["sound"]
+		g["applyNesVersion"](version)
+		d["ntsc"], d["pal"] = FakeSound(), FakeSound()
+		g["sounds"]["bonus1000"] = d["ntsc"]
+		g["sounds"]["bonus1000_pal"] = d["pal"]
 		prepareScores(ctx)
 		return
 	if ctx.in_function("showScores"):
 		d["seen"] = True
 	if d.get("seen") and (not ctx.in_function("showScores") or ctx.frame > 500):
-		ctx.check("bonus1000 played on the scores screen (%d times)" % d["sound"].played, d["sound"].played == 1)
+		played_pal, played_ntsc = d["pal"].played, d["ntsc"].played
+		if version == "DENDY":
+			ctx.check("DENDY: PAL jingle played (pal %d, ntsc %d)" % (played_pal, played_ntsc), played_pal == 1 and played_ntsc == 0)
+		else:
+			ctx.check("NTSC: NTSC jingle played (pal %d, ntsc %d)" % (played_pal, played_ntsc), played_ntsc == 1 and played_pal == 0)
 		ctx.finish()
 	if ctx.frame > 700:
 		ctx.check("scores screen reached", False)
@@ -70,6 +82,7 @@ def fallback(ctx):
 		g["play_sounds"] = True
 		d["sound"] = FakeSound()
 		g["sounds"].pop("bonus1000", None)
+		g["sounds"].pop("bonus1000_pal", None)
 		g["sounds"]["bonus"] = d["sound"]
 		prepareScores(ctx)
 		return
@@ -103,7 +116,8 @@ def no_sounds(ctx):
 
 SCENARIOS = {
 	"loaded": {"fn": loaded},
-	"played": {"fn": played, "players": 2},
+	"played": {"fn": lambda ctx: played(ctx, "DENDY"), "players": 2},
+	"played_ntsc": {"fn": lambda ctx: played(ctx, "NTSC"), "players": 2},
 	"fallback": {"fn": fallback, "players": 2},
 	"no_sounds": {"fn": no_sounds, "players": 2},
 }

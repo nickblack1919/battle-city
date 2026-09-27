@@ -34,7 +34,7 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
 | M | sound on / off |
 | B | borrow a life from partner for a player without lives (bot never gets a human's life) |
 | ESC | in game: exit to main menu (asks Y / N), in editor and settings: back to menu, in menu: quit |
-| arrows / gamepad d-pad | on the "STAGE N" screen: choose the stage (campaign and random levels) |
+| arrows / gamepad d-pad | on the "STAGE N" screen: choose the stage (campaign and random levels); after a change the screen waits for Enter / gamepad Start |
 | P | freeze enemies (debug, only with `DEBUG_KEYS = True` in config) |
 | V | debug sprites and grid (debug, only with `DEBUG_KEYS = True` in config) |
 
@@ -150,12 +150,14 @@ moves its engine is heard, but only when neither stage start music nor enemy eng
 the last enemy is destroyed),
 so it doesn't distract (the engine sound is the hum played faster, there is no separate sound file).
 
-A bonus disappears after `BONUS_SPAWN_TIMEOUT` and, like on NES, when a new bonus tank appears. A player hit by
+A bonus blinks all the time it lies on the field (like on NES) and disappears after `BONUS_SPAWN_TIMEOUT` or,
+like on NES, when a new bonus tank appears. A player hit by
 partner's bullet blinks while stunned, like on NES. The bonus for most tanks destroyed is written under that
 player's column on the scores screen with a sound, like on NES.
 
 NES sound effects are synthesized from the game's disassembly (APU pulse channel, no ROM samples) and can be
-regenerated with `venv/bin/python tools/nes_sfx.py bonus1000 sounds/bonus1000.wav`.
+regenerated with `venv/bin/python tools/nes_sfx.py bonus1000 sounds/bonus1000.wav` (add `--pal` for the DENDY
+version: the game plays the one matching NES SPEED).
 
 Like on NES, a bonus appears on one of 16 fixed places (not right under a player), tank explosions last 48 NES
 frames (fast tank 24, player 32), scores screen pauses are counted in NES frames.

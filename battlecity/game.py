@@ -74,6 +74,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			state.sounds["bonusnew"] = pygame.mixer.Sound("sounds/bonusnew.ogg")
 			# NES 1000 points bonus jingle, synthesized by tools/nes_sfx.py
 			state.sounds["bonus1000"] = pygame.mixer.Sound("sounds/bonus1000.wav")
+			state.sounds["bonus1000_pal"] = pygame.mixer.Sound("sounds/bonus1000_pal.wav")
 			state.sounds["explosion"] = pygame.mixer.Sound("sounds/explosion.ogg")
 			state.sounds["boom"] = pygame.mixer.Sound("sounds/boom.ogg")
 			state.sounds["brick"] = pygame.mixer.Sound("sounds/brick.ogg")
@@ -761,11 +762,10 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		state.bonuses.append(bonus)
 		if config.play_sounds:
 			state.sounds["bonusnew"].play()
+		# NES: bonus blinks all the time it lies on the field
+		bonus.startBlinking()
 		if config.BONUS_SPAWN_TIMEOUT > 0:
-			state.gtimer.add(max(config.BONUS_SPAWN_TIMEOUT - config.BONUS_BLINK_TIME, 1), lambda :bonus.startBlinking(), 1)
 			state.gtimer.add(config.BONUS_SPAWN_TIMEOUT, lambda :bonus in state.bonuses and state.bonuses.remove(bonus), 1)
-		else:
-			bonus.startBlinking()
 
 	def versusOver(self, winner):
 		""" Versus match is over: show "game over", then result """

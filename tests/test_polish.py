@@ -50,18 +50,15 @@ def bonus_blink(ctx):
 	if ctx.frame > 20:
 		bonus = d["bonus"]
 		timeout = g["BONUS_SPAWN_TIMEOUT"]
-		blink = g["BONUS_BLINK_TIME"]
-		# 20 ms per frame
-		blink_frame = 20 + (timeout - blink) // 20
-		if ctx.frame == blink_frame - 50:
-			ctx.check("bonus doesn't blink before last seconds", not bonus.blinking and bonus.visible)
+		# like on NES the bonus blinks all the time it lies on the field
+		if ctx.frame == 25:
+			ctx.check("bonus blinks from the start", bonus.blinking)
 			ctx.check("fortress / freeze bars don't crash drawing", True)
-		if ctx.frame == blink_frame + 50:
-			ctx.check("bonus blinks during last seconds", bonus.blinking)
-		if blink_frame + 50 < ctx.frame < blink_frame + 70 and not bonus.visible:
+		if 25 < ctx.frame < 60 and not bonus.visible:
 			d["was_hidden"] = True
-		if ctx.frame == blink_frame + 70:
+		if ctx.frame == 60:
 			ctx.check("blinking bonus is sometimes hidden", d.get("was_hidden"))
+		# 20 ms per frame
 		if ctx.frame == 20 + timeout // 20 + 10:
 			ctx.check("bonus disappears after timeout", bonus not in bonuses)
 			ctx.finish()

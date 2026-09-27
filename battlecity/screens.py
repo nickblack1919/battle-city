@@ -40,21 +40,25 @@ class ScreensMixin():
 
 		frames = config.STAGE_SCREEN_TIME // 20
 		frame = 0
-		while frame < frames:
+		# stage was chosen here: screen waits for start instead of going away by itself
+		chosen = False
+		while chosen or frame < frames:
 			self.flip()
 			self.clock.tick(config.GAME_FRAME_TIMING)
 			frame += 1
-			change = self.stageScreenInput()
+			change, start = self.stageScreenInput()
+			if start:
+				break
 			# stage can be chosen here, like on NES
 			if change and self.mode in ("campaign", "random") and not self.demo and not self.test_play:
 				self.stage = max(1, min(35, self.stage + change))
-				self.drawStageTitle()
-				frame = 0
+				chosen = True
+				self.drawStageTitle(chosen)
 
 		self.stage_screen = False
 
-	def drawStageTitle(self):
-		""" Grey screen with the stage number """
+	def drawStageTitle(self, chosen = False):
+		""" Grey screen with the stage number (chosen: stage was changed here, waiting for start) """
 		state.screen.fill(self.CURTAIN_COLOR)
 		if self.mode == "endless":
 			title = "WAVE " + str(self.stage - self.first_stage + 1)
@@ -69,15 +73,21 @@ class ScreensMixin():
 		if self.mode == "daily" and self.daily_date != None:
 			date = self.text(self.daily_date.strftime("%Y-%m-%d"), False, pygame.Color("black"), False)
 			state.screen.blit(date, [(416 - date.get_width()) // 2, (416 - date.get_height()) // 2 + 28])
+		if chosen:
+			hint = self.text("PRESS START", False, pygame.Color("black"))
+			state.screen.blit(hint, [(416 - hint.get_width()) // 2, (416 - hint.get_height()) // 2 + 56])
 
 	def stageScreenInput(self):
-		""" Stage screen: gamepad buttons and arrows change the stage number
-		@return 1 (next stage), -1 (previous one) or 0
+		""" Stage screen: gamepad buttons and arrows change the stage number, start begins the stage
+		@return (1 next stage / -1 previous one / 0, start pressed)
 		"""
 		change = 0
+		start = False
 		self.updateGamepads()
 		for gamepad in self.gamepads:
-			if gamepad.pressed("up") or gamepad.pressed("right") or gamepad.pressed("fire"):
+			if gamepad.pressed("start"):
+				start = True
+			elif gamepad.pressed("up") or gamepad.pressed("right") or gamepad.pressed("fire"):
 				change = 1
 			elif gamepad.pressed("down") or gamepad.pressed("left"):
 				change = -1
@@ -89,11 +99,13 @@ class ScreensMixin():
 				if self.isFullScreenKey(event):
 					self.toggleFullScreen()
 					self.drawStageTitle()
+				elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+					start = True
 				elif event.key in (pygame.K_UP, pygame.K_RIGHT):
 					change = 1
 				elif event.key in (pygame.K_DOWN, pygame.K_LEFT):
 					change = -1
-		return change
+		return change, start
 
 	def openCurtain(self):
 		""" NES: grey curtain opens from the middle of the screen showing the stage """
@@ -342,7 +354,8 @@ class ScreensMixin():
 				state.screen.blit(points, [x, y + 24])
 			if config.play_sounds:
 				# NES jingle for the 1000 points bonus (tools/nes_sfx.py), old sound as a fallback
-				sound = state.sounds.get("bonus1000") or state.sounds.get("bonus")
+				nes_sound = "bonus1000_pal" if config.NES_VERSION == "DENDY" else "bonus1000"
+				sound = state.sounds.get(nes_sound) or state.sounds.get("bonus1000") or state.sounds.get("bonus")
 				if sound:
 					sound.play()
 
