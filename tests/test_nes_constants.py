@@ -161,8 +161,8 @@ def write_ntsc_settings():
 def saved_nes_version(ctx):
 	g = ctx.g
 	if ctx.frame == 1:
-		ctx.check("saved NES version applied", g["NES_VERSION"] == "NTSC" and abs(g["PLAYER_DEFAULT_SPEED"] - 1.8) < 0.01)
-		ctx.check("player created with NTSC speed", abs(g["players"][0].speed - 1.8) < 0.01)
+		ctx.check("saved NES version applied", g["NES_VERSION"] == "NTSC" and g["GAME_FRAME_TIMING"] == 60)
+		ctx.check("player created with NES speed per frame", abs(g["players"][0].speed - 1.5) < 0.01)
 		ctx.finish()
 
 

@@ -64,8 +64,8 @@ def bonus_blink(ctx):
 			d["was_hidden"] = True
 		if ctx.frame == 60:
 			ctx.check("blinking bonus is sometimes hidden", d.get("was_hidden"))
-		# 20 ms per frame
-		if ctx.frame == 20 + timeout // 20 + 10:
+		# one frame is 1000 / GAME_FRAME_TIMING ms (20 on DENDY, 17 on NTSC)
+		if ctx.frame == 20 + int(timeout * g["GAME_FRAME_TIMING"] / 1000.0) + 10:
 			ctx.check("bonus disappears after timeout", bonus not in bonuses)
 			ctx.finish()
 

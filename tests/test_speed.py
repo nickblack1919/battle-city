@@ -21,8 +21,8 @@ def player_speed(ctx):
 		p.pressed = [False] * 4
 		distance = d["x"] - p.rect.left
 		expected = FRAMES * 0.75 * g["NES_PX_PER_FRAME"]
-		ctx.check("default NES version is DENDY (50 fps)", g["NES_VERSION"] == "DENDY")
-		ctx.check("player speed 1.5 px per frame on DENDY (%.2f)" % g["PLAYER_DEFAULT_SPEED"], abs(g["PLAYER_DEFAULT_SPEED"] - 1.5) < 0.01)
+		ctx.check("default NES version is NTSC (60 fps, like the original NES)", g["NES_VERSION"] == "NTSC")
+		ctx.check("player speed 1.5 px per frame (%.2f)" % g["PLAYER_DEFAULT_SPEED"], abs(g["PLAYER_DEFAULT_SPEED"] - 1.5) < 0.01)
 		ctx.check("player moved %d px in %d frames (expected %d)" % (distance, FRAMES, expected), abs(distance - expected) <= 2)
 		ctx.finish()
 
@@ -83,12 +83,15 @@ def nes_version_switch(ctx):
 	g = ctx.g
 	if ctx.frame != 1:
 		return
+	# one game frame is one NES frame: speeds per frame are the same, the console changes the frame rate
 	g["applyNesVersion"]("NTSC")
-	ctx.check("NTSC: player 1.8, fast enemy 2.4, bullet 4.8 px per frame",
-		abs(g["PLAYER_DEFAULT_SPEED"] - 1.8) < 0.01 and abs(g["DEFAULT_ENEMY_SPEED"] + g["DEFAULT_ENEMY_SPEED_FAST"] - 2.4) < 0.01 and abs(g["DEFAULT_BULLET_SPEED"] - 4.8) < 0.01)
+	ctx.check("NTSC: game runs 60 frames per second", g["GAME_FRAME_TIMING"] == 60 and g["NES_FPS"] == 60)
+	ctx.check("NTSC: player 1.5, fast enemy 2, bullet 4 px per frame",
+		abs(g["PLAYER_DEFAULT_SPEED"] - 1.5) < 0.01 and abs(g["DEFAULT_ENEMY_SPEED"] + g["DEFAULT_ENEMY_SPEED_FAST"] - 2.0) < 0.01 and abs(g["DEFAULT_BULLET_SPEED"] - 4) < 0.01)
 	ctx.check("NTSC: helmet 10.7 s", g["BONUS_PLAYER_SHIELD_TIMEOUT"] == 10667)
 	g["applyNesVersion"]("DENDY")
-	ctx.check("DENDY: player 1.5, fast enemy 2, bullet 4 px per frame",
+	ctx.check("DENDY: game runs 50 frames per second", g["GAME_FRAME_TIMING"] == 50 and g["NES_FPS"] == 50)
+	ctx.check("DENDY: same speeds per frame, so everything is 1.2x slower in a second",
 		abs(g["PLAYER_DEFAULT_SPEED"] - 1.5) < 0.01 and abs(g["DEFAULT_ENEMY_SPEED"] + g["DEFAULT_ENEMY_SPEED_FAST"] - 2.0) < 0.01 and abs(g["DEFAULT_BULLET_SPEED"] - 4) < 0.01)
 	ctx.check("DENDY: helmet 12.8 s", g["BONUS_PLAYER_SHIELD_TIMEOUT"] == 12800)
 	g["applyPreset"]("NES+")

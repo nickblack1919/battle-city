@@ -684,7 +684,7 @@ class ScreensMixin():
 				"lives": int(player["lives"]),
 				"superpowers": int(player["superpowers"]),
 				"next_extra_life": int(player.get("next_extra_life", config.EXTRA_LIFE_SCORE)),
-				"ship": max(0, int(player.get("ship", 0)))
+				"ship": int(player.get("ship", 0)) if player.get("ship", 0) == state.game.SHIP_FOREVER else max(0, int(player.get("ship", 0)))
 			} for player in data["players"]]
 		except (IOError, ValueError, KeyError, TypeError, AttributeError):
 			print("Can't load saved game")

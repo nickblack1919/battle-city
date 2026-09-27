@@ -142,6 +142,31 @@ def ship_next_stage(ctx):
 		ctx.finish()
 
 
+def ship_forever(ctx):
+	""" Ship without time limit (BONUS_SHIP_TIMEOUT 0): lasts until the player loses a life,
+	goes on to the next stage and into the saved game """
+	g, game, d = ctx.g, ctx.game, ctx.data
+	p = g["players"][0]
+	if ctx.frame == 10:
+		ctx.check("ship has no time limit by default", g["BONUS_SHIP_TIMEOUT"] == 0)
+		bonus = g["Bonus"](game.level)
+		bonus.bonus = bonus.BONUS_SHIP
+		game.triggerBonus(bonus, p)
+		ctx.check("ship given without a timer", p.ship and p.ship_timer == None and game.shipLeft(p) == game.SHIP_FOREVER)
+	if ctx.frame == 60:
+		finish_level(ctx)
+	if ctx.frame > 60 and game.stage == 2 and game.running and "checked" not in d:
+		d["checked"] = True
+		with open(savegame_file()) as f:
+			saved = json.load(f)["players"][0].get("ship")
+		ctx.check("ship still there on stage 2", p.ship and game.shipLeft(p) == game.SHIP_FOREVER)
+		ctx.check("endless ship saved with the game (%s)" % saved, saved == game.SHIP_FOREVER)
+		# losing a life takes the ship away (player is reset when he respawns)
+		p.reset()
+		ctx.check("ship is lost with a life", not p.ship and game.shipLeft(p) == 0)
+		ctx.finish()
+
+
 def ship_savegame():
 	data = {
 		"stage": 2,
@@ -181,6 +206,7 @@ SCENARIOS = {
 	"delete_after_game_over": {"fn": delete_after_game_over, "setup": write_savegame},
 	"broken_savegame": {"fn": broken_game, "menu": broken_menu, "setup": broken_savegame},
 	"ship_next_stage": {"fn": ship_next_stage},
+	"ship_forever": {"fn": ship_forever},
 	"continue_with_ship": {"fn": continue_with_ship, "menu": continue_ship_menu, "setup": ship_savegame},
 }
 

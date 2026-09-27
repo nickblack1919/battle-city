@@ -106,7 +106,7 @@ def ship(ctx):
 		bonus.bonus = bonus.BONUS_SHIP
 		ctx.check("ship bonus has sprite", len([1 for x in range(32) for y in range(32) if bonus.image.get_at((x, y))[:3] != (0, 0, 0)]) > 20)
 		game.triggerBonus(bonus, p)
-		ctx.check("ship bonus active", p.ship and p.ship_timer)
+		ctx.check("ship bonus active", p.ship and game.shipLeft(p) != 0)
 		p.pressed = [True, False, False, False]
 	if ctx.frame == 60:
 		p.pressed = [False] * 4

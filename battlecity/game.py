@@ -27,6 +27,9 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 
 	TILE_SIZE = 16
 
+	# ship bonus without time limit: it lasts until the player loses a life (shipLeft, saved game)
+	SHIP_FOREVER = -1
+
 	def __init__(self):
 
 
@@ -409,23 +412,39 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 
 		pygame.display.update()
 
-	def giveShip(self, player, ms):
-		""" Player can drive over water for ms """
+	def giveShip(self, player, ms = None):
+		""" Player can drive over water for ms (0 or None with BONUS_SHIP_TIMEOUT 0 - until he loses a life) """
+		if ms == None:
+			ms = config.BONUS_SHIP_TIMEOUT
 		player.ship = True
 		player.drive_out = False
 		self.destroyTimer(player.ship_timer)
-		player.ship_timer = state.gtimer.add(ms, lambda :self.endShip(player), 1)
+		player.ship_timer = state.gtimer.add(ms, lambda :self.endShip(player), 1) if ms > 0 else None
 
 	def shipLeft(self, player):
-		""" ms of ship bonus the player still has (0 without ship) """
-		if not player.ship or player.ship_timer is None:
+		""" ms of ship bonus the player still has: 0 without ship, SHIP_FOREVER while it has no time limit """
+		if not player.ship:
 			return 0
+		if player.ship_timer is None:
+			return self.SHIP_FOREVER
 		left = state.gtimer.remaining(player.ship_timer)
 		return max(0, int(left[0])) if left else 0
 
 	def shipCarried(self, player):
-		""" ms of ship bonus the player takes to the next stage (remembered when the scores screen opened) """
-		return max(self.shipLeft(player), getattr(player, "carried_ship_ms", 0))
+		""" ms of ship bonus the player takes to the next stage (remembered when the scores screen opened),
+		SHIP_FOREVER for a ship without time limit """
+		carried = getattr(player, "carried_ship_ms", 0)
+		left = self.shipLeft(player)
+		if self.SHIP_FOREVER in (carried, left):
+			return self.SHIP_FOREVER
+		return max(left, carried)
+
+	def giveCarriedShip(self, player, ms):
+		""" Give back the ship remembered on the previous stage (or loaded from a saved game) """
+		if ms == self.SHIP_FOREVER:
+			self.giveShip(player, 0)
+		elif ms > 0:
+			self.giveShip(player, ms)
 
 	def endShip(self, player):
 		""" Ship bonus time is over (player still on water can drive out) """
@@ -502,7 +521,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		elif bonus.bonus == bonus.BONUS_SHIP:
 			self.setEnemiesShip(True)
 			self.destroyTimer(self.enemies_ship_timer)
-			self.enemies_ship_timer = state.gtimer.add(config.BONUS_SHIP_TIMEOUT, lambda :self.setEnemiesShip(False), 1)
+			self.enemies_ship_timer = state.gtimer.add(config.BONUS_SHIP_ENEMIES_TIMEOUT, lambda :self.setEnemiesShip(False), 1)
 		elif bonus.bonus == bonus.BONUS_HELMET:
 			for player in state.players:
 				player.hideTank(config.BONUS_PLAYER_HIDDEN_TIMEOUT)
@@ -867,8 +886,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			self.respawnPlayer(player, True, player.superpowers)
 		# saved game: players keep the ship they had
 		for player, ms in zip(state.players, loaded_ships):
-			if ms > 0:
-				self.giveShip(player, ms)
+			self.giveCarriedShip(player, ms)
 
 		self.assignGamepads()
 
@@ -1201,8 +1219,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 
 		self.reloadPlayers()
 		for player, ms in zip(state.players, ships_left):
-			if ms > 0:
-				self.giveShip(player, ms)
+			self.giveCarriedShip(player, ms)
 		self.togglePlayersFreeze(False)
 
 		# NES: first enemy appears immediately, then after spawn interval

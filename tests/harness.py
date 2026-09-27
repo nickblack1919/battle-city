@@ -138,9 +138,12 @@ def run(scenario, argv=None, players=1, menu=None, real_time=False, max_frames=5
 
 	class FakeClock(object):
 		def tick(self, *args):
+			""" One frame of the chosen console: 20 ms on DENDY (50 fps), 17 ms on NTSC (60 fps) """
+			from battlecity import config
+			ms = int(round(1000.0 / config.GAME_FRAME_TIMING))
 			if real_time:
-				time.sleep(0.02)
-			return 20
+				time.sleep(ms / 1000.0)
+			return ms
 
 	pygame.time.Clock = FakeClock
 	original_get = pygame.event.get

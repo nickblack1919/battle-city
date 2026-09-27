@@ -12,8 +12,10 @@ from pygame.locals import *
 # Game logic is the same on every console, only frame rate differs:
 # DENDY (PAL, Famicom clones, 50 fps) or NTSC (Japan / USA, 60 fps). Can be changed on settings screen.
 NES_VERSIONS = {"DENDY": 50, "NTSC": 60}
-NES_VERSION = "DENDY"
-GAME_FRAME_TIMING = 50	# frames per second of this game
+# NTSC by default: the original NES game runs at 60 fps, everything (tanks, bullets, animations) is 1.2x
+# faster than on a PAL Dendy clone
+NES_VERSION = "NTSC"
+GAME_FRAME_TIMING = 50	# frames per second of this game: frame rate of the chosen console (see applyNesVersion)
 GAME_OVER_SCREEN_TIME = 4000	# ms the game over screen stays when there is no music to wait for
 
 def nesFrames(frames):
@@ -22,7 +24,7 @@ def nesFrames(frames):
 
 def applyNesVersion(name):
 	""" Set NES version (frame rate) and recalculate all NES timings and speeds """
-	global NES_VERSION, NES_FPS, NES_PX_PER_FRAME
+	global NES_VERSION, NES_FPS, NES_PX_PER_FRAME, GAME_FRAME_TIMING
 	global FRIENDLY_FIRE_STUN_TIME, LEVEL_FINISH_TIMEOUT, GAME_OVER_TIMEOUT, BONUS_TIMER_FREEZE_TIMEOUT
 	global BONUS_FORTRESS_WALLS_TIMEOUT, FORTRESS_BLINK_TIME, FORTRESS_BLINK_INTERVAL, BONUS_PLAYER_SHIELD_TIMEOUT
 	global BONUS_BLINK_INTERVAL, BONUS_PICKUP_LABEL_TIME, ENEMY_SPAWN_ANIMATION_TIME, PLAYER_SPAWN_ANIMATION_TIME
@@ -33,8 +35,10 @@ def applyNesVersion(name):
 
 	NES_VERSION = name
 	NES_FPS = NES_VERSIONS[name]
-	# NES pixels are 2x smaller than here: speed of 1 NES px per NES frame in px per frame of this game
-	NES_PX_PER_FRAME = 2.0 * NES_FPS / GAME_FRAME_TIMING
+	# game runs at the frame rate of the chosen console, so one game frame is one NES frame
+	# (NES pixels are 2x smaller than here, so 1 NES px per frame is 2 px per frame)
+	GAME_FRAME_TIMING = NES_FPS
+	NES_PX_PER_FRAME = 2.0
 
 	# durations in ms of NES frame counts
 	FRIENDLY_FIRE_STUN_TIME = nesFrames(267)	# partner hit: 200 counts on 3 of 4 frames
@@ -100,7 +104,10 @@ MAX_ACTIVE_ENEMIES_3_PLAYERS = 12
 ENEMY_SPAWN_TIMEOUT = 1000	# ms between enemy spawns, None - NES formula (depends on stage and players)
 BONUS_PLAYER_HIDDEN_TIMEOUT = 10000
 BONUS_SPAWN_TIMEOUT = 20000	# bonus disappears after n ms, 0 - stays until picked up
-BONUS_SHIP_TIMEOUT = 20000	# ship bonus: tank can drive over water
+# ship bonus: ms a player can drive over water (0 - until he loses a life, the ship goes on to next stages)
+BONUS_SHIP_TIMEOUT = 0
+# enemies picked up the ship: all of them can drive over water for this long
+BONUS_SHIP_ENEMIES_TIMEOUT = 20000
 VERSUS_BONUS_TIMEOUT = 15000	# versus mode: new random bonus every n ms
 ICE_SLIDE_DISTANCE = 28 * 2	# px tank slides when it starts moving on ice, NES: 28 px
 ICE_CONTROL_DISTANCE = 16 * 2	# ... buttons are ignored until this many px are left (NES: first 12 px), rest is slid after release

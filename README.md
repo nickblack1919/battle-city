@@ -105,15 +105,16 @@ and hiscore tables keep their scores).
 
 In every preset timings are taken from NES version (disassembly, counted in NES frames): tank and bullet speeds,
 shield, helmet, shovel and clock durations, enemy fire rate, spawn animation, 3 lives. NES SPEED on settings
-screen selects frame rate of the console: DENDY (PAL, 50 fps, default) or NTSC (Japan / USA, 60 fps, everything
-1/5 faster). All values are in `battlecity/config.py`.
+screen selects frame rate of the console: NTSC (Japan / USA, 60 fps, default - like the original NES) or DENDY
+(PAL, Famicom clones, 50 fps, everything 1/5 slower). All values are in `battlecity/config.py`.
 
 Speeds are counted per frame like on NES (player 1 NES px on 3 of 4 frames, basic / power / armor enemies every
-other frame, fast enemy every frame), so the game has to really run 50 frames per second: `battlecity/frameclock.py`
-keeps an exact frame schedule (pygame's `Clock.tick()` oversleeps on macOS and made everything slower than on Dendy).
+other frame, fast enemy every frame, bullet 2 px, fast bullet 4 px), and one game frame is one NES frame: the game
+runs at the frame rate of the chosen console (60 or 50 fps) and `battlecity/frameclock.py` keeps an exact frame
+schedule (pygame's `Clock.tick()` oversleeps on macOS and made everything slower than on the console).
 
-The ship bonus stays with the player on the next stage with the time it had left (also in a saved game), until it
-runs out or the tank is destroyed.
+The ship bonus lasts until the player loses a life and stays with him on the next stages and in a saved game
+(`BONUS_SHIP_TIMEOUT` sets a time limit in ms instead, `BONUS_SHIP_ENEMIES_TIMEOUT` is the time enemies keep it).
 
 ## Bonuses
 
