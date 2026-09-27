@@ -7,6 +7,7 @@ from pygame.locals import *
 from sys import exit as quit	# builtin quit() is missing in Mac app (PyInstaller)
 
 from battlecity import config, crt, lang, state, levelgen
+from battlecity.frameclock import FrameClock
 from battlecity.bonus import Bonus
 from battlecity.castle import Castle
 from battlecity.effects import Label
@@ -48,7 +49,8 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		# game is always drawn on this surface, then shown on display (scaled in full screen)
 		state.screen = pygame.Surface((480, 416)).convert()
 
-		self.clock = pygame.time.Clock()
+		# exact 50 fps: speeds are per frame like on NES (see frameclock.py)
+		self.clock = FrameClock()
 
 		# load sprites (funky version)
 		# sprites = pygame.transform.scale2x(pygame.image.load("images/sprites.gif"))

@@ -96,11 +96,30 @@ def nes_version_switch(ctx):
 	ctx.finish()
 
 
+def frame_clock(ctx):
+	""" The game really runs 50 frames per second (pygame's Clock.tick oversleeps on macOS, which made
+	everything slower than on NES); a late frame is caught up by the next ones """
+	import time
+	from battlecity.frameclock import FrameClock
+	clock = FrameClock(real=True)
+	clock.tick(50)
+	start = time.perf_counter()
+	for i in range(100):
+		busy = time.perf_counter()
+		while time.perf_counter() - busy < (0.035 if i == 50 else 0.004):
+			pass
+		clock.tick(50)
+	period = (time.perf_counter() - start) * 1000 / 100
+	ctx.check("frame clock keeps 20 ms per frame (%.2f ms), a 35 ms frame is caught up" % period, abs(period - 20) < 0.6)
+	ctx.finish()
+
+
 SCENARIOS = {
 	"player_speed": {"fn": player_speed},
 	"enemy_speeds": {"fn": enemy_speeds},
 	"grid_pause": {"fn": grid_pause},
 	"nes_version_switch": {"fn": nes_version_switch},
+	"frame_clock": {"fn": frame_clock},
 }
 
 if __name__ == "__main__":
