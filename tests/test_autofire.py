@@ -42,9 +42,39 @@ def autofire(ctx):
 		ctx.finish()
 
 
+def turbo_gap(ctx):
+	""" Turbo speed of a Dendy gamepad: two bullets (2nd star) don't fly right next to each other """
+	g, d = ctx.g, ctx.data
+	p = g["players"][0]
+	if ctx.frame == 10:
+		g["AUTO_FIRE"] = True
+		del g["enemies"][:]
+		del ctx.game.level.enemies_left[:]
+		del g["bullets"][:]
+		p.shielded = True
+		p.superpowers = 2
+		p.updateSuperpowers()
+		p.rotate(p.DIR_LEFT, False)
+		d["seen"] = []
+		return [ctx.key(p.controls[0])]
+	if ctx.frame > 10:
+		for bullet in g["bullets"]:
+			if bullet.owner_class is p and not any([bullet is b for b in d["seen"]]):
+				d["seen"].append(bullet)
+	if ctx.frame == 120:
+		gaps = []
+		for first, second in zip(d["seen"], d["seen"][1:]):
+			if first.state == first.STATE_ACTIVE and second.state == second.STATE_ACTIVE:
+				gaps.append(abs(first.rect.centerx - second.rect.centerx))
+		ctx.check("bullets don't fly next to each other (%s)" % gaps, all([gap >= 16 for gap in gaps]))
+		ctx.check("turbo delay is 4 NES frames", g["PLAYER_AUTO_FIRE_DELAY"] == g["nesFrames"](4))
+		ctx.finish()
+
+
 SCENARIOS = {
 	# auto fire delay uses real time
 	"autofire": {"fn": autofire, "real_time": True},
+	"turbo_gap": {"fn": turbo_gap, "real_time": True},
 }
 
 if __name__ == "__main__":

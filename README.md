@@ -58,7 +58,7 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
   right mouse erase, `[` `]` level, G fill with generated map, S save, D back to original level, T save and play.
 - **SETTINGS** - difficulty preset, sound, full screen, start level, controls, NES speed (DENDY / NTSC),
   auto fire (ON by default - holding fire button shoots again when bullet slot is free, with the timing of the
-  Dendy turbo button: a press every second NES frame; OFF - every shot needs
+  Dendy turbo button: about 12 presses per second; OFF - every shot needs
   a press, like on NES), enemy AI (CLASSIC - random paths, sometimes towards the castle; NES - like on NES: at
   stage start enemies drive in random directions, later chase players, then go to the castle; a blocked tank
   waits or turns; SMART - chooses the best place to shoot from (short way, few bricks between, from a side the player isn't

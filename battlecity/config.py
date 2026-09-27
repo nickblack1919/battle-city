@@ -53,8 +53,9 @@ def applyNesVersion(name):
 	BULLET_EXPLOSION_TIME = nesFrames(9)
 	# NES: bullet which exploded on a tank keeps its slot busy until the explosion ends (ms to free it earlier)
 	BULLET_TANK_HIT_SLOT_TIME = None
-	# auto fire like the turbo button of a Dendy gamepad: a new press every second frame
-	PLAYER_AUTO_FIRE_DELAY = nesFrames(2)
+	# auto fire like the turbo button of a Dendy gamepad: about 12 presses per second,
+	# so two bullets (2nd star) don't fly right next to each other
+	PLAYER_AUTO_FIRE_DELAY = nesFrames(4)
 	# tank explosion
 	ENEMY_EXPLOSION_TIME = nesFrames(48)
 	FAST_ENEMY_EXPLOSION_TIME = nesFrames(24)
