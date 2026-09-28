@@ -102,7 +102,8 @@ class MenuMixin():
 				if action in ("play", "play_bot"):
 					self.mode = "campaign"
 					self.nr_of_players = argument
-					self.bot = action == "play_bot"
+					# 1 PLAYER + BOT: computer plays player 2, 2 PLAYERS + BOT: computer helper is player 3
+					self.bot = argument if action == "play_bot" else 0
 					self.stage = config.START_LEVEL - 1
 					# NES: stage of a new game is chosen on the first stage screen
 					self.stage_select = True
@@ -115,14 +116,14 @@ class MenuMixin():
 						self.mode = "campaign"
 						self.test_play = True
 						self.nr_of_players = 1
-						self.bot = False
+						self.bot = 0
 						del state.players[:]
 						return self.nextLevel
 					self.drawIntroScreen()
 				elif action == "versus":
 					self.mode = "versus"
 					self.nr_of_players = 2
-					self.bot = False
+					self.bot = 0
 					self.stage = 0
 					self.versus_winner = None
 					del state.players[:]
@@ -130,7 +131,7 @@ class MenuMixin():
 				elif action in ("endless", "endless_bot"):
 					self.mode = "endless"
 					self.nr_of_players = argument
-					self.bot = action == "endless_bot"
+					self.bot = argument if action == "endless_bot" else 0
 					self.stage = config.START_LEVEL - 1
 					self.first_stage = config.START_LEVEL
 					del state.players[:]
@@ -140,7 +141,7 @@ class MenuMixin():
 					self.stage_select = True
 					self.mode = "random"
 					self.nr_of_players = argument
-					self.bot = False
+					self.bot = 0
 					self.stage = config.START_LEVEL - 1
 					self.level_seed = random.randrange(1, 2 ** 31)
 					del state.players[:]
@@ -150,7 +151,7 @@ class MenuMixin():
 					date = levelgen.dailyDate()
 					self.mode = "daily"
 					self.nr_of_players = 1
-					self.bot = False
+					self.bot = 0
 					self.daily_date = date
 					self.level_seed = levelgen.dailySeed(date)
 					self.stage = levelgen.dailyStage(date) - 1
@@ -170,7 +171,7 @@ class MenuMixin():
 		self.demo = True
 		self.mode = "campaign"
 		self.nr_of_players = 2
-		self.bot = False
+		self.bot = 0
 		self.stage = random.randint(0, 34)
 		self.loaded_players_stats = None
 		del state.players[:]
@@ -237,6 +238,8 @@ class MenuMixin():
 			# player 2 is computer partner
 			["1 PLAYER + BOT", "play_bot", 2],
 			["2 PLAYERS", "play", 2],
+			# player 3 is computer helper guarding the castle
+			["2 PLAYERS + BOT", "play_bot", 3],
 			["3 PLAYERS", "play", 3],
 		]
 		# game saved after completed stage

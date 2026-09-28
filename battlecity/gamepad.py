@@ -42,9 +42,9 @@ class Gamepad():
 
 	def read(self):
 		""" Read raw device state
-		@return dict with booleans: up, right, down, left, fire, start
+		@return dict with booleans: up, right, down, left, fire, start, select
 		"""
-		up = right = down = left = fire = start = False
+		up = right = down = left = fire = start = select = False
 		x = y = 0.0
 
 		if self.controller != None:
@@ -57,6 +57,7 @@ class Gamepad():
 			y = c.get_axis(pygame.CONTROLLER_AXIS_LEFTY) / 32768.0
 			fire_buttons = (pygame.CONTROLLER_BUTTON_A, pygame.CONTROLLER_BUTTON_B, pygame.CONTROLLER_BUTTON_X, pygame.CONTROLLER_BUTTON_Y)
 			start_buttons = (pygame.CONTROLLER_BUTTON_START,)
+			select_buttons = (pygame.CONTROLLER_BUTTON_BACK,)
 		elif self.joystick != None:
 			j = self.joystick
 			if j.get_numhats() > 0:
@@ -67,6 +68,7 @@ class Gamepad():
 				x, y = j.get_axis(0), j.get_axis(1)
 			fire_buttons = range(4)
 			start_buttons = (7, 9)
+			select_buttons = (6, 8)
 
 		if self.controller != None or self.joystick != None:
 			# buttons chosen on settings screen
@@ -74,9 +76,12 @@ class Gamepad():
 				fire_buttons = (config.GAMEPAD_FIRE_BUTTON,)
 			if config.GAMEPAD_START_BUTTON != None:
 				start_buttons = (config.GAMEPAD_START_BUTTON,)
+			if config.GAMEPAD_SELECT_BUTTON != None:
+				select_buttons = (config.GAMEPAD_SELECT_BUTTON,)
 			held = self.buttonsHeld()
 			fire = any([button in held for button in fire_buttons])
 			start = any([button in held for button in start_buttons])
+			select = any([button in held for button in select_buttons])
 		# left stick: only dominant axis counts (tanks can't move diagonally)
 		if abs(x) > abs(y):
 			right = right or x > self.AXIS_THRESHOLD
@@ -87,7 +92,7 @@ class Gamepad():
 
 		return {
 			"up": bool(up), "right": bool(right), "down": bool(down), "left": bool(left),
-			"fire": bool(fire), "start": bool(start)
+			"fire": bool(fire), "start": bool(start), "select": bool(select)
 		}
 
 	def buttonsHeld(self):

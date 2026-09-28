@@ -43,7 +43,8 @@ class SettingsMixin():
 			assign = config.GAMEPAD_ASSIGN[player_nr]
 			value = assign if assign in ("AUTO", "OFF") else "PAD %d" % (assign + 1)
 			items.append({"label": "P%d GAMEPAD" % (player_nr + 1), "value": value, "type": "pad", "player": player_nr})
-		for label, name, default in (("PAD FIRE", "GAMEPAD_FIRE_BUTTON", "ANY"), ("PAD START", "GAMEPAD_START_BUTTON", "DEFAULT")):
+		for label, name, default in (("PAD FIRE", "GAMEPAD_FIRE_BUTTON", "ANY"), ("PAD START", "GAMEPAD_START_BUTTON", "DEFAULT"),
+				("PAD SELECT", "GAMEPAD_SELECT_BUTTON", "DEFAULT")):
 			button = getattr(config, name)
 			items.append({"label": label, "value": default if button == None else "BUTTON %d" % button, "type": "padbutton", "button": name})
 		items.append({"label": "RESET CONTROLS", "value": "", "type": "reset"})
@@ -197,12 +198,13 @@ class SettingsMixin():
 			config.GAMEPAD_ASSIGN = ["AUTO"] * len(config.GAMEPAD_ASSIGN)
 			config.GAMEPAD_FIRE_BUTTON = None
 			config.GAMEPAD_START_BUTTON = None
+			config.GAMEPAD_SELECT_BUTTON = None
 			self.assignGamepads()
 
 		config.saveSettings(self.is_fullscreen)
 
 	def setPadButton(self, name, button):
-		""" Use gamepad button for fire or start (name: GAMEPAD_FIRE_BUTTON / GAMEPAD_START_BUTTON) """
+		""" Use gamepad button for fire, start or select (name: GAMEPAD_FIRE_BUTTON / GAMEPAD_START_BUTTON / GAMEPAD_SELECT_BUTTON) """
 		setattr(config, name, button)
 		config.saveSettings(self.is_fullscreen)
 

@@ -36,10 +36,12 @@ def continue_menu(ctx):
 		return [ctx.key(pygame.K_RETURN)]
 	if f == 2:
 		labels = [item[0] for item in game.menuItems()]
-		ctx.check("menu has CONTINUE when game is saved: %s" % labels, labels[4] == "CONTINUE")
-	if f in (2, 3, 4, 5):
+		ctx.check("menu has CONTINUE when game is saved: %s" % labels, "CONTINUE" in labels)
+		ctx.data["menu_target"] = labels.index("CONTINUE")
+	target = ctx.data.get("menu_target", 0)
+	if 2 <= f < 2 + target:
 		return [ctx.key(pygame.K_DOWN)]
-	if f == 6:
+	if f == 2 + target:
 		return [ctx.key(pygame.K_RETURN)]
 	return []
 
@@ -99,15 +101,20 @@ def broken_savegame():
 
 
 def broken_menu(ctx):
+	game = ctx.game
 	f = ctx.menu_frame
 	if f == 1:
 		return [ctx.key(pygame.K_RETURN)]
-	if f in (2, 3, 4, 5):
+	if f == 2:
+		labels = [item[0] for item in game.menuItems()]
+		ctx.data["menu_target"] = labels.index("CONTINUE") if "CONTINUE" in labels else 0
+	target = ctx.data.get("menu_target", 0)
+	if 2 <= f < 2 + target:
 		return [ctx.key(pygame.K_DOWN)]
-	if f == 6:
+	if f == 2 + target:
 		# CONTINUE with broken file: stays in menu
 		return [ctx.key(pygame.K_RETURN)]
-	if f == 8:
+	if f == 2 + target + 2:
 		ctx.check("broken saved game doesn't start the game", ctx.in_function("showMenu"))
 		return [ctx.key(pygame.K_UP), ctx.key(pygame.K_UP), ctx.key(pygame.K_UP), ctx.key(pygame.K_UP)]
 	if f == 10:
@@ -179,12 +186,17 @@ def ship_savegame():
 
 
 def continue_ship_menu(ctx):
+	game = ctx.game
 	f = ctx.menu_frame
 	if f == 1:
 		return [ctx.key(pygame.K_RETURN)]
-	if f in (2, 3, 4, 5):
+	if f == 2:
+		labels = [item[0] for item in game.menuItems()]
+		ctx.data["menu_target"] = labels.index("CONTINUE") if "CONTINUE" in labels else 0
+	target = ctx.data.get("menu_target", 0)
+	if 2 <= f < 2 + target:
 		return [ctx.key(pygame.K_DOWN)]
-	if f == 6:
+	if f == 2 + target:
 		return [ctx.key(pygame.K_RETURN)]
 	return []
 

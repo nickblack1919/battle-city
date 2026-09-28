@@ -678,7 +678,9 @@ class ScreensMixin():
 			nr_of_players = int(data["nr_of_players"])
 			mode = data.get("mode", "campaign")
 			seed = int(data["seed"]) if mode == "random" else None
-			bot = bool(data.get("bot", False))
+			# old saved games have True (player 2), now it is the number of the computer player
+			bot = data.get("bot", 0)
+			bot = 2 if bot == True else int(bot or 0)
 			stats = [{
 				"score": int(player["score"]),
 				"lives": int(player["lives"]),
@@ -703,7 +705,7 @@ class ScreensMixin():
 		self.level_seed = seed
 		self.stage = stage
 		self.nr_of_players = nr_of_players
-		self.bot = bot and nr_of_players == 2
+		self.bot = bot if bot in (2, 3) and bot <= nr_of_players else 0
 		self.loaded_players_stats = stats
 		return True
 

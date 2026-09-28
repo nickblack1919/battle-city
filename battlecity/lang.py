@@ -35,6 +35,7 @@ PHRASES = {
 	"RESET CONTROLS": "СБРОС КНОПОК",
 	"PAD FIRE": "ОГОНЬ ГЕЙМПАДА",
 	"PAD START": "СТАРТ ГЕЙМПАДА",
+	"PAD SELECT": "SELECT ГЕЙМПАДА",
 	"PRESS KEY": "НАЖМИ КЛАВИШУ",
 	"PRESS BTN": "НАЖМИ КНОПКУ",
 	"NEW HIGH SCORE": "НОВЫЙ РЕКОРД",

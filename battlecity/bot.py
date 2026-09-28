@@ -39,9 +39,11 @@ def rectCells(rect):
 
 class Bot():
 
-	def __init__(self, game, player):
+	def __init__(self, game, player, guard = False):
 		self.game = game
 		self.player = player
+		# guard: helper of two players (2 PLAYERS + BOT) keeps to the castle and dies for it
+		self.guard = guard
 		# frames since bot was created
 		self.frame = 0
 		# cell -> [extra way cost, frames left]: human's lane after bot let him pass, cells bot got stuck at
@@ -230,6 +232,10 @@ class Bot():
 		""" Direction to press this frame (None - nothing), fires on the way """
 		p = self.player
 
+		shield = self.shieldCastle()
+		if shield != None:
+			return shield
+
 		dodge = self.dodge()
 		if dodge != None:
 			self.dodge_dir = dodge
@@ -318,6 +324,100 @@ class Bot():
 		result.sort(key=lambda item: item[0])
 		return result
 
+	# ---------------------------------------------------------------- guarding the castle
+
+	def castleThreats(self):
+		""" Enemy bullets which will hit own castle: [(frames to hit, bullet)], nearest first
+		A bullet is a threat while nothing (wall, tank) stops it before the castle
+		"""
+		castle = state.castle
+		if not castle.active:
+			return []
+		level = self.game.level
+		result = []
+		for bullet in state.bullets:
+			if bullet.state != bullet.STATE_ACTIVE or bullet.owner != bullet.OWNER_ENEMY:
+				continue
+			b = bullet.rect
+			c = castle.rect
+			if bullet.direction in (bullet.DIR_UP, bullet.DIR_DOWN):
+				if b.right <= c.left or b.left >= c.right:
+					continue
+				if bullet.direction == bullet.DIR_UP:
+					distance = b.top - c.bottom
+					between = pygame.Rect(b.left, c.bottom, b.width, max(distance, 0))
+				else:
+					distance = c.top - b.bottom
+					between = pygame.Rect(b.left, b.bottom, b.width, max(distance, 0))
+			else:
+				if b.bottom <= c.top or b.top >= c.bottom:
+					continue
+				if bullet.direction == bullet.DIR_LEFT:
+					distance = b.left - c.right
+					between = pygame.Rect(c.right, b.top, max(distance, 0), b.height)
+				else:
+					distance = c.left - b.right
+					between = pygame.Rect(b.right, b.top, max(distance, 0), b.height)
+			if distance < 0:
+				continue
+			# a wall on the way stops the bullet (bullets fly over grass and water)
+			stopped = False
+			for tile in level.mapr:
+				if tile.type in (level.TILE_BRICK, level.TILE_STEEL) and between.colliderect(tile):
+					stopped = True
+					break
+			if stopped:
+				continue
+			result.append((int(distance / max(bullet.speed, 0.1)), bullet))
+		result.sort(key=lambda item: item[0])
+		return result
+
+	def shieldsCastle(self, bullet, rect = None):
+		""" Tank at rect (its place now) stands on the way of bullet: it takes the hit instead of the castle """
+		r = rect or self.player.rect
+		if bullet.direction in (bullet.DIR_UP, bullet.DIR_DOWN):
+			if bullet.rect.right <= r.left or bullet.rect.left >= r.right:
+				return False
+			return r.bottom <= bullet.rect.top if bullet.direction == bullet.DIR_UP else r.top >= bullet.rect.bottom
+		if bullet.rect.bottom <= r.top or bullet.rect.top >= r.bottom:
+			return False
+		return r.right <= bullet.rect.left if bullet.direction == bullet.DIR_LEFT else r.left >= bullet.rect.right
+
+	def shieldCastle(self):
+		""" Bullet flies at own castle: shoot it down, or drive into it and take the hit (guard only)
+		@return direction to press or None
+		"""
+		if not self.guard or not config.BOT_GUARD_SHIELD:
+			return None
+		p = self.player
+		for frames, bullet in self.castleThreats():
+			# already on the way of the bullet: stay there and let it hit the tank
+			if self.shieldsCastle(bullet):
+				facing = opposite(bullet.direction)
+				if p.direction == facing and not self.slotBusy() and self.safeToFire(facing):
+					self.fire()
+				return facing if p.direction != facing else None
+			if p.paralised:
+				continue
+			# step into the way of the bullet if there is time to get there
+			r = p.rect
+			b = bullet.rect
+			if bullet.direction in (bullet.DIR_UP, bullet.DIR_DOWN):
+				options = [(p.DIR_RIGHT, b.left - r.right + 8), (p.DIR_LEFT, r.left - b.right + 8)]
+				ahead = r.bottom <= b.top if bullet.direction == bullet.DIR_UP else r.top >= b.bottom
+			else:
+				options = [(p.DIR_DOWN, b.top - r.bottom + 8), (p.DIR_UP, r.top - b.bottom + 8)]
+				ahead = r.right <= b.left if bullet.direction == bullet.DIR_LEFT else r.left >= b.right
+			if not ahead:
+				continue
+			for direction, px in options:
+				if px <= 0:
+					continue
+				if px / max(p.speed, 0.1) <= frames and self.canMove(direction, px):
+					self.force(direction, px)
+					return direction
+		return None
+
 	def dodge(self):
 		""" Enemy bullet flies at bot (seen for reaction time, BOT_DODGE_CHANCE of bullets): shoot it down if tank looks
 		at it, else direction to drive out of its way (or to turn to it and shoot it down if there is no time) """
@@ -326,9 +426,16 @@ class Bot():
 		self.bullets = dict([(id(bullet), self.bullets.get(id(bullet), [self.frame, random.random() * 100 < config.BOT_DODGE_CHANCE]))
 			for frames, bullet in incoming])
 		r = p.rect
+		threats = [bullet for frames, bullet in self.castleThreats()] if self.guard and config.BOT_GUARD_SHIELD else []
 		for frames, bullet in incoming:
 			seen, will_dodge = self.bullets[id(bullet)]
 			if not will_dodge or self.frame - seen < config.BOT_DODGE_REACTION_FRAMES:
+				continue
+			# guard doesn't step out of the way of a bullet flying at the castle: it dies instead of the castle
+			if bullet in threats and self.shieldsCastle(bullet):
+				facing = opposite(bullet.direction)
+				if p.direction == facing and not self.slotBusy() and self.safeToFire(facing):
+					self.fire()
 				continue
 			facing = opposite(bullet.direction)
 			if p.direction == facing and not self.slotBusy() and self.safeToFire(facing):
@@ -619,13 +726,25 @@ class Bot():
 			if place not in candidates or total < candidates[place]:
 				candidates[place] = total
 
-		threats = [enemy for enemy in enemies if castleDistance(enemy.rect) <= config.BOT_DEFEND_DISTANCE]
-		for enemy in threats or enemies:
+		# guard keeps to the castle: places further away cost extra, farther enemies are attacked too
+		defend_distance = config.BOT_GUARD_DEFEND_DISTANCE if self.guard else config.BOT_DEFEND_DISTANCE
+
+		def postCost(place):
+			""" Extra cost of standing at place: guard doesn't leave the castle """
+			if not self.guard:
+				return 0
+			rect = pygame.Rect(place[0] * CELL, place[1] * CELL, 32, 32)
+			away = castleDistance(rect) / float(CELL) - config.BOT_GUARD_RADIUS
+			return max(0, away) * config.BOT_GUARD_AWAY_COST
+
+		threats = [enemy for enemy in enemies if castleDistance(enemy.rect) <= defend_distance]
+		# guard attacks only enemies coming to the castle: it doesn't run across the field for the others
+		for enemy in threats if self.guard else (threats or enemies):
 			priority = castleDistance(enemy.rect) / float(CELL) * config.BOT_CASTLE_PRIORITY
 			for place in best:
 				extra = shotCost(place, enemy.rect)
 				if extra != None:
-					add(best[place] + extra + priority, place)
+					add(best[place] + extra + priority + postCost(place), place)
 
 		if not threats:
 			for bonus in state.bonuses:
@@ -634,9 +753,18 @@ class Bot():
 				mine = abs(bonus.rect.centerx - p.rect.centerx) + abs(bonus.rect.centery - p.rect.centery)
 				if any([abs(bonus.rect.centerx - h.rect.centerx) + abs(bonus.rect.centery - h.rect.centery) < mine for h in self.humans()]):
 					continue
+				bonus_distance = config.BOT_GUARD_BONUS_DISTANCE if self.guard else config.BOT_BONUS_DISTANCE
 				for place in best:
-					if best[place] <= config.BOT_BONUS_DISTANCE and pygame.Rect(place[0] * CELL, place[1] * CELL, 32, 32).colliderect(bonus.rect):
+					if best[place] <= bonus_distance and pygame.Rect(place[0] * CELL, place[1] * CELL, 32, 32).colliderect(bonus.rect):
 						add(best[place] - config.BOT_BONUS_VALUE, place)
+
+		if not candidates and self.guard:
+			# nothing to shoot: stand next to the castle, in the open row above the fortress
+			for place in best:
+				rect = pygame.Rect(place[0] * CELL, place[1] * CELL, 32, 32)
+				if rect.colliderect(FORTRESS_RECT):
+					continue
+				add(best[place] + castleDistance(rect) / float(CELL) * config.BOT_GUARD_AWAY_COST, place)
 
 		if not candidates and not enemies:
 			# wait for enemies where they appear
@@ -653,7 +781,7 @@ class Bot():
 			for place in best:
 				distance = min([abs(place[0] - tx) + abs(place[1] - ty) for tx, ty in targets])
 				if distance >= 2:
-					add(best[place] + distance * 2, place)
+					add(best[place] + distance * 2 + postCost(place), place)
 
 		if not candidates:
 			self.goal = None

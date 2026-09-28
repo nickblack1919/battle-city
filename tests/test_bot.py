@@ -315,7 +315,7 @@ def save_bot(ctx):
 	if ctx.frame > 100 and game.stage == 2 and game.running:
 		with open(savegame_file()) as f:
 			data = json.load(f)
-		ctx.check("saved game remembers bot (%s)" % data.get("bot"), data.get("bot") == True and data["nr_of_players"] == 2)
+		ctx.check("saved game remembers bot (%s)" % data.get("bot"), data.get("bot") == 2 and data["nr_of_players"] == 2)
 		ctx.check("bot still plays next stage", g["players"][1].bot != None)
 		ctx.finish()
 

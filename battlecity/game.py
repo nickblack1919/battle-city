@@ -119,8 +119,8 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		# number of players. here is defined preselected menu value
 		self.nr_of_players = 1
 
-		# player 2 is computer partner (1 PLAYER + BOT)
-		self.bot = False
+		# number of the player driven by the computer: 2 (1 PLAYER + BOT) or 3 (2 PLAYERS + BOT), 0 - none
+		self.bot = 0
 
 		# selected main menu item
 		self.menu_index = 0
@@ -311,10 +311,20 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			player.gamepad = gamepad
 
 	def applyGamepads(self):
-		""" Gamepad controls in game: movement, fire (auto fire while held), Start - pause """
+		""" Gamepad controls in game: movement, fire (auto fire while held), Start - pause, Select - borrow a life """
 		for gamepad in self.gamepads:
 			if gamepad.pressed("start") and not self.game_over and self.active:
 				self.pause()
+				break
+
+		# Select: a player without lives borrows one from a partner (his own gamepad asks for him)
+		for gamepad in self.gamepads:
+			if gamepad.pressed("select") and not self.game_over and self.active:
+				owner = None
+				for player in state.players:
+					if player.gamepad is gamepad:
+						owner = player
+				self.borrowLife(owner)
 				break
 
 		for player in state.players:
@@ -853,7 +863,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 				)
 				player.controls = list(config.PLAYER_CONTROLS[1])
 				# computer partner: P2 keys and gamepads don't control it
-				if self.bot and self.mode != "versus":
+				if self.bot == 2 and self.mode != "versus":
 					player.controls = []
 					player.bot = Bot(self, player)
 				state.players.append(player)
@@ -865,8 +875,10 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 				player = Player(
 					self.level, 0, [x, y], self.DIR_UP, (16*2, 0, 16*2, 16*2), 3
 				)
-				# third player uses gamepad only
+				# third player uses gamepad only, or he is the computer helper guarding the castle
 				player.controls = []
+				if self.bot == 3 and self.mode != "versus":
+					player.bot = Bot(self, player, guard = True)
 				state.players.append(player)
 
 		# continue saved game
@@ -1062,6 +1074,31 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		"""
 		self.next_action = next_action
 		self.running = False
+
+	def borrowLife(self, player = None):
+		""" A player without lives takes one from a partner who has a spare (key B or gamepad Select).
+		player: who asks for a life (any player without lives if None); a bot never takes a human's life
+		@return True if a life was given
+		"""
+		if self.game_over or self.game_paused or self.mode == "versus":
+			return False
+		dead_player = None
+		if player != None and player.state == player.STATE_DEAD and not player.bot:
+			dead_player = player
+		else:
+			for candidate in state.players:
+				if candidate.state == candidate.STATE_DEAD and not candidate.bot:
+					dead_player = candidate
+		if dead_player == None:
+			return False
+		for donor in state.players:
+			if donor is not dead_player and donor.state in (donor.STATE_ALIVE, donor.STATE_SPAWNING) and donor.lives >= 2:
+				donor.lives -= 1
+				dead_player.lives += 1
+				dead_player.superpowers = config.PLAYER_START_SUPERPOWER
+				self.respawnPlayer(dead_player)
+				return True
+		return False
 
 	def playerFire(self, player):
 		""" Fire player's bullet if bullet quota allows it """
@@ -1317,19 +1354,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 
 					# borrow life from active players (human's lives never go to the bot)
 					if event.key == pygame.K_b:
-						dead_player = None
-						for player in state.players:
-							if player.state == player.STATE_DEAD and not player.bot:
-								dead_player = player
-						
-						if dead_player:
-							for plr in state.players:
-								if plr.state == plr.STATE_ALIVE and plr.lives >= 2:
-									plr.lives -= 1
-									dead_player.lives += 1
-									dead_player.superpowers = config.PLAYER_START_SUPERPOWER
-									self.respawnPlayer(dead_player)
-									break
+						self.borrowLife()
 
 					for player in state.players:
 						# keys pressed during spawn animation work when tank appears

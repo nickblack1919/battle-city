@@ -261,6 +261,15 @@ BOT_AVOID_COST = 8	# avoided cell costs like n cells of way
 BOT_HUMAN_COST = 6	# cell with human's tank costs like n cells of way
 BOT_ENEMY_COST = 3	# cell with enemy tank costs like n cells of way
 
+# GUARD BOT: computer helper of two players (2 PLAYERS + BOT) keeps to the castle and dies for it
+BOT_GUARD_RADIUS = 7	# cells: guard keeps its place within n cells of the castle
+BOT_GUARD_AWAY_COST = 5	# every cell further away from the castle costs like n cells of way
+BOT_GUARD_DEFEND_DISTANCE = 288	# px: guard attacks enemies this close to the castle first (others are ignored)
+BOT_GUARD_BONUS_DISTANCE = 6	# guard leaves its post for a bonus only n cells of way away
+BOT_GUARD_SHIELD = True	# guard drives into a bullet flying at the castle and doesn't dodge it
+# bullets of the computer helper never hurt players: they don't damage and don't stun a partner
+BOT_HARMLESS_TO_PLAYERS = True
+
 # interface language: EN or RU (settings screen)
 LANGUAGE = "EN"
 
@@ -276,6 +285,8 @@ GAMEPAD_FIRE_BUTTON = None
 GAMEPAD_A_BUTTON = 0
 GAMEPAD_B_BUTTON = 1
 GAMEPAD_START_BUTTON = None
+# Select (Back) button: a player without lives borrows one from a partner (like key B)
+GAMEPAD_SELECT_BUTTON = None
 
 # DEMO: computer plays after n ms in menu without input (0 - no demo), demo lasts n ms
 DEMO_IDLE_TIME = 20000
@@ -470,7 +481,7 @@ def levelFile(level_nr):
 def loadSettings():
 	""" Apply settings saved on settings screen """
 	global play_sounds, START_LEVEL, START_FULLSCREEN, PLAYER_CONTROLS, AUTO_FIRE, ENEMY_AI
-	global GAMEPAD_ASSIGN, GAMEPAD_FIRE_BUTTON, GAMEPAD_START_BUTTON, LANGUAGE, CRT_FILTER
+	global GAMEPAD_ASSIGN, GAMEPAD_FIRE_BUTTON, GAMEPAD_START_BUTTON, GAMEPAD_SELECT_BUTTON, LANGUAGE, CRT_FILTER
 
 	try:
 		with open(dataFile(SETTINGS_FILE), "r") as f:
@@ -507,7 +518,7 @@ def loadSettings():
 			except (TypeError, ValueError):
 				return "AUTO"
 		GAMEPAD_ASSIGN = [gamepadNumber(value) for value in gamepads]
-	for key, name in (("pad_fire", "GAMEPAD_FIRE_BUTTON"), ("pad_start", "GAMEPAD_START_BUTTON")):
+	for key, name in (("pad_fire", "GAMEPAD_FIRE_BUTTON"), ("pad_start", "GAMEPAD_START_BUTTON"), ("pad_select", "GAMEPAD_SELECT_BUTTON")):
 		try:
 			if settings.get(key) != None and int(settings[key]) >= 0:
 				globals()[name] = int(settings[key])
@@ -544,6 +555,7 @@ def saveSettings(fullscreen):
 		"gamepads": GAMEPAD_ASSIGN,
 		"pad_fire": GAMEPAD_FIRE_BUTTON,
 		"pad_start": GAMEPAD_START_BUTTON,
+		"pad_select": GAMEPAD_SELECT_BUTTON,
 		"controls": PLAYER_CONTROLS,
 	}
 	try:

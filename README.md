@@ -25,14 +25,14 @@ Command line arguments:
 | Fire (hold for auto fire) | J | right Shift | gamepad A / B / X / Y |
 
 Player 1 and 2 keys can be changed on the settings screen. Gamepads are assigned to player 3 first,
-then to players 1 and 2 (can be changed on the settings screen); gamepad Start pauses the game.
+then to players 1 and 2 (can be changed on the settings screen); gamepad Start pauses the game, Select borrows a life.
 
 | Key | Action |
 |---|---|
 | Enter | pause |
 | Ctrl+F / Cmd+F / Alt+Enter | full screen / window |
 | M | sound on / off |
-| B | borrow a life from partner for a player without lives (bot never gets a human's life) |
+| B / gamepad Select | borrow a life from a partner for a player without lives (the computer partner never gets a human's life; Select asks for the player holding that gamepad) |
 | ESC | in game: exit to main menu (asks Y / N), in editor and settings: back to menu, in menu: quit |
 | both players' movement keys / arrows / gamepad d-pad / gamepad A and B | on the first "STAGE N" screen of a new game: choose the stage (up, right, A - next, down, left, B - previous; campaign and random levels), Enter / Space / gamepad Start begins it |
 | P | freeze enemies (debug, only with `DEBUG_KEYS = True` in config) |
@@ -46,6 +46,12 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
   fires only when neither the castle, fortress walls nor the human are in its line of fire, dodges enemy bullets, steps out
   of enemy lines of fire while its bullet isn't ready, picks up near bonuses the human isn't closer to and drives out of
   the human's way. P2 keys and gamepads don't control it; its score doesn't go to hiscores; saved game remembers it.
+- **2 PLAYERS + BOT** - two humans and a computer helper playing the third tank, which guards the castle:
+  it keeps its place within `BOT_GUARD_RADIUS` cells of the castle, attacks only enemies coming to it
+  (`BOT_GUARD_DEFEND_DISTANCE`), leaves its post only for a bonus a few cells away, and saves the castle at the cost of
+  its life - when an enemy bullet flies at the castle it shoots the bullet down or drives into it and doesn't dodge
+  (`BOT_GUARD_SHIELD`). Its bullets never hurt players: it doesn't fire when a player is in its line of fire, and even
+  a bullet that does reach a partner vanishes without damage or stun (`BOT_HARMLESS_TO_PLAYERS`).
 - **CONTINUE** - continue saved campaign (shown when there is a saved game).
 - **ENDLESS 1P / 1P + BOT / 2P** - waves of enemies until game over, every wave is harder.
 - **RANDOM LEVELS** - 1 player campaign on generated maps: every game gets a new random seed, every stage a new
@@ -57,7 +63,7 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
 - **VERSUS** - two players fight each other, each defends own castle; destroyed castle or no lives left loses.
 - **LEVEL EDITOR** - edit any of 35 levels: arrows / mouse move cursor, 1-5 tile, 0 eraser, space / left mouse draw,
   right mouse erase, `[` `]` level, G fill with generated map, S save, D back to original level, T save and play.
-- **SETTINGS** - difficulty preset, sound, full screen, start level, controls, NES speed (DENDY / NTSC),
+- **SETTINGS** - difficulty preset, sound, full screen, start level, controls, NES speed (NTSC / DENDY),
   auto fire (ON by default - holding fire button shoots again when bullet slot is free, with the timing of the
   Dendy turbo button: about 12 presses per second; OFF - every shot needs
   a press, like on NES), enemy AI (CLASSIC - random paths, sometimes towards the castle; NES - like on NES: at
@@ -77,7 +83,7 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
   ahead of a moving player or behind him. An attack that lost half of its tanks or lasted 15 seconds ends
   with regroup in new hiding spots. One tank rushes the castle while the player is far from it; without
   players all enemies attack the castle. Bullets behind walls aren't dodged, dodges go out of lines of fire), gamepads: which gamepad every player uses (AUTO, OFF or gamepad number) and gamepad fire /
-  start buttons (Enter, then press the gamepad button; left arrow - default buttons), language (EN / RU; Russian
+  start / select buttons (Enter, then press the gamepad button; left arrow - default buttons), language (EN / RU; Russian
   text uses pygame default font, the game font has no Cyrillic letters), CRT filter (OFF / SOFT / STRONG - old TV
   look: scanlines, darker edges and rounded corners, STRONG adds light horizontal glow; the game picture itself is not changed).
 - **DEMO** - after 20 seconds in the menu without input the computer plays a 2 player game; any key returns to menu.
