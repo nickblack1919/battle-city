@@ -338,6 +338,41 @@ def stealth_and_bonuses(ctx):
 	ctx.finish()
 
 
+def scores_screen(ctx):
+	""" Scores screen of 2 players + bot: bot's line with its kills, bonus text doesn't cover it """
+	g, game, d = ctx.g, ctx.game, ctx.data
+	screen = g["screen"]
+	if ctx.frame == 1:
+		p1, p2, guard = clear(ctx)
+		# player 1 destroyed most tanks: he gets the bonus, which is written under his column
+		p1.trophies["enemy0"] = 5
+		p2.trophies["enemy0"] = 1
+		guard.trophies["enemy0"] = 3
+		guard.trophies["enemy3"] = 1
+		for player in g["players"]:
+			player.lives = 3
+		guard.score = 4300
+		game.endLevel(game.showScores)
+		return
+	if ctx.in_function("showScores"):
+		d["seen"] = True
+		# bot's line: lowest row of the screen
+		row = [screen.get_at((x, y))[:3] for x in range(25, 456) for y in range(393, 412)]
+		colors = set([color for color in row if color != (0, 0, 0)])
+		if colors:
+			d["colors"] = colors
+			d["label"] = any([screen.get_at((x, y))[:3] != (0, 0, 0) for x in range(25, 80) for y in range(393, 412)])
+			d["score"] = any([screen.get_at((x, y))[:3] != (0, 0, 0) for x in range(330, 456) for y in range(393, 412)])
+	if d.get("colors") and (not ctx.in_function("showScores") or ctx.frame > 500):
+		ctx.check("bot's line has its name and score", d.get("label") and d.get("score"))
+		bordeaux = (150, 25, 45)
+		ctx.check("bonus text doesn't reach bot's line (%s)" % sorted(d["colors"]), bordeaux not in d["colors"])
+		ctx.finish()
+	if ctx.frame > 700:
+		ctx.check("scores screen reached (%s)" % d.get("seen"), False)
+		ctx.finish()
+
+
 def borrow_life(ctx):
 	""" A player without lives borrows one from a partner: key B and gamepad Select """
 	g, game = ctx.g, ctx.game
@@ -400,6 +435,7 @@ SCENARIOS = {
 	"shields_castle": {"fn": shields_castle, "menu": GUARD_MENU},
 	"keeps_to_castle": {"fn": keeps_to_castle, "menu": GUARD_MENU},
 	"stealth_and_bonuses": {"fn": stealth_and_bonuses, "menu": GUARD_MENU},
+	"scores_screen": {"fn": scores_screen, "menu": GUARD_MENU},
 	"borrow_life": {"fn": borrow_life, "menu": GUARD_MENU},
 }
 

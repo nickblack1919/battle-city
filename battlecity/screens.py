@@ -360,24 +360,34 @@ class ScreensMixin():
 			tanks = sum([i for i in state.players[1].trophies.values()]) - state.players[1].trophies["bonus"]
 			state.screen.blit(self.text(str(tanks).rjust(2), False, white), [277, 335])
 
-		# third player: short table, there is no room for detailed one
+		# third player: one line in the lowest row, how many tanks he destroyed without the detailed table
+		# (the bonus for most kills is written above it)
 		if self.nr_of_players == 3:
-			state.screen.blit(self.text("III-PLAYER", False, purple), [25, 375])
-			state.screen.blit(self.text(str(state.players[2].score).rjust(8), False, pink), [325, 375])
-			kills = [state.players[2].trophies["enemy" + str(i)] for i in range(4)]
-			kills_text = "KILLS " + " ".join([str(k) for k in kills]) + " = " + str(sum(kills))
-			state.screen.blit(self.text(kills_text, False, white), [25, 395])
+			third = state.players[2]
+			label = self.text("BOT" if third.bot else "III-PLAYER", False, purple)
+			state.screen.blit(label, [25, 395])
+			score = self.text(str(third.score).rjust(8), False, pink)
+			score_x = 455 - score.get_width()
+			state.screen.blit(score, [score_x, 395])
+			kills = sum(third.trophies.values()) - third.trophies["bonus"]
+			kills_text = self.text("KILLS " + str(kills), False, white)
+			kills_x = 25 + label.get_width() + 16
+			if kills_x + kills_text.get_width() > score_x - 8:
+				kills_text = self.text(str(kills), False, white)
+			state.screen.blit(kills_text, [kills_x, 395])
 
 		if kills_bonus_player != None:
-			# like on NES: under the column of that player, red "BONUS!" and points below it
-			red = pygame.Color(216, 40, 0)
-			x, y = [(25, 365), (310, 365), (325, 395)][kills_bonus_player]
-			state.screen.blit(self.text("BONUS!", False, red), [x, y])
-			points = self.text(str(config.TWO_PLAYER_KILLS_BONUS) + " PTS", False, red)
+			# like on NES: under the column of that player, "BONUS!" (dark red) and white points below it
+			bordeaux = pygame.Color(150, 25, 45)
+			x, y = [(25, 355), (310, 355), (25, 375)][kills_bonus_player]
+			bonus_text = self.text("BONUS!", False, bordeaux)
+			state.screen.blit(bonus_text, [x, y])
+			points = self.text(str(config.TWO_PLAYER_KILLS_BONUS) + " PTS", False, white)
 			if kills_bonus_player == 2:
-				state.screen.blit(points, [x - points.get_width() - 16, y])
+				# third player's own line is below: points go next to the text
+				state.screen.blit(points, [x + bonus_text.get_width() + 16, y])
 			else:
-				state.screen.blit(points, [x, y + 24])
+				state.screen.blit(points, [x, y + 20])
 			if config.play_sounds:
 				# NES jingle for the 1000 points bonus (tools/nes_sfx.py), old sound as a fallback
 				nes_sound = "bonus1000_pal" if config.NES_VERSION == "DENDY" else "bonus1000"

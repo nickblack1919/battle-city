@@ -198,7 +198,8 @@ Like on NES, a bonus appears on one of 16 fixed places (not right under a player
 frames (fast tank 24, player 32), scores screen pauses are counted in NES frames.
 
 Extra life every 20000 points (NES and NES+: only once, like on NES). In 2+ player games the player who destroyed most
-tanks on a stage gets 1000 points, if they have lives left: red "BONUS!" and the points under his column, like on NES.
+tanks on a stage gets 1000 points, if they have lives left: dark red "BONUS!" (like on NES) and white points under his
+column. In a 3 player game the third tank gets one line in the lowest row: name, score and how many tanks it destroyed.
 
 ## Enemies
 
