@@ -83,6 +83,22 @@ def mode(ctx):
 	ctx.check("player 2 keys work", players[1].controls == list(g["PLAYER_CONTROLS"][1]))
 	ctx.check("helper is a guard bot", players[2].bot != None and players[2].bot.guard)
 	ctx.check("helper isn't driven by keys or gamepads", players[2].controls == [] and players[2].gamepad == None)
+
+	# helper's tank has its own color, so it isn't taken for player 2
+	ctx.check("helper has its own color", players[2].color_order == g["BOT_COLOR_ORDER"] and players[0].color_order == None and players[1].color_order == None)
+
+	def colors(player):
+		""" Colors of the tank's sprite, grey ones (black, white) left out """
+		image = player.image
+		found = set([image.get_at((x, y))[:3] for x in range(0, 32, 2) for y in range(0, 32, 2)])
+		return set([color for color in found if max(color) != min(color)])
+
+	bot_colors, p2_colors = colors(players[2]), colors(players[1])
+	ctx.check("helper is drawn in other colors than player 2 (%s vs %s)" % (sorted(bot_colors), sorted(p2_colors)),
+		bot_colors and not (bot_colors & p2_colors))
+	# green tank became blue: every color of it has more blue than green
+	ctx.check("helper's tank is blue (%s)" % (sorted(bot_colors),), all([color[2] >= color[1] for color in bot_colors]))
+	ctx.check("player 2 stays green (%s)" % (sorted(p2_colors),), all([color[1] >= color[2] for color in p2_colors]))
 	ctx.finish()
 
 

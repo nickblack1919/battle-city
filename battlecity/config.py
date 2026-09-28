@@ -275,6 +275,9 @@ BOT_GUARD_ENEMY_COST = 10	# cell with an enemy tank costs the guard like n cells
 BOT_GUARD_ENEMY_NEAR_COST = 4	# ... and every cell around an enemy tank like n cells
 # bullets between a player and the computer partner never hurt: no damage, no stun, in both directions
 BOT_NO_FRIENDLY_FIRE = True
+# color of the computer partner's tank: order of red, green and blue channels of the sprite.
+# (0, 2, 1) swaps green and blue, so the green tank becomes blue and isn't taken for player 2
+BOT_COLOR_ORDER = (0, 2, 1)
 
 # interface language: EN or RU (settings screen)
 LANGUAGE = "EN"

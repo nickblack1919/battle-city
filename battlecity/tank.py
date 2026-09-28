@@ -60,6 +60,24 @@ def frontEdgeCells(new_rect, direction):
 	x = left if direction == Tank.DIR_LEFT else right
 	return set([(x // CELL, y // CELL) for y in list(range(top, bottom, CELL)) + [bottom]])
 
+def recolorImage(image, order):
+	""" Copy of image with red, green and blue channels of every pixel in this order
+	(0, 1, 2) leaves colors as they are, (0, 2, 1) swaps green and blue: a green tank becomes blue
+	"""
+	if order == None or tuple(order) == (0, 1, 2):
+		return image
+	image = image.copy()
+	image.lock()
+	for x in range(image.get_width()):
+		for y in range(image.get_height()):
+			color = image.get_at((x, y))
+			channels = (color[0], color[1], color[2])
+			if color[3] == 0 or channels == (0, 0, 0):
+				continue
+			image.set_at((x, y), (channels[order[0]], channels[order[1]], channels[order[2]], color[3]))
+	image.unlock()
+	return image
+
 def cellBlocked(level, cell, can_swim):
 	""" Cell (cx, cy) has a wall in it; cells outside the field count as walls """
 	cx, cy = cell
@@ -1913,6 +1931,9 @@ class Player(Tank):
 		# computer partner driving this tank (bot.Bot), None - human player
 		self.bot = None
 
+		# color of the tank's sprites: order of RGB channels (computer partner has its own), None - as drawn
+		self.color_order = None
+
 		# store how many bonuses in this stage this player has collected
 		self.trophies = config.emptyTrophies()
 
@@ -1951,6 +1972,18 @@ class Player(Tank):
 			self.rotate(self.DIR_UP, False)
 		else:
 			self.rotate(direction, False)
+
+	def setColorOrder(self, order):
+		""" Paint the tank in its own color (BOT_COLOR_ORDER for the computer partner):
+		sprites of every star, shield and armor frames
+		"""
+		self.color_order = order
+		if order == None:
+			return
+		self.images2 = [recolorImage(image, order) for image in self.images2]
+		self.protected_image = recolorImage(self.protected_image, order)
+		self.armor_images = [recolorImage(image, order) for image in self.armor_images]
+		self.updateSprites()
 
 	def updateSprites(self):
 		sprite_id = self.superpowers
