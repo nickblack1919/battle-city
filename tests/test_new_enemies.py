@@ -193,10 +193,43 @@ def composition(ctx):
 	ctx.finish()
 
 
+def mortar_spawn(ctx):
+	""" Mortar never appears in the middle: its shells would fly over the fortress at once """
+	g, game = ctx.g, ctx.game
+	if ctx.frame != 10:
+		return
+	Enemy = g["Enemy"]
+	del g["enemies"][:]
+	game.level.max_active_enemies = 20
+	center_x = 12 * game.TILE_SIZE
+
+	# spawn places are used in turn: a mortar standing in the queue takes a side place instead of the middle
+	game.level.enemies_left[:] = [Enemy.TYPE_MORTAR] * 9
+	g["enemy_spawn_pos_index"] = 2
+	positions = []
+	for i in range(9):
+		game.spawnEnemy()
+		positions.append(g["enemies"][-1].rect.left)
+	ctx.check("mortars never appear in the middle (%s)" % sorted(set(positions)), center_x not in positions)
+	ctx.check("mortars do appear (%d)" % len(positions), len(positions) == 9)
+
+	# other tanks use all three places as on NES
+	del g["enemies"][:]
+	game.level.enemies_left[:] = [Enemy.TYPE_BASIC] * 9
+	g["enemy_spawn_pos_index"] = 2
+	positions = []
+	for i in range(9):
+		game.spawnEnemy()
+		positions.append(g["enemies"][-1].rect.left)
+	ctx.check("other tanks still appear in the middle (%s)" % sorted(set(positions)), center_x in positions)
+	ctx.finish()
+
+
 SCENARIOS = {
 	"types": {"fn": types},
 	"stealth_cycle": {"fn": stealth_cycle},
 	"mortar": {"fn": mortar},
+	"mortar_spawn": {"fn": mortar_spawn},
 	"boss": {"fn": boss},
 	"composition": {"fn": composition},
 }

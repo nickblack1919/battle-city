@@ -262,8 +262,17 @@ BOT_HUMAN_COST = 6	# cell with human's tank costs like n cells of way
 BOT_ENEMY_COST = 3	# cell with enemy tank costs like n cells of way
 
 # GUARD BOT: computer helper of two players (2 PLAYERS + BOT) keeps to the castle and dies for it
-BOT_GUARD_RADIUS = 7	# cells: guard keeps its place within n cells of the castle
-BOT_GUARD_AWAY_COST = 5	# every cell further away from the castle costs like n cells of way
+# guard stands at one of three posts in front of the castle: center or a free flank
+BOT_GUARD_POST_ROW = 19	# cells: row of the posts (castle is in row 24)
+BOT_GUARD_POST_SIDE = 8	# cells: flank posts are this far to the left and to the right of the castle
+BOT_GUARD_POST_STICKINESS = 2	# cells: guard changes its post only when another one is this much better
+BOT_GUARD_REACTION_FRAMES = 4	# guard fires after an enemy was in its line of fire for n frames (common: 8)
+BOT_GUARD_FIRE_INTERVAL = 5	# guard presses fire at most every n frames (common: 8)
+BOT_GUARD_HUMAN_COST = 14	# cell with a player's tank costs the guard like n cells of way: it keeps away from them
+BOT_GUARD_HUMAN_NEAR_COST = 6	# ... and every cell around a player like n cells
+BOT_GUARD_RADIUS = 7	# cells: guard keeps its place within n cells of its post
+BOT_GUARD_MAX_AWAY = 10	# cells: it never goes further than this from the post, even to shoot an enemy
+BOT_GUARD_AWAY_COST = 5	# every cell further away from the post costs like n cells of way
 BOT_GUARD_DEFEND_DISTANCE = 288	# px: guard attacks enemies this close to the castle first (others are ignored)
 BOT_GUARD_BONUS_DISTANCE = 6	# guard leaves its post for a bonus only n cells of way away
 BOT_GUARD_SHIELD = True	# guard drives into a bullet flying at the castle and doesn't dodge it
@@ -309,6 +318,9 @@ NEW_ENEMIES_FROM_STAGE = 5	# stealth and mortar tanks appear from this stage (wa
 BOSS_EVERY_STAGES = 5	# boss is the last enemy of every n-th stage (wave)
 BOSS_HEALTH = 2000
 BOSS_BONUS_EVERY = 500	# boss drops a bonus every n damage
+# mortar shells fly over walls: a mortar appearing in the middle would shell the castle at once,
+# so it is spawned on a side place instead
+MORTAR_CENTER_SPAWN = False
 STEALTH_ALPHA = 10	# stealth tank transparency (0-255) while hidden: barely a shadow
 STEALTH_REVEAL_FRAMES = 30	# stealth tank is visible for n frames after firing or being hit
 # stealth tank shows itself for STEALTH_SHOW_TIME ms and hides for STEALTH_HIDE_TIME ms, again and again

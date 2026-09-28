@@ -720,9 +720,10 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		for i in range(max(1, int(round(config.nesFrames(frames) * config.GAME_FRAME_TIMING / 1000.0)))):
 			self.delay(config.GAME_FRAME_TIMING)
 
-	def nextSpawningPosition(self):
+	def nextSpawningPosition(self, avoid_center = False):
 		""" Next enemy spawning position: like on NES they are used in turn (center, right, left)
 		and a tank appears there even if another tank is standing on that place
+		avoid_center: this tank doesn't appear in the middle (mortar) - the next place is taken
 		@return list [x, y]
 		"""
 
@@ -734,6 +735,8 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 
 		state.enemy_spawn_pos_index += 1
 		state.enemy_spawn_pos_index %= len(available_positions)
+		if avoid_center and state.enemy_spawn_pos_index == 0:
+			state.enemy_spawn_pos_index = 1
 		return available_positions[state.enemy_spawn_pos_index]
 
 	def spawnEnemy(self):
@@ -751,7 +754,10 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			return False
 		if len(self.level.enemies_left) < 1:
 			return False
-		enemy = Enemy(self.level, 1, self.nextSpawningPosition())
+		# mortar shells fly over walls: it doesn't appear in the middle, right above the castle
+		next_type = self.level.enemies_left[-1]
+		avoid_center = next_type == Enemy.TYPE_MORTAR and not config.MORTAR_CENTER_SPAWN
+		enemy = Enemy(self.level, 1, self.nextSpawningPosition(avoid_center))
 		# NES: bonus lying on the field is removed when a new bonus tank appears
 		if enemy.bonus and not config.ALLOW_MULTI_BONUS:
 			del state.bonuses[:]

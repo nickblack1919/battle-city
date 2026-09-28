@@ -236,10 +236,11 @@ class ScreensMixin():
 			for sound in state.sounds:
 				state.sounds[sound].stop()
 
-		# 2+ players: player who destroyed most tanks on this stage gets bonus points (like on NES)
+		# 2+ players: player who destroyed most tanks on this stage gets bonus points (like on NES).
+		# The computer helper doesn't take part: its score isn't counted anywhere
 		kills_bonus_player = None
 		if self.nr_of_players >= 2 and config.TWO_PLAYER_KILLS_BONUS > 0 and not self.game_over:
-			kills = [sum(player.trophies.values()) - player.trophies["bonus"] for player in state.players]
+			kills = [0 if player.bot else sum(player.trophies.values()) - player.trophies["bonus"] for player in state.players]
 			best_kills = max(kills)
 			# NES: only player with lives left gets the bonus
 			if best_kills > 0 and kills.count(best_kills) == 1 and state.players[kills.index(best_kills)].lives > 0:
@@ -361,10 +362,11 @@ class ScreensMixin():
 			state.screen.blit(self.text(str(tanks).rjust(2), False, white), [277, 335])
 
 		# third player: one line in the lowest row, how many tanks he destroyed without the detailed table
-		# (the bonus for most kills is written above it)
-		if self.nr_of_players == 3:
+		# (the bonus for most kills is written above it). The computer helper has no line: its score isn't counted
+		third_line = self.nr_of_players == 3 and not state.players[2].bot
+		if third_line:
 			third = state.players[2]
-			label = self.text("BOT" if third.bot else "III-PLAYER", False, purple)
+			label = self.text("III-PLAYER", False, purple)
 			state.screen.blit(label, [25, 395])
 			score = self.text(str(third.score).rjust(8), False, pink)
 			score_x = 455 - score.get_width()
@@ -379,7 +381,9 @@ class ScreensMixin():
 		if kills_bonus_player != None:
 			# like on NES: under the column of that player, "BONUS!" (dark red) and white points below it
 			bordeaux = pygame.Color(150, 25, 45)
-			x, y = [(25, 355), (310, 355), (25, 375)][kills_bonus_player]
+			# lowest free row: the third player's line (if any) stays below the bonus
+			row = 355 if third_line else 375
+			x, y = [(25, row), (310, row), (25, 355)][kills_bonus_player]
 			bonus_text = self.text("BONUS!", False, bordeaux)
 			state.screen.blit(bonus_text, [x, y])
 			points = self.text(str(config.TWO_PLAYER_KILLS_BONUS) + " PTS", False, white)

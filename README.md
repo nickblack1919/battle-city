@@ -48,8 +48,12 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
   the human's way. P2 keys and gamepads don't control it; its score doesn't go to hiscores; saved game remembers it.
 - **2 PLAYERS + BOT** - two humans and a computer helper playing the third tank (blue, so it isn't taken for player 2:
   `BOT_COLOR_ORDER` swaps green and blue channels of its sprites, its lives in the sidebar are blue too), which guards the castle:
-  it keeps its place within `BOT_GUARD_RADIUS` cells of the castle, attacks only enemies coming to it
-  (`BOT_GUARD_DEFEND_DISTANCE`), leaves its post only for a bonus a few cells away, and saves the castle at the cost of
+  it holds one of three posts in front of it (center or the flank farther from the players: `BOT_GUARD_POST_ROW`,
+  `BOT_GUARD_POST_SIDE`, `BOT_GUARD_POST_STICKINESS`), keeps its place within `BOT_GUARD_RADIUS` cells of that post and
+  never goes further than `BOT_GUARD_MAX_AWAY` from it, shoots enemies faster than the partner bot
+  (`BOT_GUARD_REACTION_FRAMES`, `BOT_GUARD_FIRE_INTERVAL`) taking the ones near the castle first
+  (`BOT_GUARD_DEFEND_DISTANCE`), keeps away from the players (`BOT_GUARD_HUMAN_COST`, `BOT_GUARD_HUMAN_NEAR_COST`),
+  and saves the castle at the cost of
   its life - when an enemy bullet flies at the castle it shoots the bullet down or drives into it and doesn't dodge
   (`BOT_GUARD_SHIELD`), but only when the bullet reaches the castle within `BOT_GUARD_SHIELD_FRAMES` frames - a bullet
   still far away can be shot down later instead. Otherwise it takes care of itself better than the partner bot:
@@ -199,7 +203,9 @@ frames (fast tank 24, player 32), scores screen pauses are counted in NES frames
 
 Extra life every 20000 points (NES and NES+: only once, like on NES). In 2+ player games the player who destroyed most
 tanks on a stage gets 1000 points, if they have lives left: dark red "BONUS!" (like on NES) and white points under his
-column. In a 3 player game the third tank gets one line in the lowest row: name, score and how many tanks it destroyed.
+column, in the lowest free row. The computer helper takes no part in it and has no line on the scores screen at all:
+its score is counted nowhere. A third human player gets one line in the lowest row: name, score and how many tanks he
+destroyed.
 
 ## Enemies
 
@@ -210,7 +216,7 @@ column. In a 3 player game the third tank gets one line in the lowest row: name,
 | Power | 300 | fast bullets |
 | Armor | 400 | several hits |
 | Stealth | 300 | invisible, only a faint shadow is seen: shows itself for 1 s every 6 s (`STEALTH_SHOW_TIME`, `STEALTH_HIDE_TIME`), and when firing or hit (from stage 5) |
-| Mortar | 400 | shells fly over walls (from stage 5) |
+| Mortar | 400 | shells fly over walls (from stage 5); never appears at the middle spawn place above the castle (`MORTAR_CENTER_SPAWN`) |
 | Boss | 2000 | last enemy of every 5th stage, drops bonuses |
 
 ## Saved files

@@ -262,27 +262,53 @@ def shields_castle(ctx):
 	ctx.finish()
 
 
-def keeps_to_castle(ctx):
-	""" Helper doesn't wander off: its place stays near the castle """
+def keeps_to_post(ctx):
+	""" Helper holds a post in front of the castle: center or the flank farther from the players,
+	and doesn't wander off it even to shoot """
 	g, game = ctx.g, ctx.game
 	if ctx.frame != 5:
 		return
 	p1, p2, guard = clear(ctx, fortress = False)
 	bot = guard.bot
+	guard.rect.topleft = [192, 320]
+	castle_cell = g["castle"].rect.centerx // 16
+	side, row = g["BOT_GUARD_POST_SIDE"], g["BOT_GUARD_POST_ROW"]
+	posts = [(castle_cell - side, row), (castle_cell, row), (castle_cell + side, row)]
+
+	# players on the left: guard takes the right flank
+	p1.rect.topleft = [0, 320]
+	p2.rect.topleft = [32, 352]
+	bot.post = None
+	ctx.check("players on the left: guard goes right (%s)" % (bot.guardPost(),), bot.guardPost() == posts[2])
+
+	# players on the right: guard takes the left flank
+	p1.rect.topleft = [384, 320]
+	p2.rect.topleft = [352, 352]
+	bot.post = None
+	ctx.check("players on the right: guard goes left (%s)" % (bot.guardPost(),), bot.guardPost() == posts[0])
+
+	# players on both flanks: the center is free
+	p1.rect.topleft = [0, 304]
+	p2.rect.topleft = [384, 304]
+	bot.post = None
+	ctx.check("players on both flanks: guard takes the center (%s)" % (bot.guardPost(),), bot.guardPost() == posts[1])
+
+	# it doesn't jump between posts on every step
+	p1.rect.topleft = [16, 304]
+	ctx.check("guard keeps its post while it is good enough (%s)" % (bot.guardPost(),), bot.guardPost() == posts[1])
+
+	# a far enemy at the other end of the field: the guard shoots from its own zone, it doesn't run there
 	p1.rect.topleft = [0, 0]
 	p2.rect.topleft = [32, 0]
-	guard.rect.topleft = [192, 320]
-	castle = g["castle"]
-	# one far enemy at the top: a normal bot would go there, the guard stays home
 	make_enemy(ctx, [0, 32])
 	bot.plan()
 	goal = bot.goal
-	distance = None
-	if goal != None:
-		rect = pygame.Rect(goal[0] * 16, goal[1] * 16, 32, 32)
-		distance = (abs(rect.centerx - castle.rect.centerx) + abs(rect.centery - castle.rect.centery)) / 16.0
-	ctx.check("guard stays within %d cells of the castle (%s cells, place %s)" % (g["BOT_GUARD_RADIUS"], distance, goal),
-		goal != None and distance <= g["BOT_GUARD_RADIUS"] + 2)
+	distance = None if goal == None else abs(goal[0] - bot.post[0]) + abs(goal[1] - bot.post[1])
+	ctx.check("guard stays within %d cells of its post (%s cells, place %s, post %s)" % (g["BOT_GUARD_MAX_AWAY"], distance, goal, bot.post),
+		goal != None and distance <= g["BOT_GUARD_MAX_AWAY"])
+	ctx.check("guard reacts and fires faster than the partner bot (%d, %d frames)" % (bot.setting("REACTION_FRAMES"), bot.setting("FIRE_INTERVAL")),
+		bot.setting("REACTION_FRAMES") < g["BOT_REACTION_FRAMES"] and bot.setting("FIRE_INTERVAL") < g["BOT_FIRE_INTERVAL"])
+	ctx.check("guard keeps away from players (%d)" % bot.setting("HUMAN_COST"), bot.setting("HUMAN_COST") > g["BOT_HUMAN_COST"])
 	ctx.finish()
 
 
@@ -339,7 +365,7 @@ def stealth_and_bonuses(ctx):
 
 
 def scores_screen(ctx):
-	""" Scores screen of 2 players + bot: bot's line with its kills, bonus text doesn't cover it """
+	""" Scores screen of 2 players + bot: the helper has no line at all, bonus is written low and free """
 	g, game, d = ctx.g, ctx.game, ctx.data
 	screen = g["screen"]
 	if ctx.frame == 1:
@@ -347,26 +373,27 @@ def scores_screen(ctx):
 		# player 1 destroyed most tanks: he gets the bonus, which is written under his column
 		p1.trophies["enemy0"] = 5
 		p2.trophies["enemy0"] = 1
-		guard.trophies["enemy0"] = 3
+		# the helper destroyed most tanks, but it takes no part in the bonus and gets no line
+		guard.trophies["enemy0"] = 9
 		guard.trophies["enemy3"] = 1
 		for player in g["players"]:
 			player.lives = 3
 		guard.score = 4300
 		game.endLevel(game.showScores)
 		return
+	def colors(area):
+		return set([screen.get_at((x, y))[:3] for x in range(area[0], area[0] + area[2], 2) for y in range(area[1], area[1] + area[3], 2)]) - set([(0, 0, 0)])
+	bordeaux = (150, 25, 45)
 	if ctx.in_function("showScores"):
 		d["seen"] = True
-		# bot's line: lowest row of the screen
-		row = [screen.get_at((x, y))[:3] for x in range(25, 456) for y in range(393, 412)]
-		colors = set([color for color in row if color != (0, 0, 0)])
-		if colors:
-			d["colors"] = colors
-			d["label"] = any([screen.get_at((x, y))[:3] != (0, 0, 0) for x in range(25, 80) for y in range(393, 412)])
-			d["score"] = any([screen.get_at((x, y))[:3] != (0, 0, 0) for x in range(330, 456) for y in range(393, 412)])
-	if d.get("colors") and (not ctx.in_function("showScores") or ctx.frame > 500):
-		ctx.check("bot's line has its name and score", d.get("label") and d.get("score"))
-		bordeaux = (150, 25, 45)
-		ctx.check("bonus text doesn't reach bot's line (%s)" % sorted(d["colors"]), bordeaux not in d["colors"])
+		# bonus of player 1 is written in the lowest rows, the helper has nothing there
+		bonus_colors = colors((25, 370, 200, 42))
+		if bordeaux in bonus_colors:
+			d["bonus"] = True
+			d["bot_line"] = colors((240, 370, 216, 42))
+	if d.get("bonus") and (not ctx.in_function("showScores") or ctx.frame > 500):
+		ctx.check("bonus of player 1 is written low on the screen", d.get("bonus"))
+		ctx.check("helper's score isn't written at all (%s)" % sorted(d["bot_line"]), not d["bot_line"])
 		ctx.finish()
 	if ctx.frame > 700:
 		ctx.check("scores screen reached (%s)" % d.get("seen"), False)
@@ -433,7 +460,7 @@ SCENARIOS = {
 	"our_bullets_dont_stop_it": {"fn": our_bullets_dont_stop_it, "menu": GUARD_MENU},
 	"careful": {"fn": careful, "menu": GUARD_MENU},
 	"shields_castle": {"fn": shields_castle, "menu": GUARD_MENU},
-	"keeps_to_castle": {"fn": keeps_to_castle, "menu": GUARD_MENU},
+	"keeps_to_post": {"fn": keeps_to_post, "menu": GUARD_MENU},
 	"stealth_and_bonuses": {"fn": stealth_and_bonuses, "menu": GUARD_MENU},
 	"scores_screen": {"fn": scores_screen, "menu": GUARD_MENU},
 	"borrow_life": {"fn": borrow_life, "menu": GUARD_MENU},

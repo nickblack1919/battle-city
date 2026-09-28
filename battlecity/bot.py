@@ -31,6 +31,16 @@ def opposite(direction):
 	return (direction + 2) % 4
 
 
+def around(cells):
+	""" Cells touching the given ones (also by a corner), the given ones left out """
+	result = set()
+	for cx, cy in cells:
+		for nx in range(cx - 1, cx + 2):
+			for ny in range(cy - 1, cy + 2):
+				if 0 <= nx < 26 and 0 <= ny < 26 and (nx, ny) not in cells:
+					result.add((nx, ny))
+	return result
+
 def rectCells(rect):
 	""" 16 px cells covered by rect """
 	return [(cx, cy) for cy in range(max(rect.top, 0) // CELL, min((rect.bottom - 1) // CELL, 25) + 1)
@@ -44,6 +54,8 @@ class Bot():
 		self.player = player
 		# guard: helper of two players (2 PLAYERS + BOT) keeps to the castle and dies for it
 		self.guard = guard
+		# guard's post (cell): center in front of the castle or a free flank
+		self.post = None
 		# frames since bot was created
 		self.frame = 0
 		# cell -> [extra way cost, frames left]: human's lane after bot let him pass, cells bot got stuck at
@@ -182,7 +194,7 @@ class Bot():
 
 	def fire(self):
 		""" Press fire (not more often than a human can) """
-		if self.frame - self.last_fire < config.BOT_FIRE_INTERVAL or self.slotBusy():
+		if self.frame - self.last_fire < self.setting("FIRE_INTERVAL") or self.slotBusy():
 			return False
 		self.last_fire = self.frame
 		self.game.playerFire(self.player)
@@ -254,7 +266,7 @@ class Bot():
 		aim = self.aim()
 		if aim != None and aim[0] == p.direction:
 			self.seen += 1
-			if self.seen > config.BOT_REACTION_FRAMES:
+			if self.seen > self.setting("REACTION_FRAMES"):
 				self.fire()
 		else:
 			self.seen = 0
@@ -333,6 +345,28 @@ class Bot():
 		return result
 
 	# ---------------------------------------------------------------- guarding the castle
+
+	def guardPost(self):
+		""" Place the guard keeps: center in front of the castle or a free flank, the one farthest from
+		the players (so they don't fight for the same lane). It sticks to the chosen post while it is good enough
+		@return cell (x, y)
+		"""
+		castle_cell = state.castle.rect.centerx // CELL
+		row = config.BOT_GUARD_POST_ROW
+		posts = [(castle_cell - config.BOT_GUARD_POST_SIDE, row), (castle_cell, row), (castle_cell + config.BOT_GUARD_POST_SIDE, row)]
+		posts = [(min(max(x, 1), 24), y) for x, y in posts]
+
+		def freedom(post):
+			""" Distance in cells to the nearest player: the farther the better """
+			humans = self.humans()
+			if not humans:
+				return 100
+			return min([abs(post[0] - human.rect.centerx // CELL) + abs(post[1] - human.rect.centery // CELL) for human in humans])
+
+		best = max(posts, key=freedom)
+		if self.post in posts and freedom(self.post) + config.BOT_GUARD_POST_STICKINESS >= freedom(best):
+			return self.post
+		return best
 
 	def castleThreats(self):
 		""" Enemy bullets which will hit own castle: [(frames to hit, bullet)], nearest first
@@ -481,7 +515,7 @@ class Bot():
 			self.threat_seen = 0
 			return
 		self.threat_seen += 1
-		if self.threat_seen != config.BOT_REACTION_FRAMES or random.random() * 100 >= self.setting("JUKE_CHANCE"):
+		if self.threat_seen != self.setting("REACTION_FRAMES") or random.random() * 100 >= self.setting("JUKE_CHANCE"):
 			return
 		sides = [(threat + 1) % 4, (threat + 3) % 4]
 		random.shuffle(sides)
@@ -657,10 +691,17 @@ class Bot():
 		for castle in game.castles():
 			for cx, cy in rectCells(castle.rect):
 				costs[cy][cx] = None
+		human_near_cost = config.BOT_GUARD_HUMAN_NEAR_COST if self.guard else 0
 		for human in self.humans():
-			for cx, cy in rectCells(human.rect):
+			cells = set(rectCells(human.rect))
+			for cx, cy in cells:
 				if costs[cy][cx] != None:
-					costs[cy][cx] += config.BOT_HUMAN_COST
+					costs[cy][cx] += self.setting("HUMAN_COST")
+			# guard gives the players room: cells around them cost extra too
+			if human_near_cost:
+				for nx, ny in around(cells):
+					if costs[ny][nx] != None:
+						costs[ny][nx] += human_near_cost
 		enemies = self.enemies()
 		near_cost = config.BOT_GUARD_ENEMY_NEAR_COST if self.guard else 0
 		for enemy in enemies:
@@ -670,10 +711,9 @@ class Bot():
 					costs[cy][cx] += self.setting("ENEMY_COST")
 			# guard keeps its distance: cells around an enemy cost extra too
 			if near_cost:
-				for cx, cy in cells:
-					for nx, ny in ((cx, cy - 1), (cx + 1, cy), (cx, cy + 1), (cx - 1, cy)):
-						if 0 <= nx < 26 and 0 <= ny < 26 and (nx, ny) not in cells and costs[ny][nx] != None:
-							costs[ny][nx] += near_cost
+				for nx, ny in around(cells):
+					if costs[ny][nx] != None:
+						costs[ny][nx] += near_cost
 		for (cx, cy), (cost, frames) in self.avoid.items():
 			if 0 <= cx < 26 and 0 <= cy < 26 and costs[cy][cx] != None:
 				costs[cy][cx] += cost
@@ -746,25 +786,31 @@ class Bot():
 			if place not in candidates or total < candidates[place]:
 				candidates[place] = total
 
-		# guard keeps to the castle: places further away cost extra, farther enemies are attacked too
+		# guard holds its post (center or a free flank): places further away from it cost extra
 		defend_distance = config.BOT_GUARD_DEFEND_DISTANCE if self.guard else config.BOT_DEFEND_DISTANCE
+		self.post = self.guardPost() if self.guard else None
+
+		def postDistance(place):
+			return abs(place[0] - self.post[0]) + abs(place[1] - self.post[1])
 
 		def postCost(place):
-			""" Extra cost of standing at place: guard doesn't leave the castle """
-			if not self.guard:
+			""" Extra cost of standing at place, None - too far from the post to go there at all """
+			if self.post == None:
 				return 0
-			rect = pygame.Rect(place[0] * CELL, place[1] * CELL, 32, 32)
-			away = castleDistance(rect) / float(CELL) - config.BOT_GUARD_RADIUS
-			return max(0, away) * config.BOT_GUARD_AWAY_COST
+			distance = postDistance(place)
+			if distance > config.BOT_GUARD_MAX_AWAY:
+				return None
+			return max(0, distance - config.BOT_GUARD_RADIUS) * config.BOT_GUARD_AWAY_COST
 
 		threats = [enemy for enemy in enemies if castleDistance(enemy.rect) <= defend_distance]
-		# guard attacks only enemies coming to the castle: it doesn't run across the field for the others
-		for enemy in threats if self.guard else (threats or enemies):
+		# enemies near the castle first, but the guard shoots at the others too (its post keeps it from running far)
+		for enemy in threats or enemies:
 			priority = castleDistance(enemy.rect) / float(CELL) * config.BOT_CASTLE_PRIORITY
 			for place in best:
 				extra = shotCost(place, enemy.rect)
-				if extra != None:
-					add(best[place] + extra + priority + postCost(place), place)
+				post_extra = postCost(place)
+				if extra != None and post_extra != None:
+					add(best[place] + extra + priority + post_extra, place)
 
 		if not threats and not (self.guard and not config.BOT_GUARD_BONUSES):
 			for bonus in state.bonuses:
@@ -779,12 +825,12 @@ class Bot():
 						add(best[place] - config.BOT_BONUS_VALUE, place)
 
 		if not candidates and self.guard:
-			# nothing to shoot: stand next to the castle, in the open row above the fortress
+			# nothing to shoot: go back to the post
 			for place in best:
-				rect = pygame.Rect(place[0] * CELL, place[1] * CELL, 32, 32)
-				if rect.colliderect(FORTRESS_RECT):
+				if pygame.Rect(place[0] * CELL, place[1] * CELL, 32, 32).colliderect(FORTRESS_RECT):
 					continue
-				add(best[place] + castleDistance(rect) / float(CELL) * config.BOT_GUARD_AWAY_COST, place)
+				distance = abs(place[0] - self.post[0]) + abs(place[1] - self.post[1])
+				add(best[place] + distance * config.BOT_GUARD_AWAY_COST, place)
 
 		if not candidates and not enemies:
 			# wait for enemies where they appear
@@ -800,8 +846,9 @@ class Bot():
 			targets = [(enemy.rect.left // CELL, enemy.rect.top // CELL) for enemy in enemies] or [(12, 20)]
 			for place in best:
 				distance = min([abs(place[0] - tx) + abs(place[1] - ty) for tx, ty in targets])
-				if distance >= 2:
-					add(best[place] + distance * 2 + postCost(place), place)
+				post_extra = postCost(place)
+				if distance >= 2 and post_extra != None:
+					add(best[place] + distance * 2 + post_extra, place)
 
 		if not candidates:
 			self.goal = None
