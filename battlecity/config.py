@@ -267,8 +267,14 @@ BOT_GUARD_AWAY_COST = 5	# every cell further away from the castle costs like n c
 BOT_GUARD_DEFEND_DISTANCE = 288	# px: guard attacks enemies this close to the castle first (others are ignored)
 BOT_GUARD_BONUS_DISTANCE = 6	# guard leaves its post for a bonus only n cells of way away
 BOT_GUARD_SHIELD = True	# guard drives into a bullet flying at the castle and doesn't dodge it
-# bullets of the computer helper never hurt players: they don't damage and don't stun a partner
-BOT_HARMLESS_TO_PLAYERS = True
+BOT_GUARD_SHIELD_FRAMES = 40	# ... only when the bullet hits the castle in n frames (it has no time to do more)
+BOT_GUARD_DODGE_CHANCE = 100	# % of enemy bullets the guard dodges: it takes care of itself better than a partner bot
+BOT_GUARD_DODGE_REACTION_FRAMES = 3	# frames before the guard reacts to an enemy bullet
+BOT_GUARD_JUKE_CHANCE = 90	# % the guard steps out of an enemy's line of fire while its own bullet isn't ready
+BOT_GUARD_ENEMY_COST = 10	# cell with an enemy tank costs the guard like n cells of way (it keeps its distance)
+BOT_GUARD_ENEMY_NEAR_COST = 4	# ... and every cell around an enemy tank like n cells
+# bullets between a player and the computer partner never hurt: no damage, no stun, in both directions
+BOT_NO_FRIENDLY_FIRE = True
 
 # interface language: EN or RU (settings screen)
 LANGUAGE = "EN"

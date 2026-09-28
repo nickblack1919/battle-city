@@ -75,6 +75,14 @@ class Bot():
 		self.human_blocked = 0
 		self.threat_seen = 0
 
+	def setting(self, name):
+		""" Value of a bot setting: the guard has its own (BOT_GUARD_<name> instead of BOT_<name>) """
+		if self.guard:
+			guard_name = "BOT_GUARD_" + name
+			if hasattr(config, guard_name):
+				return getattr(config, guard_name)
+		return getattr(config, "BOT_" + name)
+
 	# ---------------------------------------------------------------- what bot sees
 
 	def humans(self):
@@ -391,6 +399,9 @@ class Bot():
 			return None
 		p = self.player
 		for frames, bullet in self.castleThreats():
+			# a bullet still far from the castle can be shot down or blocked later: no need to risk yet
+			if frames > config.BOT_GUARD_SHIELD_FRAMES:
+				continue
 			# already on the way of the bullet: stay there and let it hit the tank
 			if self.shieldsCastle(bullet):
 				facing = opposite(bullet.direction)
@@ -423,13 +434,14 @@ class Bot():
 		at it, else direction to drive out of its way (or to turn to it and shoot it down if there is no time) """
 		p = self.player
 		incoming = self.incoming()
-		self.bullets = dict([(id(bullet), self.bullets.get(id(bullet), [self.frame, random.random() * 100 < config.BOT_DODGE_CHANCE]))
+		self.bullets = dict([(id(bullet), self.bullets.get(id(bullet), [self.frame, random.random() * 100 < self.setting("DODGE_CHANCE")]))
 			for frames, bullet in incoming])
 		r = p.rect
-		threats = [bullet for frames, bullet in self.castleThreats()] if self.guard and config.BOT_GUARD_SHIELD else []
+		threats = [bullet for frames, bullet in self.castleThreats() if frames <= config.BOT_GUARD_SHIELD_FRAMES] \
+			if self.guard and config.BOT_GUARD_SHIELD else []
 		for frames, bullet in incoming:
 			seen, will_dodge = self.bullets[id(bullet)]
-			if not will_dodge or self.frame - seen < config.BOT_DODGE_REACTION_FRAMES:
+			if not will_dodge or self.frame - seen < self.setting("DODGE_REACTION_FRAMES"):
 				continue
 			# guard doesn't step out of the way of a bullet flying at the castle: it dies instead of the castle
 			if bullet in threats and self.shieldsCastle(bullet):
@@ -469,7 +481,7 @@ class Bot():
 			self.threat_seen = 0
 			return
 		self.threat_seen += 1
-		if self.threat_seen != config.BOT_REACTION_FRAMES or random.random() * 100 >= config.BOT_JUKE_CHANCE:
+		if self.threat_seen != config.BOT_REACTION_FRAMES or random.random() * 100 >= self.setting("JUKE_CHANCE"):
 			return
 		sides = [(threat + 1) % 4, (threat + 3) % 4]
 		random.shuffle(sides)
@@ -650,10 +662,18 @@ class Bot():
 				if costs[cy][cx] != None:
 					costs[cy][cx] += config.BOT_HUMAN_COST
 		enemies = self.enemies()
+		near_cost = config.BOT_GUARD_ENEMY_NEAR_COST if self.guard else 0
 		for enemy in enemies:
-			for cx, cy in rectCells(enemy.rect):
+			cells = set(rectCells(enemy.rect))
+			for cx, cy in cells:
 				if costs[cy][cx] != None:
-					costs[cy][cx] += config.BOT_ENEMY_COST
+					costs[cy][cx] += self.setting("ENEMY_COST")
+			# guard keeps its distance: cells around an enemy cost extra too
+			if near_cost:
+				for cx, cy in cells:
+					for nx, ny in ((cx, cy - 1), (cx + 1, cy), (cx, cy + 1), (cx - 1, cy)):
+						if 0 <= nx < 26 and 0 <= ny < 26 and (nx, ny) not in cells and costs[ny][nx] != None:
+							costs[ny][nx] += near_cost
 		for (cx, cy), (cost, frames) in self.avoid.items():
 			if 0 <= cx < 26 and 0 <= cy < 26 and costs[cy][cx] != None:
 				costs[cy][cx] += cost

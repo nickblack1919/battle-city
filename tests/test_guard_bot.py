@@ -110,6 +110,60 @@ def harmless(ctx):
 	ctx.finish()
 
 
+def our_bullets_dont_stop_it(ctx):
+	""" A player's bullet doesn't damage or stun the computer partner either """
+	g, game = ctx.g, ctx.game
+	if ctx.frame != 5:
+		return
+	p1, p2, guard = clear(ctx)
+	guard.shielded = False
+	guard.rect.topleft = [200, 200]
+	p1.rect.topleft = [200, 300]
+	p1.rotate(p1.DIR_UP, False)
+	health, lives = guard.health, guard.lives
+	game.playerFire(p1)
+	bullet = g["bullets"][-1]
+	for i in range(60):
+		bullet.update()
+		if bullet.state == bullet.STATE_REMOVED:
+			break
+	ctx.check("our bullet vanishes on the helper (%d)" % bullet.state, bullet.state == bullet.STATE_REMOVED)
+	ctx.check("helper not damaged", guard.health == health and guard.lives == lives and guard.state == guard.STATE_ALIVE)
+	ctx.check("helper not stunned", not guard.stunned and not guard.paralised)
+	ctx.finish()
+
+
+def careful(ctx):
+	""" Guard takes care of itself: dodges every bullet, reacts fast, keeps away from enemies """
+	g, game = ctx.g, ctx.game
+	if ctx.frame != 5:
+		return
+	p1, p2, guard = clear(ctx, fortress = False)
+	bot = guard.bot
+	ctx.check("guard dodges every bullet (%d%%)" % bot.setting("DODGE_CHANCE"), bot.setting("DODGE_CHANCE") == g["BOT_GUARD_DODGE_CHANCE"] >= g["BOT_DODGE_CHANCE"])
+	ctx.check("guard reacts faster (%d frames)" % bot.setting("DODGE_REACTION_FRAMES"), bot.setting("DODGE_REACTION_FRAMES") <= g["BOT_DODGE_REACTION_FRAMES"])
+	ctx.check("guard steps aside more often (%d%%)" % bot.setting("JUKE_CHANCE"), bot.setting("JUKE_CHANCE") >= g["BOT_JUKE_CHANCE"])
+	ctx.check("guard keeps away from enemies (%d)" % bot.setting("ENEMY_COST"), bot.setting("ENEMY_COST") > g["BOT_ENEMY_COST"])
+
+	# the partner bot keeps the common settings
+	p1.rect.topleft = [0, 0]
+	p2.rect.topleft = [32, 0]
+	partner = g["Bot"](game, p1)
+	ctx.check("partner bot uses common settings", partner.setting("DODGE_CHANCE") == g["BOT_DODGE_CHANCE"] and partner.setting("ENEMY_COST") == g["BOT_ENEMY_COST"])
+
+	# guard's way goes around an enemy, not next to it
+	guard.rect.topleft = [192, 320]
+	enemy = make_enemy(ctx, [192, 256])
+	bot.plan()
+	near = set()
+	for cell in bot.path:
+		rect = pygame.Rect(cell[0] * 16, cell[1] * 16, 32, 32)
+		if rect.inflate(16, 16).colliderect(enemy.rect):
+			near.add(cell)
+	ctx.check("guard's way doesn't touch the enemy (%s)" % sorted(near), not near)
+	ctx.finish()
+
+
 def never_shoots_players(ctx):
 	""" Helper doesn't fire when a player is in its line of fire """
 	g, game = ctx.g, ctx.game
@@ -149,17 +203,19 @@ def shields_castle(ctx):
 	castle = g["castle"]
 
 	# bullet flying down at the castle from above
-	bullet = enemy_bullet(ctx, [castle.rect.centerx - 4, 200], 2)
-	ctx.check("bullet is a threat to the castle (%s)" % (bot.castleThreats(),), len(bot.castleThreats()) == 1)
+	bullet = enemy_bullet(ctx, [castle.rect.centerx - 4, 250], 2)
+	threats = bot.castleThreats()
+	ctx.check("bullet is a threat to the castle (%s)" % (threats,), len(threats) == 1)
+	ctx.check("it hits the castle soon (%d frames)" % threats[0][0], threats[0][0] <= g["BOT_GUARD_SHIELD_FRAMES"])
 
 	# helper standing beside the lane steps into it
-	guard.rect.topleft = [castle.rect.centerx + 12, 300]
+	guard.rect.topleft = [castle.rect.centerx + 12, 330]
 	guard.rotate(guard.DIR_UP, False)
 	direction = bot.shieldCastle()
 	ctx.check("helper steps into the bullet lane (%s)" % direction, direction == guard.DIR_LEFT)
 
 	# helper on the lane stays there and turns to the bullet
-	guard.rect.topleft = [castle.rect.centerx - 16, 300]
+	guard.rect.topleft = [castle.rect.centerx - 16, 330]
 	guard.rotate(guard.DIR_RIGHT, False)
 	bot.move_px = 0
 	direction = bot.shieldCastle()
@@ -173,10 +229,17 @@ def shields_castle(ctx):
 	dodges = [bot.dodge() for i in range(10)]
 	ctx.check("helper doesn't dodge a bullet aimed at the castle (%s)" % dodges, all([d == None for d in dodges]))
 
+	# a bullet still far from the castle isn't blocked yet: no need to risk the tank
+	g["bullets"][:] = []
+	far = enemy_bullet(ctx, [castle.rect.centerx - 4, 40], 2)
+	guard.rect.topleft = [castle.rect.centerx + 12, 330]
+	bot.move_px = 0
+	ctx.check("far bullet isn't blocked yet (%d frames)" % bot.castleThreats()[0][0], bot.shieldCastle() == None)
+
 	# a bullet not aimed at the castle is dodged as usual
 	g["bullets"][:] = []
-	guard.rect.topleft = [64, 300]
-	side = enemy_bullet(ctx, [guard.rect.centerx - 4, 200], 2)
+	guard.rect.topleft = [64, 330]
+	side = enemy_bullet(ctx, [guard.rect.centerx - 4, 250], 2)
 	ctx.check("side bullet is not a castle threat", bot.castleThreats() == [])
 	bot.bullets = {id(side): [-1000, True]}
 	ctx.check("helper dodges a bullet aimed at itself", bot.dodge() != None)
@@ -264,6 +327,8 @@ SCENARIOS = {
 	"mode": {"fn": mode, "menu": GUARD_MENU},
 	"harmless": {"fn": harmless, "menu": GUARD_MENU},
 	"never_shoots_players": {"fn": never_shoots_players, "menu": GUARD_MENU},
+	"our_bullets_dont_stop_it": {"fn": our_bullets_dont_stop_it, "menu": GUARD_MENU},
+	"careful": {"fn": careful, "menu": GUARD_MENU},
 	"shields_castle": {"fn": shields_castle, "menu": GUARD_MENU},
 	"keeps_to_castle": {"fn": keeps_to_castle, "menu": GUARD_MENU},
 	"borrow_life": {"fn": borrow_life, "menu": GUARD_MENU},

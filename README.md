@@ -50,8 +50,13 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
   it keeps its place within `BOT_GUARD_RADIUS` cells of the castle, attacks only enemies coming to it
   (`BOT_GUARD_DEFEND_DISTANCE`), leaves its post only for a bonus a few cells away, and saves the castle at the cost of
   its life - when an enemy bullet flies at the castle it shoots the bullet down or drives into it and doesn't dodge
-  (`BOT_GUARD_SHIELD`). Its bullets never hurt players: it doesn't fire when a player is in its line of fire, and even
-  a bullet that does reach a partner vanishes without damage or stun (`BOT_HARMLESS_TO_PLAYERS`).
+  (`BOT_GUARD_SHIELD`), but only when the bullet reaches the castle within `BOT_GUARD_SHIELD_FRAMES` frames - a bullet
+  still far away can be shot down later instead. Otherwise it takes care of itself better than the partner bot:
+  it dodges every bullet flying at it and reacts faster (`BOT_GUARD_DODGE_CHANCE`, `BOT_GUARD_DODGE_REACTION_FRAMES`),
+  steps out of enemy lines of fire more often (`BOT_GUARD_JUKE_CHANCE`) and keeps its distance from enemy tanks
+  (`BOT_GUARD_ENEMY_COST`, `BOT_GUARD_ENEMY_NEAR_COST`). Bullets between a player and the computer partner never hurt in
+  either direction - it doesn't fire when a player is in its line of fire, a bullet that still reaches a partner vanishes
+  without damage or stun, and our bullets don't stop the partner either (`BOT_NO_FRIENDLY_FIRE`).
 - **CONTINUE** - continue saved campaign (shown when there is a saved game).
 - **ENDLESS 1P / 1P + BOT / 2P** - waves of enemies until game over, every wave is harder.
 - **RANDOM LEVELS** - 1 player campaign on generated maps: every game gets a new random seed, every stage a new

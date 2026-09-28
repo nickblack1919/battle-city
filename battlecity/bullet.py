@@ -195,9 +195,10 @@ class Bullet():
 			if player is self.owner_class:
 				continue
 			if player.state == player.STATE_ALIVE and self.rect.colliderect(player.rect):
-				# bullets of the computer helper never hurt a player: no damage, no stun
-				if config.BOT_HARMLESS_TO_PLAYERS and self.owner == self.OWNER_PLAYER and getattr(self.owner_class, "bot", None) \
-						and state.game.mode != "versus":
+				# bullets between a player and the computer partner never hurt: the partner doesn't shoot us
+				# and our bullets don't stop it either
+				if config.BOT_NO_FRIENDLY_FIRE and self.owner == self.OWNER_PLAYER and state.game.mode != "versus" \
+						and (getattr(self.owner_class, "bot", None) or player.bot):
 					self.destroy()
 					return
 				# versus: other player's bullet is hostile
