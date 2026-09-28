@@ -2060,10 +2060,11 @@ class Player(Tank):
 		if self.tankInWay(player_rect, direction):
 			return
 
-		# collisions with bonuses
-		for bonus in state.bonuses:
-			if player_rect.colliderect(bonus.rect) == True:
-				self.bonus = bonus
+		# collisions with bonuses (the guard leaves them to the players)
+		if not (self.bot != None and getattr(self.bot, "guard", False) and not config.BOT_GUARD_BONUSES):
+			for bonus in state.bonuses:
+				if player_rect.colliderect(bonus.rect) == True:
+					self.bonus = bonus
 
 		#if no collision, move player
 		self.rect.topleft = (new_position[0], new_position[1])

@@ -53,7 +53,8 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
   its life - when an enemy bullet flies at the castle it shoots the bullet down or drives into it and doesn't dodge
   (`BOT_GUARD_SHIELD`), but only when the bullet reaches the castle within `BOT_GUARD_SHIELD_FRAMES` frames - a bullet
   still far away can be shot down later instead. Otherwise it takes care of itself better than the partner bot:
-  it dodges every bullet flying at it and reacts faster (`BOT_GUARD_DODGE_CHANCE`, `BOT_GUARD_DODGE_REACTION_FRAMES`),
+  it starts with `BOT_LIVES` lives (5 instead of the players' 3), leaves every bonus to the players (it neither goes
+  for one nor picks one up while driving over it: `BOT_GUARD_BONUSES`), dodges every bullet flying at it and reacts faster (`BOT_GUARD_DODGE_CHANCE`, `BOT_GUARD_DODGE_REACTION_FRAMES`),
   steps out of enemy lines of fire more often (`BOT_GUARD_JUKE_CHANCE`) and keeps its distance from enemy tanks
   (`BOT_GUARD_ENEMY_COST`, `BOT_GUARD_ENEMY_NEAR_COST`). Bullets between a player and the computer partner never hurt in
   either direction - it doesn't fire when a player is in its line of fire, a bullet that still reaches a partner vanishes
@@ -197,7 +198,7 @@ Like on NES, a bonus appears on one of 16 fixed places (not right under a player
 frames (fast tank 24, player 32), scores screen pauses are counted in NES frames.
 
 Extra life every 20000 points (NES and NES+: only once, like on NES). In 2+ player games the player who destroyed most
-tanks on a stage gets 1000 points, if they have lives left.
+tanks on a stage gets 1000 points, if they have lives left: red "BONUS!" and the points under his column, like on NES.
 
 ## Enemies
 

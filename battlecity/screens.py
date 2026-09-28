@@ -369,10 +369,11 @@ class ScreensMixin():
 			state.screen.blit(self.text(kills_text, False, white), [25, 395])
 
 		if kills_bonus_player != None:
-			# like on NES: under the column of that player, "BONUS" and points below it
-			x, y = [(25, 355), (310, 355), (325, 395)][kills_bonus_player]
-			state.screen.blit(self.text("BONUS", False, white), [x, y])
-			points = self.text(str(config.TWO_PLAYER_KILLS_BONUS) + " PTS", False, white)
+			# like on NES: under the column of that player, red "BONUS!" and points below it
+			red = pygame.Color(216, 40, 0)
+			x, y = [(25, 365), (310, 365), (325, 395)][kills_bonus_player]
+			state.screen.blit(self.text("BONUS!", False, red), [x, y])
+			points = self.text(str(config.TWO_PLAYER_KILLS_BONUS) + " PTS", False, red)
 			if kills_bonus_player == 2:
 				state.screen.blit(points, [x - points.get_width() - 16, y])
 			else:

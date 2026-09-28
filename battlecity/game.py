@@ -868,6 +868,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 				if self.bot == 2 and self.mode != "versus":
 					player.controls = []
 					player.bot = Bot(self, player)
+					player.lives = config.BOT_LIVES
 					player.setColorOrder(config.BOT_COLOR_ORDER)
 				state.players.append(player)
 
@@ -882,6 +883,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 				player.controls = []
 				if self.bot == 3 and self.mode != "versus":
 					player.bot = Bot(self, player, guard = True)
+					player.lives = config.BOT_LIVES
 					player.setColorOrder(config.BOT_COLOR_ORDER)
 				state.players.append(player)
 

@@ -766,7 +766,7 @@ class Bot():
 				if extra != None:
 					add(best[place] + extra + priority + postCost(place), place)
 
-		if not threats:
+		if not threats and not (self.guard and not config.BOT_GUARD_BONUSES):
 			for bonus in state.bonuses:
 				if not bonus.active:
 					continue

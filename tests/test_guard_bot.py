@@ -286,6 +286,58 @@ def keeps_to_castle(ctx):
 	ctx.finish()
 
 
+def stealth_and_bonuses(ctx):
+	""" New enemy types come on stage 5 in this mode too; the guard leaves bonuses to the players """
+	g, game = ctx.g, ctx.game
+	if ctx.frame != 5:
+		return
+	Enemy = g["Enemy"]
+	p1, p2, guard = clear(ctx)
+
+	ctx.check("helper starts with %d lives" % g["BOT_LIVES"], guard.lives == g["BOT_LIVES"] and g["BOT_LIVES"] > p1.lives)
+
+	game.stage = 5
+	game.loadLevelEnemies(False)
+	enemies_left = game.level.enemies_left
+	ctx.check("stage 5 of 2 players + bot has stealth tanks (%d)" % enemies_left.count(Enemy.TYPE_STEALTH), enemies_left.count(Enemy.TYPE_STEALTH) == 3)
+	ctx.check("and mortars and a boss", enemies_left.count(Enemy.TYPE_MORTAR) == 2 and enemies_left.count(Enemy.TYPE_BOSS) == 1)
+
+	# a stealth tank really appears on the field
+	game.level.enemies_left[:] = [Enemy.TYPE_STEALTH]
+	enemy = Enemy(game.level, 1, [0, 0])
+	ctx.check("stealth tank spawns", enemy.type == Enemy.TYPE_STEALTH and enemy.state != enemy.STATE_DEAD)
+	del g["enemies"][:]
+	del game.level.enemies_left[:]
+
+	# guard drives over a bonus and leaves it
+	bonus = g["Bonus"](game.level)
+	bonus.bonus = bonus.BONUS_STAR
+	bonus.rect.topleft = [200, 200]
+	g["bonuses"].append(bonus)
+	guard.rect.topleft = [200, 232]
+	guard.move_credit = 0
+	for i in range(20):
+		guard.move(guard.DIR_UP)
+	ctx.check("guard doesn't pick up a bonus (%s, %s)" % (guard.bonus, guard.rect.topleft), guard.bonus == None and bonus in g["bonuses"])
+
+	# and doesn't go for it either
+	p1.rect.topleft = [0, 0]
+	p2.rect.topleft = [32, 0]
+	guard.rect.topleft = [192, 320]
+	guard.bot.plan()
+	goal = guard.bot.goal
+	on_bonus = goal != None and pygame.Rect(goal[0] * 16, goal[1] * 16, 32, 32).colliderect(bonus.rect)
+	ctx.check("guard doesn't walk to a bonus (place %s)" % (goal,), not on_bonus)
+
+	# a player still picks it up
+	p1.rect.topleft = [200, 232]
+	p1.move_credit = 0
+	for i in range(20):
+		p1.move(p1.DIR_UP)
+	ctx.check("player picks the bonus up", p1.bonus is bonus or bonus not in g["bonuses"])
+	ctx.finish()
+
+
 def borrow_life(ctx):
 	""" A player without lives borrows one from a partner: key B and gamepad Select """
 	g, game = ctx.g, ctx.game
@@ -347,6 +399,7 @@ SCENARIOS = {
 	"careful": {"fn": careful, "menu": GUARD_MENU},
 	"shields_castle": {"fn": shields_castle, "menu": GUARD_MENU},
 	"keeps_to_castle": {"fn": keeps_to_castle, "menu": GUARD_MENU},
+	"stealth_and_bonuses": {"fn": stealth_and_bonuses, "menu": GUARD_MENU},
 	"borrow_life": {"fn": borrow_life, "menu": GUARD_MENU},
 }
 

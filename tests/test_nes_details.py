@@ -74,14 +74,20 @@ def scores_bonus(ctx):
 	screen = g["screen"]
 	def used(area):
 		return any([screen.get_at((x, y))[:3] != (0, 0, 0) for x in range(area[0], area[0] + area[2], 2) for y in range(area[1], area[1] + area[3], 2)])
+	def colors(area):
+		return set([screen.get_at((x, y))[:3] for x in range(area[0], area[0] + area[2], 2) for y in range(area[1], area[1] + area[3], 2)])
 	if ctx.in_function("showScores"):
 		d["seen"] = True
 		if used((310, 350, 160, 60)):
 			d["p2"] = True
+			# like on NES the text is red
+			if any([color[0] > 2 * color[1] and color[0] > 2 * color[2] for color in colors((310, 350, 160, 60))]):
+				d["red"] = True
 		if used((25, 350, 160, 60)):
 			d["p1"] = True
 	if d.get("seen") and (not ctx.in_function("showScores") or ctx.frame > 500):
 		ctx.check("bonus is written under player 2 column", d.get("p2"))
+		ctx.check("bonus text is red", d.get("red"))
 		ctx.check("nothing written under player 1 column", not d.get("p1"))
 		ctx.finish()
 	if ctx.frame > 700:
