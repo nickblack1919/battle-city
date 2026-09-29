@@ -16,49 +16,67 @@ def read_settings():
 		return json.load(f)
 
 
-# menu frame -> keys to press (or check function)
+# menu frame -> keys to press (or check function). Frames after the settings list are counted from
+# the place of P1 FIRE in it, so new settings above it don't break the test
 def settings_menu(ctx):
 	g, game, f = ctx.g, ctx.game, ctx.menu_frame
 	d = ctx.data
 
-	steps = {
-		1: [K.K_RETURN],			# skip intro animation
-		2: [K.K_DOWN], 3: [K.K_DOWN], 4: [K.K_DOWN],	# SETTINGS item
-		5: [K.K_RETURN],			# open settings
-		7: [K.K_RIGHT],			# DIFFICULTY: GOOD -> EXTREME
-		9: [K.K_DOWN], 10: [K.K_DOWN], 11: [K.K_DOWN], 12: [K.K_DOWN],	# P1 FIRE
-		13: [K.K_RETURN], 14: [K.K_k],	# remap P1 FIRE to K
-		16: [K.K_DOWN], 17: [K.K_RETURN], 18: [K.K_d],	# remap P1 UP to D (was P1 RIGHT) -> swap
-		20: [K.K_ESCAPE],			# back to menu (doesn't quit)
-		22: [K.K_UP], 23: [K.K_UP], 24: [K.K_UP],	# 1 PLAYER
-		25: [K.K_RETURN],			# start game
-	}
-
+	if f == 1:
+		return [ctx.key(K.K_RETURN)]			# skip intro animation
 	if f == 2:
 		# menu may have more items before SETTINGS: start 3 items above it
 		labels = [item[0] for item in game.menuItems()]
 		game.menu_index = labels.index("SETTINGS") - 3
+	if f in (2, 3, 4):
+		return [ctx.key(K.K_DOWN)]			# SETTINGS item
 	if f == 5:
 		ctx.check("down arrow selects SETTINGS item", game.menuItems()[game.menu_index][1] == "settings")
-	if f == 22:
-		# 3 items below 1 PLAYER, so 3 presses up select it
-		game.menu_index = 3
+		return [ctx.key(K.K_RETURN)]			# open settings
 	if f == 6:
 		ctx.check("Enter on SETTINGS opens settings screen", ctx.in_function("showSettings"))
 		ctx.check("default preset GOOD", g["CURRENT_PRESET"] == "GOOD")
+		d["downs"] = [item["label"] for item in game.settingsItems()].index("P1 FIRE")
+		return []
+	if f == 7:
+		return [ctx.key(K.K_RIGHT)]			# DIFFICULTY: GOOD -> EXTREME
 	if f == 8:
 		ctx.check("right arrow changes difficulty to EXTREME", g["CURRENT_PRESET"] == "EXTREME")
 		ctx.check("settings saved to file", os.path.isfile(settings_file()) and read_settings()["preset"] == "EXTREME")
-	if f == 15:
+		return []
+
+	downs = d.get("downs", 0)
+	base = 8 + downs
+	if 9 <= f <= base:
+		return [ctx.key(K.K_DOWN)]			# down to P1 FIRE
+	if f == base + 1:
+		return [ctx.key(K.K_RETURN)]			# remap P1 FIRE
+	if f == base + 2:
+		return [ctx.key(K.K_k)]
+	if f == base + 3:
 		ctx.check("P1 fire remapped to K", g["PLAYER_CONTROLS"][0][0] == K.K_k)
-	if f == 19:
+		return []
+	if f == base + 4:
+		return [ctx.key(K.K_DOWN)]			# P1 UP
+	if f == base + 5:
+		return [ctx.key(K.K_RETURN)]
+	if f == base + 6:
+		return [ctx.key(K.K_d)]			# D was P1 RIGHT -> swap
+	if f == base + 7:
 		controls = g["PLAYER_CONTROLS"][0]
 		ctx.check("P1 up remapped to D, P1 right got old key W (swap)", controls[1] == K.K_d and controls[2] == K.K_w)
 		ctx.check("controls saved to file", read_settings()["controls"][0][:3] == [K.K_k, K.K_d, K.K_w])
-	if f == 21:
+		return []
+	if f == base + 8:
+		return [ctx.key(K.K_ESCAPE)]			# back to menu (doesn't quit)
+	if f == base + 9:
 		ctx.check("ESC on settings returns to menu", not ctx.in_function("showSettings") and ctx.in_function("showMenu"))
-
-	return [ctx.key(k) for k in steps.get(f, [])]
+		labels = [item[0] for item in game.menuItems()]
+		game.menu_index = labels.index("1 PLAYER")
+		return []
+	if f == base + 10:
+		return [ctx.key(K.K_RETURN)]			# start game
+	return []
 
 
 def settings_game(ctx):

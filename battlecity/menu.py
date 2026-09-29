@@ -35,10 +35,13 @@ class MenuMixin():
 		self.demo = False
 		self.test_play = False
 		self.stage_select = False
-		# preset of continued saved game was only for that game
+		# preset and level set of continued saved game were only for that game
 		if self.preset_before_continue in config.PRESETS:
 			config.applyPreset(self.preset_before_continue)
 		self.preset_before_continue = None
+		if self.new_levels_before_continue != None:
+			config.NEW_LEVELS = self.new_levels_before_continue
+			self.new_levels_before_continue = None
 		# castle protection (superpower 9) doesn't go to next game
 		state.castle.protected = False
 
@@ -99,12 +102,14 @@ class MenuMixin():
 
 			if activate:
 				label, action, argument = items[self.menu_index]
-				if action in ("play", "play_bot"):
-					self.mode = "campaign"
-					self.nr_of_players = argument
-					# 1 PLAYER + BOT: computer plays player 2, 2 PLAYERS + BOT: computer helper is player 3
-					self.bot = argument if action == "play_bot" else 0
+				if action == "play":
+					# WAVES setting: the same items start endless waves instead of the campaign
+					self.mode = "endless" if config.WAVES_MODE else "campaign"
+					# BOT setting: computer plays one more tank - partner of a single player,
+					# castle guard of two players (three players leave no room for it)
+					self.nr_of_players, self.bot = self.playersWithBot(argument)
 					self.stage = config.START_LEVEL - 1
+					self.first_stage = config.START_LEVEL
 					# NES: stage of a new game is chosen on the first stage screen
 					self.stage_select = True
 					del state.players[:]
@@ -126,14 +131,6 @@ class MenuMixin():
 					self.bot = 0
 					self.stage = 0
 					self.versus_winner = None
-					del state.players[:]
-					return self.nextLevel
-				elif action in ("endless", "endless_bot"):
-					self.mode = "endless"
-					self.nr_of_players = argument
-					self.bot = argument if action == "endless_bot" else 0
-					self.stage = config.START_LEVEL - 1
-					self.first_stage = config.START_LEVEL
 					del state.players[:]
 					return self.nextLevel
 				elif action == "random":
@@ -165,6 +162,14 @@ class MenuMixin():
 				elif action == "settings":
 					self.showSettings()
 					self.drawIntroScreen()
+
+	def playersWithBot(self, players):
+		""" Number of tanks and number of the computer one for a menu item (BOT setting)
+		@return (number of players, number of the computer player or 0)
+		"""
+		if config.BOT_PLAYER and players < 3:
+			return players + 1, players + 1
+		return players, 0
 
 	def startDemo(self):
 		""" Demo: computer plays 2 player game on random stage until key is pressed or DEMO_TIME passes """
@@ -233,21 +238,15 @@ class MenuMixin():
 
 	def menuItems(self):
 		""" Main menu items: [label, action, argument] """
+		# waves (endless) and the computer partner are switched on the settings screen
 		items = [
 			["1 PLAYER", "play", 1],
-			# player 2 is computer partner
-			["1 PLAYER + BOT", "play_bot", 2],
 			["2 PLAYERS", "play", 2],
-			# player 3 is computer helper guarding the castle
-			["2 PLAYERS + BOT", "play_bot", 3],
 			["3 PLAYERS", "play", 3],
 		]
 		# game saved after completed stage
 		if os.path.isfile(config.dataFile(config.SAVEGAME_FILE)):
 			items.append(["CONTINUE", "continue", None])
-		items.append(["ENDLESS 1P", "endless", 1])
-		items.append(["ENDLESS 1P + BOT", "endless_bot", 2])
-		items.append(["ENDLESS 2P", "endless", 2])
 		items.append(["RANDOM LEVELS", "random", 1])
 		items.append(["LEVEL OF THE DAY", "daily", 1])
 		items.append(["VERSUS", "versus", 2])

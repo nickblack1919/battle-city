@@ -146,6 +146,8 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 
 		# preset chosen by player before continuing saved game with other preset
 		self.preset_before_continue = None
+		# level set of the player before CONTINUE loaded a game of the other set
+		self.new_levels_before_continue = None
 
 		# versus: index of winning player
 		self.versus_winner = None

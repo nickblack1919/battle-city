@@ -114,8 +114,8 @@ class Context(object):
 
 def default_menu(players):
 	""" Skip intro animation, select number of players, start game
-	Menu: 1 PLAYER, 1 PLAYER + BOT, 2 PLAYERS, 3 PLAYERS """
-	sequence = [pygame.K_RETURN] + [pygame.K_DOWN] * {1: 0, 2: 2, 3: 3}[players] + [pygame.K_RETURN]
+	Menu: 1 PLAYER, 2 PLAYERS, 3 PLAYERS (waves and the computer tank are settings now) """
+	sequence = [pygame.K_RETURN] + [pygame.K_DOWN] * {1: 0, 2: 1, 3: 2}[players] + [pygame.K_RETURN]
 
 	def menu(ctx):
 		i = ctx.menu_frame - 1
@@ -123,6 +123,18 @@ def default_menu(players):
 			return [ctx.key(sequence[i])]
 		return []
 	return menu
+
+
+def writeSettings(**settings):
+	""" Settings file read by the game at start (BOT, WAVES, NEW LEVELS, preset...) """
+	import json
+	with open(os.path.join(DATA_DIR, ".settings.json"), "w") as f:
+		json.dump(settings, f)
+
+
+def settingsSetup(**settings):
+	""" setup function for run(): write these settings before the game starts """
+	return lambda : writeSettings(**settings)
 
 
 def run(scenario, argv=None, players=1, menu=None, real_time=False, max_frames=5000, setup=None):

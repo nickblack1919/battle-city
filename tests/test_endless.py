@@ -121,7 +121,7 @@ def no_entry_for_zero_score(ctx):
 
 
 SCENARIOS = {
-	"endless": {"fn": endless, "menu": select_menu_item("ENDLESS 2P")},
+	"endless": {"fn": endless, "menu": select_menu_item("2 PLAYERS"), "setup": harness.settingsSetup(waves=True)},
 	"name_entry": {"fn": name_entry, "setup": write_hiscores},
 	"no_entry_for_zero_score": {"fn": no_entry_for_zero_score},
 }

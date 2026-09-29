@@ -24,6 +24,10 @@ class SettingsMixin():
 			{"label": "SOUND", "value": "ON" if config.play_sounds else "OFF", "type": "sound"},
 			{"label": "FULL SCREEN", "value": "ON" if self.is_fullscreen else "OFF", "type": "fullscreen"},
 			{"label": "START LEVEL", "value": str(config.START_LEVEL), "type": "level"},
+			# what the menu items start: waves instead of the campaign, a computer tank, new maps
+			{"label": "WAVES", "value": "ON" if config.WAVES_MODE else "OFF", "type": "waves"},
+			{"label": "BOT", "value": "ON" if config.BOT_PLAYER else "OFF", "type": "botplayer"},
+			{"label": "NEW LEVELS", "value": "ON" if config.NEW_LEVELS else "OFF", "type": "newlevels"},
 		]
 		control_names = ["FIRE", "UP", "RIGHT", "DOWN", "LEFT"]
 		for player_nr in range(len(config.PLAYER_CONTROLS)):
@@ -164,6 +168,15 @@ class SettingsMixin():
 			self.toggleFullScreen()
 		elif kind == "autofire":
 			config.AUTO_FIRE = not config.AUTO_FIRE
+		elif kind == "waves":
+			config.WAVES_MODE = not config.WAVES_MODE
+		elif kind == "botplayer":
+			config.BOT_PLAYER = not config.BOT_PLAYER
+		elif kind == "newlevels":
+			# other level set: start level can be out of its range
+			config.NEW_LEVELS = not config.NEW_LEVELS
+			config.START_LEVEL = min(config.START_LEVEL, config.levelCount())
+			self.stage = config.START_LEVEL - 1
 		elif kind == "lang":
 			index = lang.LANGUAGES.index(config.LANGUAGE) if config.LANGUAGE in lang.LANGUAGES else 0
 			config.LANGUAGE = lang.LANGUAGES[(index + change) % len(lang.LANGUAGES)]
@@ -191,7 +204,7 @@ class SettingsMixin():
 			index = names.index(config.NES_VERSION) if config.NES_VERSION in names else 0
 			config.applyNesVersion(names[(index + change) % len(names)])
 		elif kind == "level":
-			config.START_LEVEL = (config.START_LEVEL - 1 + change) % 35 + 1
+			config.START_LEVEL = (config.START_LEVEL - 1 + change) % config.levelCount() + 1
 			self.stage = config.START_LEVEL - 1
 		elif kind == "reset":
 			config.PLAYER_CONTROLS = [list(controls) for controls in config.DEFAULT_PLAYER_CONTROLS]

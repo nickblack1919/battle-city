@@ -52,7 +52,7 @@ class ScreensMixin():
 			if start:
 				break
 			if change and select:
-				self.stage = max(1, min(35, self.stage + change))
+				self.stage = max(1, min(config.levelCount(), self.stage + change))
 				self.drawStageTitle()
 
 		self.stage_screen = False
@@ -449,7 +449,11 @@ class ScreensMixin():
 		return tables
 
 	def hiscoreKey(self, mode):
-		""" Hiscore table name: game mode and difficulty preset """
+		""" Hiscore table name: game mode, level set and difficulty preset
+		(new levels are another campaign, so they have their own tables)
+		"""
+		if config.NEW_LEVELS and mode in ("campaign", "endless"):
+			mode += " NEW"
 		return mode + " " + (config.CURRENT_PRESET or "CUSTOM")
 
 	def saveHiscores(self, tables):
@@ -667,6 +671,7 @@ class ScreensMixin():
 			"nr_of_players": self.nr_of_players,
 			"bot": self.bot,
 			"preset": config.CURRENT_PRESET,
+			"new_levels": config.NEW_LEVELS,
 			"players": [{
 				"score": player.score,
 				"lives": player.lives,
@@ -711,6 +716,11 @@ class ScreensMixin():
 			print("Saved game is broken")
 			return False
 
+		# saved game was played on its own level set: play it on the same maps
+		if bool(data.get("new_levels", False)) != config.NEW_LEVELS:
+			if self.new_levels_before_continue == None:
+				self.new_levels_before_continue = config.NEW_LEVELS
+			config.NEW_LEVELS = bool(data.get("new_levels", False))
 		if data.get("preset") in config.PRESETS:
 			# player's own preset comes back in menu
 			if self.preset_before_continue == None and data["preset"] != config.CURRENT_PRESET:

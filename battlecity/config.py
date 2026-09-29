@@ -479,6 +479,17 @@ SETTINGS_FILE = ".settings.json"
 SAVEGAME_FILE = ".savegame"
 HISCORES_FILE = ".hiscores.json"
 CUSTOM_LEVELS_DIR = "custom_levels"	# levels made in editor (in data directory)
+
+# NEW LEVELS (settings screen): 30 new maps (levels/new, made by tools/make_levels.py)
+# instead of the 35 original NES ones
+NEW_LEVELS = False
+NEW_LEVELS_DIR = "new"
+LEVEL_COUNTS = {False: 35, True: 30}
+# WAVES (settings screen): menu items start endless waves instead of the campaign
+WAVES_MODE = False
+# BOT (settings screen): one more tank is played by the computer - partner of a single player,
+# castle guard in a two player game (a three player game has no room for it)
+BOT_PLAYER = False
 HISCORES_COUNT = 10	# entries in hiscore table
 
 def dataFile(name):
@@ -494,17 +505,28 @@ def dataFile(name):
 			os.makedirs(directory)
 	return os.path.join(directory, name)
 
+def levelCount():
+	""" Number of levels in the chosen set: 35 original ones or 30 new ones """
+	return LEVEL_COUNTS[bool(NEW_LEVELS)]
+
+def levelSet():
+	""" Directory of the chosen level set inside "levels" ("" - original levels) """
+	return NEW_LEVELS_DIR if NEW_LEVELS else ""
+
 def levelFile(level_nr):
-	""" Level map file: custom level made in editor or original one """
-	custom = dataFile(os.path.join(CUSTOM_LEVELS_DIR, str(level_nr)))
+	""" Level map file: custom level made in editor or one of the chosen set
+	(every set has its own custom levels)
+	"""
+	custom = dataFile(os.path.join(CUSTOM_LEVELS_DIR, levelSet(), str(level_nr)))
 	if os.path.isfile(custom):
 		return custom
-	return os.path.join("levels", str(level_nr))
+	return os.path.join("levels", levelSet(), str(level_nr))
 
 def loadSettings():
 	""" Apply settings saved on settings screen """
 	global play_sounds, START_LEVEL, START_FULLSCREEN, PLAYER_CONTROLS, AUTO_FIRE, ENEMY_AI
 	global GAMEPAD_ASSIGN, GAMEPAD_FIRE_BUTTON, GAMEPAD_START_BUTTON, GAMEPAD_SELECT_BUTTON, LANGUAGE, CRT_FILTER
+	global NEW_LEVELS, WAVES_MODE, BOT_PLAYER
 
 	try:
 		with open(dataFile(SETTINGS_FILE), "r") as f:
@@ -528,6 +550,9 @@ def loadSettings():
 		LANGUAGE = settings["language"]
 	if settings.get("crt") in CRT_MODES:
 		CRT_FILTER = settings["crt"]
+	NEW_LEVELS = bool(settings.get("new_levels", NEW_LEVELS))
+	WAVES_MODE = bool(settings.get("waves", WAVES_MODE))
+	BOT_PLAYER = bool(settings.get("bot", BOT_PLAYER))
 	play_sounds = bool(settings.get("sound", play_sounds))
 	START_FULLSCREEN = bool(settings.get("fullscreen", START_FULLSCREEN))
 
@@ -551,7 +576,7 @@ def loadSettings():
 	# command line argument has priority
 	try:
 		start_level = int(settings.get("start_level", START_LEVEL))
-		if args['level'] == None and 1 <= start_level <= 35:
+		if args['level'] == None and 1 <= start_level <= levelCount():
 			START_LEVEL = start_level
 	except (TypeError, ValueError):
 		print("Can't read setting start_level")
@@ -570,6 +595,9 @@ def saveSettings(fullscreen):
 		"sound": play_sounds,
 		"fullscreen": fullscreen,
 		"start_level": START_LEVEL,
+		"new_levels": NEW_LEVELS,
+		"waves": WAVES_MODE,
+		"bot": BOT_PLAYER,
 		"nes_version": NES_VERSION,
 		"auto_fire": AUTO_FIRE,
 		"enemy_ai": ENEMY_AI,

@@ -219,8 +219,10 @@ def menu_fits(ctx):
 		return
 	items = game.menuItems()
 	labels = [item[0] for item in items]
-	ctx.check("new items after ENDLESS 2P, before VERSUS (%s)" % labels,
-		labels.index("RANDOM LEVELS") == labels.index("ENDLESS 2P") + 1 and labels.index("LEVEL OF THE DAY") + 1 == labels.index("VERSUS"))
+	ctx.check("generated levels after CONTINUE, before VERSUS (%s)" % labels,
+		labels.index("RANDOM LEVELS") == labels.index("CONTINUE") + 1 and labels.index("LEVEL OF THE DAY") + 1 == labels.index("VERSUS"))
+	ctx.check("waves and bot aren't menu items any more (%s)" % labels,
+		not [label for label in labels if "ENDLESS" in label or "BOT" in label])
 	ctx.check("CONTINUE after campaign items (%s)" % labels, labels[labels.index("3 PLAYERS") + 1] == "CONTINUE")
 	visible = True
 	for i in range(len(items)):

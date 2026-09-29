@@ -23,8 +23,8 @@ class Level():
 	TILE_SIZE = 16
 
 	def __init__(self, level_nr = None, rows = None):
-		""" There are total 35 different levels. If level_nr is larger than 35, loop over
-		to next according level so, for example, if level_nr ir 37, then load level 2
+		""" Level set has 35 (original) or 30 (new levels setting) maps. If level_nr is larger,
+		loop over to next according level so, for example, if level_nr ir 37, then load level 2
 		rows: map rows (e.g. generated level) instead of level file """
 
 
@@ -60,9 +60,10 @@ class Level():
 
 		# named levels (e.g. "versus") are loaded as is
 		if not isinstance(level_nr, str):
-			level_nr = 1 if level_nr == None else level_nr%35
+			count = config.levelCount()
+			level_nr = 1 if level_nr == None else level_nr % count
 			if level_nr == 0:
-				level_nr = 35
+				level_nr = count
 
 		if rows != None:
 			self.loadRows(rows)

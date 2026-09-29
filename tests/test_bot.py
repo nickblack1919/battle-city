@@ -23,7 +23,10 @@ def select_menu_item(label):
 	return menu
 
 
-BOT_MENU = select_menu_item("1 PLAYER + BOT")
+# BOT setting: the computer plays one more tank, so "1 PLAYER" starts a game with a partner
+BOT_MENU = select_menu_item("1 PLAYER")
+BOT_SETUP = harness.settingsSetup(bot=True)
+WAVES_BOT_SETUP = harness.settingsSetup(bot=True, waves=True)
 
 
 def empty_field(ctx, fortress = False):
@@ -371,19 +374,19 @@ def borrow_life(ctx):
 
 
 SCENARIOS = {
-	"menu_bot": {"fn": menu_bot, "menu": BOT_MENU},
-	"endless_bot": {"fn": endless_bot, "menu": select_menu_item("ENDLESS 1P + BOT")},
-	"shoots_enemy": {"fn": shoots_enemy, "menu": BOT_MENU},
-	"human_in_line": {"fn": human_in_line, "menu": BOT_MENU},
-	"fortress": {"fn": fortress, "menu": BOT_MENU},
-	"dodge": {"fn": lambda ctx: dodge(ctx, 100), "menu": BOT_MENU},
-	"no_dodge": {"fn": lambda ctx: dodge(ctx, 0), "menu": BOT_MENU},
-	"lets_human_pass": {"fn": lets_human_pass, "menu": BOT_MENU},
-	"playing": {"fn": playing, "menu": BOT_MENU},
-	"hiscore_human_only": {"fn": hiscore_human_only, "menu": BOT_MENU},
-	"save_bot": {"fn": save_bot, "menu": BOT_MENU},
+	"menu_bot": {"fn": menu_bot, "menu": BOT_MENU, "setup": BOT_SETUP},
+	"endless_bot": {"fn": endless_bot, "menu": BOT_MENU, "setup": WAVES_BOT_SETUP},
+	"shoots_enemy": {"fn": shoots_enemy, "menu": BOT_MENU, "setup": BOT_SETUP},
+	"human_in_line": {"fn": human_in_line, "menu": BOT_MENU, "setup": BOT_SETUP},
+	"fortress": {"fn": fortress, "menu": BOT_MENU, "setup": BOT_SETUP},
+	"dodge": {"fn": lambda ctx: dodge(ctx, 100), "menu": BOT_MENU, "setup": BOT_SETUP},
+	"no_dodge": {"fn": lambda ctx: dodge(ctx, 0), "menu": BOT_MENU, "setup": BOT_SETUP},
+	"lets_human_pass": {"fn": lets_human_pass, "menu": BOT_MENU, "setup": BOT_SETUP},
+	"playing": {"fn": playing, "menu": BOT_MENU, "setup": BOT_SETUP},
+	"hiscore_human_only": {"fn": hiscore_human_only, "menu": BOT_MENU, "setup": BOT_SETUP},
+	"save_bot": {"fn": save_bot, "menu": BOT_MENU, "setup": BOT_SETUP},
 	"continue_bot": {"fn": continue_bot, "menu": select_menu_item("CONTINUE"), "setup": write_bot_savegame},
-	"borrow_life": {"fn": borrow_life, "menu": BOT_MENU},
+	"borrow_life": {"fn": borrow_life, "menu": BOT_MENU, "setup": BOT_SETUP},
 }
 
 if __name__ == "__main__":

@@ -23,7 +23,9 @@ def select_menu_item(label):
 	return menu
 
 
-GUARD_MENU = select_menu_item("2 PLAYERS + BOT")
+# BOT setting: with two players the computer plays the third tank, the castle guard
+GUARD_MENU = select_menu_item("2 PLAYERS")
+GUARD_SETUP = harness.settingsSetup(bot=True)
 
 
 def clear(ctx, fortress = True):
@@ -454,16 +456,16 @@ def borrow_life(ctx):
 
 
 SCENARIOS = {
-	"mode": {"fn": mode, "menu": GUARD_MENU},
-	"harmless": {"fn": harmless, "menu": GUARD_MENU},
-	"never_shoots_players": {"fn": never_shoots_players, "menu": GUARD_MENU},
-	"our_bullets_dont_stop_it": {"fn": our_bullets_dont_stop_it, "menu": GUARD_MENU},
-	"careful": {"fn": careful, "menu": GUARD_MENU},
-	"shields_castle": {"fn": shields_castle, "menu": GUARD_MENU},
-	"keeps_to_post": {"fn": keeps_to_post, "menu": GUARD_MENU},
-	"stealth_and_bonuses": {"fn": stealth_and_bonuses, "menu": GUARD_MENU},
-	"scores_screen": {"fn": scores_screen, "menu": GUARD_MENU},
-	"borrow_life": {"fn": borrow_life, "menu": GUARD_MENU},
+	"mode": {"fn": mode, "menu": GUARD_MENU, "setup": GUARD_SETUP},
+	"harmless": {"fn": harmless, "menu": GUARD_MENU, "setup": GUARD_SETUP},
+	"never_shoots_players": {"fn": never_shoots_players, "menu": GUARD_MENU, "setup": GUARD_SETUP},
+	"our_bullets_dont_stop_it": {"fn": our_bullets_dont_stop_it, "menu": GUARD_MENU, "setup": GUARD_SETUP},
+	"careful": {"fn": careful, "menu": GUARD_MENU, "setup": GUARD_SETUP},
+	"shields_castle": {"fn": shields_castle, "menu": GUARD_MENU, "setup": GUARD_SETUP},
+	"keeps_to_post": {"fn": keeps_to_post, "menu": GUARD_MENU, "setup": GUARD_SETUP},
+	"stealth_and_bonuses": {"fn": stealth_and_bonuses, "menu": GUARD_MENU, "setup": GUARD_SETUP},
+	"scores_screen": {"fn": scores_screen, "menu": GUARD_MENU, "setup": GUARD_SETUP},
+	"borrow_life": {"fn": borrow_life, "menu": GUARD_MENU, "setup": GUARD_SETUP},
 }
 
 if __name__ == "__main__":

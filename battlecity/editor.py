@@ -41,8 +41,8 @@ class EditorMixin():
 		return False
 
 	def editorSave(self, level_nr, rows):
-		""" Save edited level to custom levels directory """
-		directory = config.dataFile(config.CUSTOM_LEVELS_DIR)
+		""" Save edited level to custom levels directory (every level set has its own) """
+		directory = config.dataFile(os.path.join(config.CUSTOM_LEVELS_DIR, config.levelSet()))
 		try:
 			if not os.path.isdir(directory):
 				os.makedirs(directory)
@@ -54,7 +54,7 @@ class EditorMixin():
 	def editorDeleteCustom(self, level_nr):
 		""" Remove custom level: original level is used again """
 		try:
-			os.remove(os.path.join(config.dataFile(config.CUSTOM_LEVELS_DIR), str(level_nr)))
+			os.remove(os.path.join(config.dataFile(config.CUSTOM_LEVELS_DIR), config.levelSet(), str(level_nr)))
 		except OSError:
 			pass
 
@@ -127,7 +127,7 @@ class EditorMixin():
 					elif event.key in (pygame.K_LEFTBRACKET, pygame.K_RIGHTBRACKET):
 						# other level, unsaved changes are lost
 						level_nr += 1 if event.key == pygame.K_RIGHTBRACKET else -1
-						level_nr = (level_nr - 1) % 35 + 1
+						level_nr = (level_nr - 1) % config.levelCount() + 1
 						rows = self.editorReadRows(level_nr)
 						level = Level(level_nr)
 						modified = False

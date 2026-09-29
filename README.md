@@ -40,13 +40,15 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
 
 ## Game modes
 
-- **1 / 2 / 3 PLAYERS** - campaign: 35 stages, scores screen after every stage. Progress is saved after each stage.
-- **1 PLAYER + BOT** - campaign with a computer partner playing player 2 (shown as BOT). It drives with the same speed
+- **1 / 2 / 3 PLAYERS** - campaign: 35 stages (30 with the NEW LEVELS setting), scores screen after every stage.
+  Progress is saved after each stage. Three settings change what these items start: WAVES (endless waves instead of the
+  campaign), BOT (the computer plays one more tank) and NEW LEVELS (30 new maps).
+- **BOT setting, one player** - campaign with a computer partner playing player 2 (shown as BOT). It drives with the same speed
   and bullets as a human: finds the best place to shoot enemies from (enemies near the castle first, defends the castle),
   fires only when neither the castle, fortress walls nor the human are in its line of fire, dodges enemy bullets, steps out
   of enemy lines of fire while its bullet isn't ready, picks up near bonuses the human isn't closer to and drives out of
   the human's way. P2 keys and gamepads don't control it; its score doesn't go to hiscores; saved game remembers it.
-- **2 PLAYERS + BOT** - two humans and a computer helper playing the third tank (blue, so it isn't taken for player 2:
+- **BOT setting, two players** - two humans and a computer helper playing the third tank (blue, so it isn't taken for player 2:
   `BOT_COLOR_ORDER` swaps green and blue channels of its sprites, its lives in the sidebar are blue too), which guards the castle:
   it holds one of three posts in front of it (center or the flank farther from the players: `BOT_GUARD_POST_ROW`,
   `BOT_GUARD_POST_SIDE`, `BOT_GUARD_POST_STICKINESS`), keeps its place within `BOT_GUARD_RADIUS` cells of that post and
@@ -64,7 +66,12 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
   either direction - it doesn't fire when a player is in its line of fire, a bullet that still reaches a partner vanishes
   without damage or stun, and our bullets don't stop the partner either (`BOT_NO_FRIENDLY_FIRE`).
 - **CONTINUE** - continue saved campaign (shown when there is a saved game).
-- **ENDLESS 1P / 1P + BOT / 2P** - waves of enemies until game over, every wave is harder.
+- **WAVES setting** - the player items start waves of enemies until game over instead of the campaign: every wave is
+  harder, there is no scores screen between them, maps repeat from the beginning of the set. Waves have their own
+  hiscore tables.
+- **NEW LEVELS setting** - 30 new maps (`levels/new`) instead of the 35 original ones, made by the level generator from
+  fixed seeds (`tools/make_levels.py`, run it to build them again). They have their own hiscore tables, their own
+  custom levels in the editor, and a saved game remembers which set it was played on.
 - **RANDOM LEVELS** - 1 player campaign on generated maps: every game gets a new random seed, every stage a new
   map; later stages have denser maps with more steel and water, enemies come from the stage tables. The seed is
   saved with the game, so CONTINUE gives the same maps.
@@ -72,9 +79,9 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
   date, stage difficulty 5-30 from the seed). After the stage or game over: scores, hiscore table of the day, menu.
   Every date and difficulty preset has its own hiscore table.
 - **VERSUS** - two players fight each other, each defends own castle; destroyed castle or no lives left loses.
-- **LEVEL EDITOR** - edit any of 35 levels: arrows / mouse move cursor, 1-5 tile, 0 eraser, space / left mouse draw,
+- **LEVEL EDITOR** - edit any level of the chosen set (35 original or 30 new ones): arrows / mouse move cursor, 1-5 tile, 0 eraser, space / left mouse draw,
   right mouse erase, `[` `]` level, G fill with generated map, S save, D back to original level, T save and play.
-- **SETTINGS** - difficulty preset, sound, full screen, start level, controls, NES speed (NTSC / DENDY),
+- **SETTINGS** - difficulty preset, sound, full screen, start level, waves, bot, new levels, controls, NES speed (NTSC / DENDY),
   auto fire (ON by default - holding fire button shoots again when bullet slot is free, with the timing of the
   Dendy turbo button: about 12 presses per second; OFF - every shot needs
   a press, like on NES), enemy AI (CLASSIC - random paths, sometimes towards the castle; NES - like on NES: at
@@ -269,4 +276,5 @@ One test file: `venv/bin/python tests/test_versus.py`, one scenario: `venv/bin/p
 | `battlecity/levelgen.py` | level generator, level of the day seed |
 | `battlecity/bullet.py`, `bonus.py`, `castle.py`, `effects.py`, `timer.py`, `gamepad.py` | other game objects |
 | `levels/` | level maps: `.` empty, `#` brick, `@` steel, `~` water, `%` grass, `-` ice |
+| `levels/new/` | 30 new maps of the NEW LEVELS setting (`tools/make_levels.py`) |
 | `tests/` | automated tests |
