@@ -49,8 +49,9 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
   fires only when neither the castle, fortress walls nor the human are in its line of fire, dodges enemy bullets, steps out
   of enemy lines of fire while its bullet isn't ready, picks up near bonuses the human isn't closer to and drives out of
   the human's way. P2 keys and gamepads don't control it; its score doesn't go to hiscores; saved game remembers it.
-- **BOT setting, two players** - two humans and a computer helper playing the third tank (blue, so it isn't taken for player 2:
-  `BOT_COLOR_ORDER` swaps green and blue channels of its sprites, its lives in the sidebar are blue too), which guards the castle:
+- **BOT setting, two players** - two humans and a computer helper playing the third tank (brown, so it isn't taken for a
+  player: `BOT_COLOR_ORDER` moves the RGB channels of its sprites, its lives in the sidebar are brown too; the third
+  human player's tank is blue instead, `PLAYER3_COLOR_ORDER`), which guards the castle:
   it holds one of three posts in front of it (center or the flank farther from the players: `BOT_GUARD_POST_ROW`,
   `BOT_GUARD_POST_SIDE`, `BOT_GUARD_POST_STICKINESS`), keeps its place within `BOT_GUARD_RADIUS` cells of that post and
   never goes further than `BOT_GUARD_MAX_AWAY` from it, shoots enemies faster than the partner bot

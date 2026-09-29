@@ -56,6 +56,17 @@ def gamepad(ctx):
 		ctx.check("first gamepad goes to P3", players[2].gamepad is pad0)
 		ctx.check("second gamepad goes to P1", players[0].gamepad is pad1)
 		ctx.check("P2 without gamepad", players[1].gamepad is None)
+		# third tank is blue, so it isn't taken for player 2
+
+		def colors(player):
+			image = player.image
+			found = set([image.get_at((x, y))[:3] for x in range(0, 32, 2) for y in range(0, 32, 2)])
+			return set([color for color in found if max(color) != min(color)])
+
+		p3_colors, p2_colors = colors(players[2]), colors(players[1])
+		ctx.check("P3 tank is blue (%s)" % sorted(p3_colors), p3_colors and all([color[2] >= color[1] for color in p3_colors]))
+		ctx.check("P2 tank stays green (%s)" % sorted(p2_colors), p2_colors and all([color[1] >= color[2] for color in p2_colors]))
+		ctx.check("P3 colors differ from P2", not (p3_colors & p2_colors))
 
 	p3 = players[2]
 	if ctx.frame == 10:

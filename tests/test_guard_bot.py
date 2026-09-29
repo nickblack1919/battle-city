@@ -98,8 +98,8 @@ def mode(ctx):
 	bot_colors, p2_colors = colors(players[2]), colors(players[1])
 	ctx.check("helper is drawn in other colors than player 2 (%s vs %s)" % (sorted(bot_colors), sorted(p2_colors)),
 		bot_colors and not (bot_colors & p2_colors))
-	# green tank became blue: every color of it has more blue than green
-	ctx.check("helper's tank is blue (%s)" % (sorted(bot_colors),), all([color[2] >= color[1] for color in bot_colors]))
+	# green tank became brown: every color of it has more red than green and blue
+	ctx.check("helper's tank is brown (%s)" % (sorted(bot_colors),), all([color[0] >= color[1] >= color[2] for color in bot_colors]))
 	ctx.check("player 2 stays green (%s)" % (sorted(p2_colors),), all([color[1] >= color[2] for color in p2_colors]))
 	ctx.finish()
 

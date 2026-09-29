@@ -95,8 +95,9 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 
 		self.enemy_life_image = state.sprites.subsurface(81*2, 57*2, 7*2, 7*2)
 		self.player_life_image = state.sprites.subsurface(89*2, 56*2, 7*2, 8*2)
-		# computer partner's lives are shown in its own color
+		# lives of the recolored tanks (blue third player, brown computer one) are shown in their colors
 		self.bot_life_image = recolorImage(self.player_life_image, config.BOT_COLOR_ORDER)
+		self.player3_life_image = recolorImage(self.player_life_image, config.PLAYER3_COLOR_ORDER)
 		self.flag_image = state.sprites.subsurface(64*2, 49*2, 16*2, 15*2)
 
 		# this is used in intro screen
@@ -895,7 +896,8 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 				if self.bot == 3 and self.mode != "versus":
 					player.bot = Bot(self, player, guard = True)
 					player.lives = config.BOT_LIVES
-					player.setColorOrder(config.BOT_COLOR_ORDER)
+				# third tank has its own color: brown for the computer helper, blue for player 3
+				player.setColorOrder(config.BOT_COLOR_ORDER if player.bot else config.PLAYER3_COLOR_ORDER)
 				state.players.append(player)
 
 		# continue saved game
@@ -999,7 +1001,13 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 				else:
 					state.screen.blit(self.text(str(n+1)+"P", False, text_color), [x+20, y+210+n*42])
 				state.screen.blit(self.text(str(lives_left), False, text_color), [x+35, y+227+n*42])
-				state.screen.blit(self.bot_life_image if state.players[n].bot else self.player_life_image, [x+18, y+227+n*42])
+				if state.players[n].bot:
+					life_image = self.bot_life_image
+				elif n == 2 and self.mode != "versus":
+					life_image = self.player3_life_image
+				else:
+					life_image = self.player_life_image
+				state.screen.blit(life_image, [x+18, y+227+n*42])
 
 			state.screen.blit(self.flag_image, [x+17, y+280+75])
 			state.screen.blit(self.text(str(self.stage), False, text_color), [x+35, y+312+75])

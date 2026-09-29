@@ -286,9 +286,11 @@ BOT_GUARD_ENEMY_NEAR_COST = 4	# ... and every cell around an enemy tank like n c
 BOT_NO_FRIENDLY_FIRE = True
 BOT_LIVES = 5	# computer partner starts with n lives (players get PLAYER_START_LIFE)
 BOT_GUARD_BONUSES = False	# guard doesn't go for bonuses and doesn't pick them up: they are left to the players
-# color of the computer partner's tank: order of red, green and blue channels of the sprite.
-# (0, 2, 1) swaps green and blue, so the green tank becomes blue and isn't taken for player 2
-BOT_COLOR_ORDER = (0, 2, 1)
+# color of a tank: order of red, green and blue channels of its sprite. (0, 2, 1) swaps green and blue,
+# so the green tank becomes blue: the third player isn't taken for player 2
+# (1, 2, 0) makes the green tank brown: the computer one is told apart from all players
+BOT_COLOR_ORDER = (1, 2, 0)
+PLAYER3_COLOR_ORDER = (0, 2, 1)
 
 # interface language: EN or RU (settings screen)
 LANGUAGE = "EN"
