@@ -69,24 +69,26 @@ def dailyKey(date = None):
 	return "daily " + date.strftime("%Y-%m-%d")
 
 
-def generateLevel(seed, stage):
-	""" Level rows (26 strings, same format as level files) for seed and stage """
-	return generateLevelInfo(seed, stage)["rows"]
+def generateLevel(seed, stage, symmetry = None):
+	""" Level rows (26 strings, same format as level files) for seed and stage
+	symmetry: "mirror", "4way", "none" - forced symmetry, None - chosen at random like original levels
+	"""
+	return generateLevelInfo(seed, stage, symmetry)["rows"]
 
 
-def generateLevelInfo(seed, stage):
+def generateLevelInfo(seed, stage, symmetry = None):
 	""" Generated level with details: rows, symmetry ("mirror", "4way", "none"), attempt """
 	stage = max(1, min(35, int(stage)))
 	for attempt in range(MAX_ATTEMPTS):
-		rng = random.Random("battlecity-%s-%d-%d" % (seed, stage, attempt))
-		grid, symmetry = buildMap(rng, stage)
+		rng = random.Random("battlecity-%s-%d-%d-%s" % (seed, stage, attempt, symmetry))
+		grid, used = buildMap(rng, stage, symmetry = symmetry)
 		if isPlayable(grid):
 			fillPockets(grid)
-			return {"rows": ["".join(row) for row in grid], "symmetry": symmetry, "attempt": attempt}
+			return {"rows": ["".join(row) for row in grid], "symmetry": used, "attempt": attempt}
 	# fallback: same map without steel and water is always connected
-	rng = random.Random("battlecity-%s-%d-fallback" % (seed, stage))
-	grid, symmetry = buildMap(rng, stage, allow_blocking = False)
-	return {"rows": ["".join(row) for row in grid], "symmetry": symmetry, "attempt": MAX_ATTEMPTS}
+	rng = random.Random("battlecity-%s-%d-%s-fallback" % (seed, stage, symmetry))
+	grid, used = buildMap(rng, stage, allow_blocking = False, symmetry = symmetry)
+	return {"rows": ["".join(row) for row in grid], "symmetry": used, "attempt": MAX_ATTEMPTS}
 
 
 def stageParams(stage):
@@ -101,10 +103,11 @@ def stageParams(stage):
 	}
 
 
-def buildMap(rng, stage, allow_blocking = True):
+def buildMap(rng, stage, allow_blocking = True, symmetry = None):
 	params = stageParams(stage)
 	roll = rng.random()
-	symmetry = "mirror" if roll < 0.8 else ("4way" if roll < 0.92 else "none")
+	if symmetry == None:
+		symmetry = "mirror" if roll < 0.8 else ("4way" if roll < 0.92 else "none")
 
 	# block grid: None - empty, otherwise level character
 	blocks = [[None] * BLOCKS for i in range(BLOCKS)]

@@ -135,6 +135,9 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		self.level_seed = None
 		self.daily_date = None
 
+		# RANDOM LEVELS setting: every stage is generated on the fly (never symmetric)
+		self.random_levels = False
+
 		# demo: computer plays when menu is idle
 		self.demo = False
 
@@ -1236,8 +1239,10 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		self.showStageScreen()
 
 		# load level
-		if self.mode in ("random", "daily"):
-			self.level = Level(self.stage, levelgen.generateLevel(self.level_seed, self.stage))
+		if self.mode in ("random", "daily") or self.random_levels:
+			# levels of the RANDOM LEVELS setting are never symmetric, level of the day looks like an original one
+			symmetry = "none" if self.random_levels else None
+			self.level = Level(self.stage, levelgen.generateLevel(self.level_seed, self.stage, symmetry))
 		else:
 			self.level = Level("versus" if self.mode == "versus" else self.stage)
 		self.timefreeze = False

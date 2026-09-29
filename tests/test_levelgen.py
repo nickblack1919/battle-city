@@ -135,16 +135,19 @@ def random_levels(ctx):
 	g, game, d = ctx.g, ctx.game, ctx.data
 	levelgen = g["levelgen"]
 	if ctx.frame == 1:
-		ctx.check("random levels started", game.mode == "random" and game.level_seed != None and len(g["players"]) == 1)
+		ctx.check("random levels started by the setting", game.mode == "random" and game.random_levels and game.level_seed != None and len(g["players"]) == 1)
+		# generated levels of the setting are never symmetric
+		mirrored = set([(25 - c, r, ch) for c, r, ch in level_cells(game.level)])
+		ctx.check("map is not symmetric", level_cells(game.level) != mirrored)
 		d["seed"] = game.level_seed
-		rows = levelgen.generateLevel(game.level_seed, 1)
+		rows = levelgen.generateLevel(game.level_seed, 1, "none")
 		ctx.check("stage 1 uses generated map", level_cells(game.level) == rows_cells(rows))
 		ctx.check("enemies from stage 1 table", len([t for t in game.level.enemies_left if t in (0, 1, 2, 3, 4, 5)]) == 20)
 	if ctx.frame == 100:
 		finish_level(ctx)
 	if ctx.frame > 100 and game.stage == 2 and game.running:
-		rows = levelgen.generateLevel(d["seed"], 2)
-		ctx.check("stage 2 uses next generated map", level_cells(game.level) == rows_cells(rows) and rows != levelgen.generateLevel(d["seed"], 1))
+		rows = levelgen.generateLevel(d["seed"], 2, "none")
+		ctx.check("stage 2 uses next generated map", level_cells(game.level) == rows_cells(rows) and rows != levelgen.generateLevel(d["seed"], 1, "none"))
 		with open(savegame_file()) as f:
 			data = json.load(f)
 		ctx.check("saved game has mode and seed (%s)" % data, data.get("mode") == "random" and data.get("seed") == d["seed"] and data["stage"] == 1)
@@ -164,7 +167,7 @@ def continue_random(ctx):
 	g, game = ctx.g, ctx.game
 	if ctx.frame != 1:
 		return
-	rows = g["levelgen"].generateLevel(12345, 4)
+	rows = g["levelgen"].generateLevel(12345, 4, "none")
 	ctx.check("continue: random levels mode with saved seed", game.mode == "random" and game.level_seed == 12345 and game.stage == 4)
 	ctx.check("continue: same generated map", level_cells(game.level) == rows_cells(rows))
 	ctx.check("continue: score restored", g["players"][0].score == 800)
@@ -219,10 +222,9 @@ def menu_fits(ctx):
 		return
 	items = game.menuItems()
 	labels = [item[0] for item in items]
-	ctx.check("generated levels after CONTINUE, before VERSUS (%s)" % labels,
-		labels.index("RANDOM LEVELS") == labels.index("CONTINUE") + 1 and labels.index("LEVEL OF THE DAY") + 1 == labels.index("VERSUS"))
-	ctx.check("waves and bot aren't menu items any more (%s)" % labels,
-		not [label for label in labels if "ENDLESS" in label or "BOT" in label])
+	ctx.check("VERSUS after CONTINUE (%s)" % labels, labels.index("VERSUS") == labels.index("CONTINUE") + 1)
+	ctx.check("waves, bot, random and daily levels aren't menu items any more (%s)" % labels,
+		not [label for label in labels if "ENDLESS" in label or "BOT" in label or "RANDOM" in label or "DAY" in label])
 	ctx.check("CONTINUE after campaign items (%s)" % labels, labels[labels.index("3 PLAYERS") + 1] == "CONTINUE")
 	visible = True
 	for i in range(len(items)):
@@ -277,9 +279,9 @@ def editor_generate(ctx):
 
 SCENARIOS = {
 	"generator": {"fn": generator},
-	"random_levels": {"fn": random_levels, "menu": select_menu_item("RANDOM LEVELS")},
+	"random_levels": {"fn": random_levels, "menu": select_menu_item("1 PLAYER"), "setup": harness.settingsSetup(random_levels=True)},
 	"continue_random": {"fn": continue_random, "menu": continue_menu, "setup": write_random_savegame},
-	"daily": {"fn": daily, "menu": daily_menu, "max_frames": 20000},
+	"daily": {"fn": daily, "menu": daily_menu, "max_frames": 20000, "setup": harness.settingsSetup(daily=True)},
 	"menu_fits": {"fn": menu_fits, "setup": write_campaign_savegame},
 	"editor_generate": {"fn": editor_generate, "menu": editor_menu},
 }

@@ -29,13 +29,13 @@ def settings(ctx):
 	if ctx.frame != 1:
 		return
 	labels = [item["label"] for item in game.settingsItems()]
-	for label in ("WAVES", "BOT", "NEW LEVELS"):
+	for label in ("WAVES", "BOT", "RANDOM LEVELS", "NEW LEVELS"):
 		ctx.check("settings screen has %s" % label, label in labels)
 
 	def item(label):
 		return [i for i in game.settingsItems() if i["label"] == label][0]
 
-	for label, name in (("WAVES", "WAVES_MODE"), ("BOT", "BOT_PLAYER"), ("NEW LEVELS", "NEW_LEVELS")):
+	for label, name in (("WAVES", "WAVES_MODE"), ("BOT", "BOT_PLAYER"), ("RANDOM LEVELS", "RANDOM_LEVELS"), ("NEW LEVELS", "NEW_LEVELS")):
 		before = g[name]
 		ctx.check("%s is %s" % (label, item(label)["value"]), item(label)["value"] == ("ON" if before else "OFF"))
 		game.changeSetting(item(label)["type"], 1, item(label))
@@ -43,8 +43,8 @@ def settings(ctx):
 
 	# they are saved and read back
 	g["loadSettings"]()
-	ctx.check("settings saved and loaded (%s %s %s)" % (g["WAVES_MODE"], g["BOT_PLAYER"], g["NEW_LEVELS"]),
-		g["WAVES_MODE"] and g["BOT_PLAYER"] and g["NEW_LEVELS"])
+	ctx.check("settings saved and loaded (%s %s %s %s)" % (g["WAVES_MODE"], g["BOT_PLAYER"], g["RANDOM_LEVELS"], g["NEW_LEVELS"]),
+		g["WAVES_MODE"] and g["BOT_PLAYER"] and g["RANDOM_LEVELS"] and g["NEW_LEVELS"])
 
 	# number of levels and their files come from the chosen set
 	ctx.check("30 new levels", g["levelCount"]() == 30 and g["levelFile"](7) == os.path.join("levels", "new", "7"))
@@ -99,6 +99,37 @@ def new_levels_game(ctx):
 	ctx.finish()
 
 
+def random_setting(ctx):
+	""" RANDOM LEVELS setting: every stage is a new generated map, never symmetric """
+	g, game = ctx.g, ctx.game
+	if ctx.frame != 5:
+		return
+	levelgen = g["levelgen"]
+	ctx.check("RANDOM LEVELS is a setting", "RANDOM LEVELS" in [item["label"] for item in game.settingsItems()])
+	ctx.check("game generates its levels", game.random_levels and game.mode == "random" and game.level_seed != None)
+
+	def cells(rows):
+		return set([(c, r, ch) for r, row in enumerate(rows) for c, ch in enumerate(row) if ch != "."])
+
+	maps = []
+	for stage in range(1, 11):
+		rows = levelgen.generateLevel(game.level_seed, stage, "none")
+		maps.append("\n".join(rows))
+		left_right = set([(25 - c, r, ch) for c, r, ch in cells(rows)])
+		up_down = set([(c, 25 - r, ch) for c, r, ch in cells(rows)])
+		ctx.check("stage %d map is not symmetric" % stage, cells(rows) != left_right and cells(rows) != up_down)
+	ctx.check("every stage gets its own map (%d of 10)" % len(set(maps)), len(set(maps)) == 10)
+
+	# the map on screen is the generated one, and the next stage brings another
+	rows = levelgen.generateLevel(game.level_seed, game.stage, "none")
+	tiles = set([(tile.left // 16, tile.top // 16) for tile in game.level.mapr])
+	expected = set([(c, r) for c, r, ch in cells(rows)])
+	ctx.check("stage %d of the game uses its generated map" % game.stage, tiles == expected)
+	ctx.check("generated games have their own hiscore table (%s)" % game.hiscoreKey(game.hiscoreMode()),
+		game.hiscoreMode() == "random")
+	ctx.finish()
+
+
 def new_levels_files(ctx):
 	""" All 30 new levels are there and playable """
 	g, game = ctx.g, ctx.game
@@ -131,6 +162,7 @@ SCENARIOS = {
 	"bot_setting": {"fn": bot_setting, "menu": select_menu_item("1 PLAYER"), "setup": harness.settingsSetup(bot=True)},
 	"waves_setting": {"fn": waves_setting, "menu": select_menu_item("1 PLAYER"), "setup": harness.settingsSetup(waves=True)},
 	"new_levels_game": {"fn": new_levels_game, "menu": select_menu_item("1 PLAYER"), "setup": harness.settingsSetup(new_levels=True)},
+	"random_setting": {"fn": random_setting, "menu": select_menu_item("1 PLAYER"), "setup": harness.settingsSetup(random_levels=True)},
 	"new_levels_files": {"fn": new_levels_files},
 }
 

@@ -41,8 +41,9 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
 ## Game modes
 
 - **1 / 2 / 3 PLAYERS** - campaign: 35 stages (30 with the NEW LEVELS setting), scores screen after every stage.
-  Progress is saved after each stage. Three settings change what these items start: WAVES (endless waves instead of the
-  campaign), BOT (the computer plays one more tank) and NEW LEVELS (30 new maps).
+  Progress is saved after each stage. Four settings change what these items start: WAVES (endless waves instead of the
+  campaign), BOT (the computer plays one more tank), RANDOM LEVELS (every stage generated on the fly) and NEW LEVELS
+  (30 new maps).
 - **BOT setting, one player** - campaign with a computer partner playing player 2 (shown as BOT). It drives with the same speed
   and bullets as a human: finds the best place to shoot enemies from (enemies near the castle first, defends the castle),
   fires only when neither the castle, fortress walls nor the human are in its line of fire, dodges enemy bullets, steps out
@@ -72,16 +73,18 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
 - **NEW LEVELS setting** - 30 new maps (`levels/new`) instead of the 35 original ones, made by the level generator from
   fixed seeds (`tools/make_levels.py`, run it to build them again). They have their own hiscore tables, their own
   custom levels in the editor, and a saved game remembers which set it was played on.
-- **RANDOM LEVELS** - 1 player campaign on generated maps: every game gets a new random seed, every stage a new
-  map; later stages have denser maps with more steel and water, enemies come from the stage tables. The seed is
-  saved with the game, so CONTINUE gives the same maps.
-- **LEVEL OF THE DAY** - 1 player, one generated stage, the same for everyone on this date (seed from the local
+- **RANDOM LEVELS setting** - every stage is a map generated on the fly, and these maps are never symmetric
+  (`generateLevel(seed, stage, "none")`), unlike the original levels: later stages get denser maps with more steel and
+  water, enemies come from the stage tables. Every game gets a new seed which is saved with the game, so CONTINUE gives
+  the same maps. Generated games have their own hiscore tables.
+- **LEVEL OF THE DAY** - hidden: the menu item appears only with `"daily": true` in the settings file
+  (`SHOW_DAILY_LEVEL`). 1 player, one generated stage, the same for everyone on this date (seed from the local
   date, stage difficulty 5-30 from the seed). After the stage or game over: scores, hiscore table of the day, menu.
   Every date and difficulty preset has its own hiscore table.
 - **VERSUS** - two players fight each other, each defends own castle; destroyed castle or no lives left loses.
 - **LEVEL EDITOR** - edit any level of the chosen set (35 original or 30 new ones): arrows / mouse move cursor, 1-5 tile, 0 eraser, space / left mouse draw,
   right mouse erase, `[` `]` level, G fill with generated map, S save, D back to original level, T save and play.
-- **SETTINGS** - difficulty preset, sound, full screen, start level, waves, bot, new levels, controls, NES speed (NTSC / DENDY),
+- **SETTINGS** - difficulty preset, sound, full screen, start level, waves, bot, random levels, new levels, controls, NES speed (NTSC / DENDY),
   auto fire (ON by default - holding fire button shoots again when bullet slot is free, with the timing of the
   Dendy turbo button: about 12 presses per second; OFF - every shot needs
   a press, like on NES), enemy AI (CLASSIC - random paths, sometimes towards the castle; NES - like on NES: at

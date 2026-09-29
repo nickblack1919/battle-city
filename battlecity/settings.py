@@ -27,6 +27,7 @@ class SettingsMixin():
 			# what the menu items start: waves instead of the campaign, a computer tank, new maps
 			{"label": "WAVES", "value": "ON" if config.WAVES_MODE else "OFF", "type": "waves"},
 			{"label": "BOT", "value": "ON" if config.BOT_PLAYER else "OFF", "type": "botplayer"},
+			{"label": "RANDOM LEVELS", "value": "ON" if config.RANDOM_LEVELS else "OFF", "type": "randomlevels"},
 			{"label": "NEW LEVELS", "value": "ON" if config.NEW_LEVELS else "OFF", "type": "newlevels"},
 		]
 		control_names = ["FIRE", "UP", "RIGHT", "DOWN", "LEFT"]
@@ -172,6 +173,8 @@ class SettingsMixin():
 			config.WAVES_MODE = not config.WAVES_MODE
 		elif kind == "botplayer":
 			config.BOT_PLAYER = not config.BOT_PLAYER
+		elif kind == "randomlevels":
+			config.RANDOM_LEVELS = not config.RANDOM_LEVELS
 		elif kind == "newlevels":
 			# other level set: start level can be out of its range
 			config.NEW_LEVELS = not config.NEW_LEVELS

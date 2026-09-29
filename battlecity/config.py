@@ -487,6 +487,10 @@ NEW_LEVELS_DIR = "new"
 LEVEL_COUNTS = {False: 35, True: 30}
 # WAVES (settings screen): menu items start endless waves instead of the campaign
 WAVES_MODE = False
+# RANDOM LEVELS (settings screen): every stage is a new generated map, never symmetric
+RANDOM_LEVELS = False
+# LEVEL OF THE DAY: hidden, the menu item is shown only with this setting ("daily" in the settings file)
+SHOW_DAILY_LEVEL = False
 # BOT (settings screen): one more tank is played by the computer - partner of a single player,
 # castle guard in a two player game (a three player game has no room for it)
 BOT_PLAYER = False
@@ -526,7 +530,7 @@ def loadSettings():
 	""" Apply settings saved on settings screen """
 	global play_sounds, START_LEVEL, START_FULLSCREEN, PLAYER_CONTROLS, AUTO_FIRE, ENEMY_AI
 	global GAMEPAD_ASSIGN, GAMEPAD_FIRE_BUTTON, GAMEPAD_START_BUTTON, GAMEPAD_SELECT_BUTTON, LANGUAGE, CRT_FILTER
-	global NEW_LEVELS, WAVES_MODE, BOT_PLAYER
+	global NEW_LEVELS, WAVES_MODE, BOT_PLAYER, RANDOM_LEVELS, SHOW_DAILY_LEVEL
 
 	try:
 		with open(dataFile(SETTINGS_FILE), "r") as f:
@@ -552,6 +556,8 @@ def loadSettings():
 		CRT_FILTER = settings["crt"]
 	NEW_LEVELS = bool(settings.get("new_levels", NEW_LEVELS))
 	WAVES_MODE = bool(settings.get("waves", WAVES_MODE))
+	RANDOM_LEVELS = bool(settings.get("random_levels", RANDOM_LEVELS))
+	SHOW_DAILY_LEVEL = bool(settings.get("daily", SHOW_DAILY_LEVEL))
 	BOT_PLAYER = bool(settings.get("bot", BOT_PLAYER))
 	play_sounds = bool(settings.get("sound", play_sounds))
 	START_FULLSCREEN = bool(settings.get("fullscreen", START_FULLSCREEN))
@@ -597,6 +603,7 @@ def saveSettings(fullscreen):
 		"start_level": START_LEVEL,
 		"new_levels": NEW_LEVELS,
 		"waves": WAVES_MODE,
+		"random_levels": RANDOM_LEVELS,
 		"bot": BOT_PLAYER,
 		"nes_version": NES_VERSION,
 		"auto_fire": AUTO_FIRE,

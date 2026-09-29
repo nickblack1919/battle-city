@@ -450,9 +450,11 @@ class ScreensMixin():
 
 	def hiscoreKey(self, mode):
 		""" Hiscore table name: game mode, level set and difficulty preset
-		(new levels are another campaign, so they have their own tables)
+		(new and generated levels are another campaign, so they have their own tables)
 		"""
-		if config.NEW_LEVELS and mode in ("campaign", "endless"):
+		if self.random_levels and mode == "endless":
+			mode += " RANDOM"
+		elif config.NEW_LEVELS and mode in ("campaign", "endless"):
 			mode += " NEW"
 		return mode + " " + (config.CURRENT_PRESET or "CUSTOM")
 
@@ -727,6 +729,8 @@ class ScreensMixin():
 				self.preset_before_continue = config.CURRENT_PRESET
 			config.applyPreset(data["preset"])
 		self.mode = mode
+		# saved game of generated levels: maps come from its seed again
+		self.random_levels = mode == "random"
 		self.level_seed = seed
 		self.stage = stage
 		self.nr_of_players = nr_of_players

@@ -103,8 +103,15 @@ class MenuMixin():
 			if activate:
 				label, action, argument = items[self.menu_index]
 				if action == "play":
-					# WAVES setting: the same items start endless waves instead of the campaign
-					self.mode = "endless" if config.WAVES_MODE else "campaign"
+					# WAVES setting: the same items start endless waves instead of the campaign,
+					# RANDOM LEVELS setting: every stage is a new generated map
+					self.random_levels = config.RANDOM_LEVELS
+					if config.WAVES_MODE:
+						self.mode = "endless"
+					else:
+						self.mode = "random" if self.random_levels else "campaign"
+					if self.random_levels:
+						self.level_seed = random.randrange(1, 2 ** 31)
 					# BOT setting: computer plays one more tank - partner of a single player,
 					# castle guard of two players (three players leave no room for it)
 					self.nr_of_players, self.bot = self.playersWithBot(argument)
@@ -119,6 +126,7 @@ class MenuMixin():
 					if self.showEditor() == "play":
 						# play edited level
 						self.mode = "campaign"
+						self.random_levels = False
 						self.test_play = True
 						self.nr_of_players = 1
 						self.bot = 0
@@ -127,20 +135,11 @@ class MenuMixin():
 					self.drawIntroScreen()
 				elif action == "versus":
 					self.mode = "versus"
+					self.random_levels = False
 					self.nr_of_players = 2
 					self.bot = 0
 					self.stage = 0
 					self.versus_winner = None
-					del state.players[:]
-					return self.nextLevel
-				elif action == "random":
-					# campaign on generated maps, seed is saved with the game
-					self.stage_select = True
-					self.mode = "random"
-					self.nr_of_players = argument
-					self.bot = 0
-					self.stage = config.START_LEVEL - 1
-					self.level_seed = random.randrange(1, 2 ** 31)
 					del state.players[:]
 					return self.nextLevel
 				elif action == "daily":
@@ -150,6 +149,7 @@ class MenuMixin():
 					self.nr_of_players = 1
 					self.bot = 0
 					self.daily_date = date
+					self.random_levels = False
 					self.level_seed = levelgen.dailySeed(date)
 					self.stage = levelgen.dailyStage(date) - 1
 					del state.players[:]
@@ -175,6 +175,7 @@ class MenuMixin():
 		""" Demo: computer plays 2 player game on random stage until key is pressed or DEMO_TIME passes """
 		self.demo = True
 		self.mode = "campaign"
+		self.random_levels = False
 		self.nr_of_players = 2
 		self.bot = 0
 		self.stage = random.randint(0, 34)
@@ -247,8 +248,9 @@ class MenuMixin():
 		# game saved after completed stage
 		if os.path.isfile(config.dataFile(config.SAVEGAME_FILE)):
 			items.append(["CONTINUE", "continue", None])
-		items.append(["RANDOM LEVELS", "random", 1])
-		items.append(["LEVEL OF THE DAY", "daily", 1])
+		# random levels are a setting now; level of the day is hidden ("daily" in the settings file)
+		if config.SHOW_DAILY_LEVEL:
+			items.append(["LEVEL OF THE DAY", "daily", 1])
 		items.append(["VERSUS", "versus", 2])
 		items.append(["LEVEL EDITOR", "editor", None])
 		items.append(["SETTINGS", "settings", None])
