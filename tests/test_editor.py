@@ -15,18 +15,35 @@ def read_rows(level_nr):
 
 
 def open_editor(ctx):
-	""" Menu frames 1-3: skip intro, select LEVEL EDITOR, open it. Returns True when done """
-	game = ctx.game
-	if ctx.menu_frame == 1:
+	""" Skip intro, open SETTINGS, select LEVEL EDITOR there and open it.
+	Returns events while it works, None when the editor is open (editorFrame() counts frames from then)
+	"""
+	game, d = ctx.game, ctx.data
+	f = ctx.menu_frame
+	if f == 1:
 		return [ctx.key(pygame.K_RETURN)]
-	if ctx.menu_frame == 2:
+	if f == 2:
 		labels = [item[0] for item in game.menuItems()]
-		ctx.check("menu has LEVEL EDITOR: %s" % labels, "LEVEL EDITOR" in labels)
-		game.menu_index = labels.index("LEVEL EDITOR") - 1
+		ctx.check("menu has SETTINGS: %s" % labels, "SETTINGS" in labels)
+		game.menu_index = labels.index("SETTINGS")
+		return [ctx.key(pygame.K_RETURN)]
+	if f == 3:
+		labels = [item["label"] for item in game.settingsItems()]
+		ctx.check("settings screen has LEVEL EDITOR: %s" % labels, "LEVEL EDITOR" in labels)
+		d["editor_downs"] = labels.index("LEVEL EDITOR")
+		return []
+	downs = d.get("editor_downs", 0)
+	if 4 <= f < 4 + downs:
 		return [ctx.key(pygame.K_DOWN)]
-	if ctx.menu_frame == 3:
+	if f == 4 + downs:
+		d["editor_open"] = f + 1
 		return [ctx.key(pygame.K_RETURN)]
 	return None
+
+
+def editorFrame(ctx):
+	""" Frame number counted from the one the editor opened on (1, 2, 3...) """
+	return ctx.menu_frame - ctx.data.get("editor_open", ctx.menu_frame) + 1
 
 
 def mouse_click(x, y, button=1):
@@ -39,35 +56,36 @@ def edit_menu(ctx):
 		return events
 
 	K = pygame
-	f = ctx.menu_frame
+	f = editorFrame(ctx)
 	steps = {
 		# cursor starts at column 2, row 2: go to column 2, row 0
-		5: [K.K_UP], 6: [K.K_UP],
-		7: [K.K_2],		# steel
-		8: [K.K_SPACE],	# draw
-		9: [K.K_s],		# save
+		2: [K.K_UP], 3: [K.K_UP],
+		4: [K.K_2],		# steel
+		5: [K.K_SPACE],	# draw
+		6: [K.K_s],		# save
 		# protected cell: enemy spawn point at column 0, row 0
-		11: [K.K_LEFT], 12: [K.K_LEFT],
-		13: [K.K_SPACE],
-		14: [K.K_s],
+		8: [K.K_LEFT], 9: [K.K_LEFT],
+		10: [K.K_SPACE],
+		11: [K.K_s],
 		# mouse: column 5, row 2
-		16: [mouse_click(5 * 16 + 4, 2 * 16 + 4)],
-		17: [K.K_s],
+		13: [mouse_click(5 * 16 + 4, 2 * 16 + 4)],
+		14: [K.K_s],
 		# right mouse button erases
-		19: [mouse_click(5 * 16 + 4, 2 * 16 + 4, 3)],
-		20: [mouse_click(6 * 16 + 4, 2 * 16 + 4)],
-		21: [K.K_t],	# save and play
+		16: [mouse_click(5 * 16 + 4, 2 * 16 + 4, 3)],
+		17: [mouse_click(6 * 16 + 4, 2 * 16 + 4)],
+		18: [K.K_t],	# save and play
 	}
 
-	if f == 4:
+	if f == 1:
 		ctx.check("editor opened", ctx.in_function("showEditor"))
-	if f == 10:
+	if f == 7:
+		base = open(os.path.join(harness.GAME_DIR, "levels", "new", "1")).read().split("\n")
 		ctx.check("custom level saved", os.path.isfile(custom_level_file(1)))
 		ctx.check("steel drawn at column 2 row 0", read_rows(1)[0][2] == "@")
-		ctx.check("rest of level 1 kept", read_rows(1)[2] == "..##..##..##..##..##..##..")
-	if f == 15:
+		ctx.check("rest of the level kept", read_rows(1)[2] == base[2])
+	if f == 12:
 		ctx.check("can't draw on enemy spawn point", read_rows(1)[0][0] == ".")
-	if f == 18:
+	if f == 15:
 		ctx.check("left mouse button draws", read_rows(1)[2][5] == "@")
 
 	return [ctx.key(k) if isinstance(k, int) else k for k in steps.get(f, [])]
@@ -97,19 +115,23 @@ def reset_menu(ctx):
 	if events != None:
 		return events
 
-	f = ctx.menu_frame
+	f = editorFrame(ctx)
 	g = ctx.g
-	if f == 4:
-		ctx.check("custom level used instead of original", g["levelFile"](2) == custom_level_file(2))
+	if f == 1:
+		ctx.check("editor edits the custom level", g["levelFile"](2, custom = True) == custom_level_file(2))
 		return [ctx.key(pygame.K_RIGHTBRACKET)]	# level 2
-	if f == 5:
+	if f == 2:
 		return [ctx.key(pygame.K_d)]	# delete custom level 2
-	if f == 6:
+	if f == 3:
 		ctx.check("D deletes custom level", not os.path.isfile(custom_level_file(2)))
-		ctx.check("original level used again", g["levelFile"](2) == os.path.join("levels", "2"))
+		ctx.check("map the custom level starts from is used again",
+			g["levelFile"](2, custom = True) == os.path.join("levels", "new", "2"))
 		return [ctx.key(pygame.K_ESCAPE)]
-	if f == 8:
-		ctx.check("ESC returns from editor to menu", ctx.in_function("showMenu") and not ctx.in_function("showEditor"))
+	if f == 5:
+		ctx.check("ESC returns from editor to settings", ctx.in_function("showSettings") and not ctx.in_function("showEditor"))
+		return [ctx.key(pygame.K_ESCAPE)]
+	if f == 7:
+		ctx.check("ESC returns from settings to menu", ctx.in_function("showMenu"))
 		# start 1 player game to finish the test
 		ctx.game.menu_index = 0
 		return [ctx.key(pygame.K_RETURN)]

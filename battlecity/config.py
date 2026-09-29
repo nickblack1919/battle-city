@@ -480,10 +480,10 @@ SAVEGAME_FILE = ".savegame"
 HISCORES_FILE = ".hiscores.json"
 CUSTOM_LEVELS_DIR = "custom_levels"	# levels made in editor (in data directory)
 
-# NEW LEVELS (settings screen): 30 new maps (levels/new, made by tools/make_levels.py)
-# instead of the 35 original NES ones
-NEW_LEVELS = False
-NEW_LEVELS_DIR = "new"
+# CUSTOM LEVELS (settings screen, next to LEVEL EDITOR): play the 30 levels of the editor instead of
+# the 35 standard NES ones. Levels not edited yet are the new maps made by tools/make_levels.py
+CUSTOM_LEVELS = False
+CUSTOM_LEVELS_BASE = "new"	# directory in "levels" the custom set starts from
 LEVEL_COUNTS = {False: 35, True: 30}
 # WAVES (settings screen): menu items start endless waves instead of the campaign
 WAVES_MODE = False
@@ -509,28 +509,29 @@ def dataFile(name):
 			os.makedirs(directory)
 	return os.path.join(directory, name)
 
-def levelCount():
-	""" Number of levels in the chosen set: 35 original ones or 30 new ones """
-	return LEVEL_COUNTS[bool(NEW_LEVELS)]
-
-def levelSet():
-	""" Directory of the chosen level set inside "levels" ("" - original levels) """
-	return NEW_LEVELS_DIR if NEW_LEVELS else ""
-
-def levelFile(level_nr):
-	""" Level map file: custom level made in editor or one of the chosen set
-	(every set has its own custom levels)
+def levelCount(custom = None):
+	""" Number of levels in a set: 35 standard ones, 30 custom ones (editor)
+	custom: None - the set which is played now (CUSTOM LEVELS setting)
 	"""
-	custom = dataFile(os.path.join(CUSTOM_LEVELS_DIR, levelSet(), str(level_nr)))
-	if os.path.isfile(custom):
-		return custom
-	return os.path.join("levels", levelSet(), str(level_nr))
+	return LEVEL_COUNTS[bool(CUSTOM_LEVELS if custom == None else custom)]
+
+def levelFile(level_nr, custom = None):
+	""" Level map file: standard level or one of the custom set - the level saved in the editor,
+	or the new map the editor starts from
+	custom: None - the set which is played now (CUSTOM LEVELS setting)
+	"""
+	if not (CUSTOM_LEVELS if custom == None else custom):
+		return os.path.join("levels", str(level_nr))
+	edited = dataFile(os.path.join(CUSTOM_LEVELS_DIR, str(level_nr)))
+	if os.path.isfile(edited):
+		return edited
+	return os.path.join("levels", CUSTOM_LEVELS_BASE, str(level_nr))
 
 def loadSettings():
 	""" Apply settings saved on settings screen """
 	global play_sounds, START_LEVEL, START_FULLSCREEN, PLAYER_CONTROLS, AUTO_FIRE, ENEMY_AI
 	global GAMEPAD_ASSIGN, GAMEPAD_FIRE_BUTTON, GAMEPAD_START_BUTTON, GAMEPAD_SELECT_BUTTON, LANGUAGE, CRT_FILTER
-	global NEW_LEVELS, WAVES_MODE, BOT_PLAYER, RANDOM_LEVELS, SHOW_DAILY_LEVEL
+	global CUSTOM_LEVELS, WAVES_MODE, BOT_PLAYER, RANDOM_LEVELS, SHOW_DAILY_LEVEL
 
 	try:
 		with open(dataFile(SETTINGS_FILE), "r") as f:
@@ -554,7 +555,7 @@ def loadSettings():
 		LANGUAGE = settings["language"]
 	if settings.get("crt") in CRT_MODES:
 		CRT_FILTER = settings["crt"]
-	NEW_LEVELS = bool(settings.get("new_levels", NEW_LEVELS))
+	CUSTOM_LEVELS = bool(settings.get("custom_levels", CUSTOM_LEVELS))
 	WAVES_MODE = bool(settings.get("waves", WAVES_MODE))
 	RANDOM_LEVELS = bool(settings.get("random_levels", RANDOM_LEVELS))
 	SHOW_DAILY_LEVEL = bool(settings.get("daily", SHOW_DAILY_LEVEL))
@@ -601,7 +602,7 @@ def saveSettings(fullscreen):
 		"sound": play_sounds,
 		"fullscreen": fullscreen,
 		"start_level": START_LEVEL,
-		"new_levels": NEW_LEVELS,
+		"custom_levels": CUSTOM_LEVELS,
 		"waves": WAVES_MODE,
 		"random_levels": RANDOM_LEVELS,
 		"bot": BOT_PLAYER,

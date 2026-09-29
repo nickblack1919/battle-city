@@ -28,7 +28,9 @@ class SettingsMixin():
 			{"label": "WAVES", "value": "ON" if config.WAVES_MODE else "OFF", "type": "waves"},
 			{"label": "BOT", "value": "ON" if config.BOT_PLAYER else "OFF", "type": "botplayer"},
 			{"label": "RANDOM LEVELS", "value": "ON" if config.RANDOM_LEVELS else "OFF", "type": "randomlevels"},
-			{"label": "NEW LEVELS", "value": "ON" if config.NEW_LEVELS else "OFF", "type": "newlevels"},
+			# level editor and its levels: CUSTOM LEVELS on - the game is played on them
+			{"label": "LEVEL EDITOR", "value": "", "type": "editor"},
+			{"label": "CUSTOM LEVELS", "value": "ON" if config.CUSTOM_LEVELS else "OFF", "type": "customlevels"},
 		]
 		control_names = ["FIRE", "UP", "RIGHT", "DOWN", "LEFT"]
 		for player_nr in range(len(config.PLAYER_CONTROLS)):
@@ -60,6 +62,7 @@ class SettingsMixin():
 		""" Settings screen
 		Up / down - select, left / right / Enter - change value, Enter on control - press new key
 		(ESC cancels), ESC or BACK - return to menu. Settings are saved immediately.
+		@return "play" when the level editor was left with "save and play", None otherwise
 		"""
 
 		selected = 0
@@ -146,6 +149,11 @@ class SettingsMixin():
 					waiting_key = not pad_change
 				elif kind == "padbutton" and change > 0:
 					waiting_pad = dict([(i, gamepad.buttonsHeld()) for i, gamepad in enumerate(self.gamepads)])
+				elif kind == "editor":
+					# level editor edits the custom levels; "save and play" starts the level
+					if self.showEditor() == "play":
+						return "play"
+					self.prerenderTexts()
 				else:
 					self.changeSetting(kind, change, items[selected])
 
@@ -175,9 +183,9 @@ class SettingsMixin():
 			config.BOT_PLAYER = not config.BOT_PLAYER
 		elif kind == "randomlevels":
 			config.RANDOM_LEVELS = not config.RANDOM_LEVELS
-		elif kind == "newlevels":
+		elif kind == "customlevels":
 			# other level set: start level can be out of its range
-			config.NEW_LEVELS = not config.NEW_LEVELS
+			config.CUSTOM_LEVELS = not config.CUSTOM_LEVELS
 			config.START_LEVEL = min(config.START_LEVEL, config.levelCount())
 			self.stage = config.START_LEVEL - 1
 		elif kind == "lang":

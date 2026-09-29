@@ -450,12 +450,12 @@ class ScreensMixin():
 
 	def hiscoreKey(self, mode):
 		""" Hiscore table name: game mode, level set and difficulty preset
-		(new and generated levels are another campaign, so they have their own tables)
+		(custom and generated levels are another campaign, so they have their own tables)
 		"""
 		if self.random_levels and mode == "endless":
 			mode += " RANDOM"
-		elif config.NEW_LEVELS and mode in ("campaign", "endless"):
-			mode += " NEW"
+		elif config.CUSTOM_LEVELS and mode in ("campaign", "endless"):
+			mode += " CUSTOM"
 		return mode + " " + (config.CURRENT_PRESET or "CUSTOM")
 
 	def saveHiscores(self, tables):
@@ -673,7 +673,7 @@ class ScreensMixin():
 			"nr_of_players": self.nr_of_players,
 			"bot": self.bot,
 			"preset": config.CURRENT_PRESET,
-			"new_levels": config.NEW_LEVELS,
+			"custom_levels": config.CUSTOM_LEVELS,
 			"players": [{
 				"score": player.score,
 				"lives": player.lives,
@@ -719,10 +719,10 @@ class ScreensMixin():
 			return False
 
 		# saved game was played on its own level set: play it on the same maps
-		if bool(data.get("new_levels", False)) != config.NEW_LEVELS:
-			if self.new_levels_before_continue == None:
-				self.new_levels_before_continue = config.NEW_LEVELS
-			config.NEW_LEVELS = bool(data.get("new_levels", False))
+		if bool(data.get("custom_levels", False)) != config.CUSTOM_LEVELS:
+			if self.custom_levels_before_continue == None:
+				self.custom_levels_before_continue = config.CUSTOM_LEVELS
+			config.CUSTOM_LEVELS = bool(data.get("custom_levels", False))
 		if data.get("preset") in config.PRESETS:
 			# player's own preset comes back in menu
 			if self.preset_before_continue == None and data["preset"] != config.CURRENT_PRESET:

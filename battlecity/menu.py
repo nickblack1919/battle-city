@@ -39,9 +39,9 @@ class MenuMixin():
 		if self.preset_before_continue in config.PRESETS:
 			config.applyPreset(self.preset_before_continue)
 		self.preset_before_continue = None
-		if self.new_levels_before_continue != None:
-			config.NEW_LEVELS = self.new_levels_before_continue
-			self.new_levels_before_continue = None
+		if self.custom_levels_before_continue != None:
+			config.CUSTOM_LEVELS = self.custom_levels_before_continue
+			self.custom_levels_before_continue = None
 		# castle protection (superpower 9) doesn't go to next game
 		state.castle.protected = False
 
@@ -121,18 +121,6 @@ class MenuMixin():
 					self.stage_select = True
 					del state.players[:]
 					return self.nextLevel
-				elif action == "editor":
-					state.castle.rebuild()
-					if self.showEditor() == "play":
-						# play edited level
-						self.mode = "campaign"
-						self.random_levels = False
-						self.test_play = True
-						self.nr_of_players = 1
-						self.bot = 0
-						del state.players[:]
-						return self.nextLevel
-					self.drawIntroScreen()
 				elif action == "versus":
 					self.mode = "versus"
 					self.random_levels = False
@@ -160,7 +148,16 @@ class MenuMixin():
 						return self.nextLevel
 					self.drawIntroScreen()
 				elif action == "settings":
-					self.showSettings()
+					# level editor is on the settings screen: it can start the edited level
+					if self.showSettings() == "play":
+						state.castle.rebuild()
+						self.mode = "campaign"
+						self.random_levels = False
+						self.test_play = True
+						self.nr_of_players = 1
+						self.bot = 0
+						del state.players[:]
+						return self.nextLevel
 					self.drawIntroScreen()
 
 	def playersWithBot(self, players):
@@ -252,7 +249,6 @@ class MenuMixin():
 		if config.SHOW_DAILY_LEVEL:
 			items.append(["LEVEL OF THE DAY", "daily", 1])
 		items.append(["VERSUS", "versus", 2])
-		items.append(["LEVEL EDITOR", "editor", None])
 		items.append(["SETTINGS", "settings", None])
 		return items
 

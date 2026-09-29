@@ -29,7 +29,7 @@ PHRASES = {
 	"FULL SCREEN": "ВО ВЕСЬ ЭКРАН",
 	"START LEVEL": "ПЕРВЫЙ УРОВЕНЬ",
 	"NES SPEED": "СКОРОСТЬ NES",
-	"NEW LEVELS": "НОВЫЕ УРОВНИ",
+	"CUSTOM LEVELS": "СВОИ УРОВНИ",
 	"AUTO FIRE": "АВТОСТРЕЛЬБА",
 	"ENEMY AI": "ИИ ВРАГОВ",
 	"CRT FILTER": "ФИЛЬТР ЭКРАНА",

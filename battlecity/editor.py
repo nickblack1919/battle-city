@@ -24,9 +24,9 @@ class EditorMixin():
 	EDITOR_PROTECTED = [(12, 24), (0, 0), (12, 0), (24, 0), (8, 24), (16, 24), (12, 21)]
 
 	def editorReadRows(self, level_nr):
-		""" Level as 26 x 26 list of characters """
+		""" Custom level as 26 x 26 list of characters (the map it starts from until it is saved) """
 		try:
-			with open(config.levelFile(level_nr), "r") as f:
+			with open(config.levelFile(level_nr, custom = True), "r") as f:
 				rows = f.read().split("\n")
 		except IOError:
 			rows = []
@@ -41,8 +41,8 @@ class EditorMixin():
 		return False
 
 	def editorSave(self, level_nr, rows):
-		""" Save edited level to custom levels directory (every level set has its own) """
-		directory = config.dataFile(os.path.join(config.CUSTOM_LEVELS_DIR, config.levelSet()))
+		""" Save edited level to custom levels directory """
+		directory = config.dataFile(config.CUSTOM_LEVELS_DIR)
 		try:
 			if not os.path.isdir(directory):
 				os.makedirs(directory)
@@ -52,9 +52,9 @@ class EditorMixin():
 			print("Can't save level")
 
 	def editorDeleteCustom(self, level_nr):
-		""" Remove custom level: original level is used again """
+		""" Remove edited level: the map the custom level started from is used again """
 		try:
-			os.remove(os.path.join(config.dataFile(config.CUSTOM_LEVELS_DIR), config.levelSet(), str(level_nr)))
+			os.remove(os.path.join(config.dataFile(config.CUSTOM_LEVELS_DIR), str(level_nr)))
 		except OSError:
 			pass
 
@@ -68,7 +68,7 @@ class EditorMixin():
 
 		level_nr = 1
 		rows = self.editorReadRows(level_nr)
-		level = Level(level_nr)
+		level = Level(level_nr, ["".join(row) for row in rows])
 		cursor = [2, 2]
 		brush = 1
 		modified = False
@@ -127,9 +127,9 @@ class EditorMixin():
 					elif event.key in (pygame.K_LEFTBRACKET, pygame.K_RIGHTBRACKET):
 						# other level, unsaved changes are lost
 						level_nr += 1 if event.key == pygame.K_RIGHTBRACKET else -1
-						level_nr = (level_nr - 1) % config.levelCount() + 1
+						level_nr = (level_nr - 1) % config.levelCount(custom = True) + 1
 						rows = self.editorReadRows(level_nr)
-						level = Level(level_nr)
+						level = Level(level_nr, ["".join(row) for row in rows])
 						modified = False
 						changed = True
 					elif event.key == pygame.K_g:

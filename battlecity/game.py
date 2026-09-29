@@ -150,7 +150,7 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 		# preset chosen by player before continuing saved game with other preset
 		self.preset_before_continue = None
 		# level set of the player before CONTINUE loaded a game of the other set
-		self.new_levels_before_continue = None
+		self.custom_levels_before_continue = None
 
 		# versus: index of winning player
 		self.versus_winner = None
@@ -1243,6 +1243,9 @@ class Game(MenuMixin, SettingsMixin, EditorMixin, ScreensMixin):
 			# levels of the RANDOM LEVELS setting are never symmetric, level of the day looks like an original one
 			symmetry = "none" if self.random_levels else None
 			self.level = Level(self.stage, levelgen.generateLevel(self.level_seed, self.stage, symmetry))
+		elif self.test_play:
+			# level just edited: it is played from the custom set, whatever the CUSTOM LEVELS setting is
+			self.level = Level(self.stage, ["".join(row) for row in self.editorReadRows(self.stage)])
 		else:
 			self.level = Level("versus" if self.mode == "versus" else self.stage)
 		self.timefreeze = False

@@ -42,8 +42,8 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
 
 - **1 / 2 / 3 PLAYERS** - campaign: 35 stages (30 with the NEW LEVELS setting), scores screen after every stage.
   Progress is saved after each stage. Four settings change what these items start: WAVES (endless waves instead of the
-  campaign), BOT (the computer plays one more tank), RANDOM LEVELS (every stage generated on the fly) and NEW LEVELS
-  (30 new maps).
+  campaign), BOT (the computer plays one more tank), RANDOM LEVELS (every stage generated on the fly) and CUSTOM LEVELS
+  (the 30 levels of the editor).
 - **BOT setting, one player** - campaign with a computer partner playing player 2 (shown as BOT). It drives with the same speed
   and bullets as a human: finds the best place to shoot enemies from (enemies near the castle first, defends the castle),
   fires only when neither the castle, fortress walls nor the human are in its line of fire, dodges enemy bullets, steps out
@@ -70,9 +70,10 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
 - **WAVES setting** - the player items start waves of enemies until game over instead of the campaign: every wave is
   harder, there is no scores screen between them, maps repeat from the beginning of the set. Waves have their own
   hiscore tables.
-- **NEW LEVELS setting** - 30 new maps (`levels/new`) instead of the 35 original ones, made by the level generator from
-  fixed seeds (`tools/make_levels.py`, run it to build them again). They have their own hiscore tables, their own
-  custom levels in the editor, and a saved game remembers which set it was played on.
+- **CUSTOM LEVELS setting** (next to LEVEL EDITOR in settings) - the game is played on the 30 levels of the editor
+  instead of the 35 standard ones. A level not edited yet is the new map the editor starts from (`levels/new`, made by
+  the level generator from fixed seeds: `tools/make_levels.py`, run it to build them again). Custom levels have their
+  own hiscore tables, and a saved game remembers which set it was played on.
 - **RANDOM LEVELS setting** - every stage is a map generated on the fly, and these maps are never symmetric
   (`generateLevel(seed, stage, "none")`), unlike the original levels: later stages get denser maps with more steel and
   water, enemies come from the stage tables. Every game gets a new seed which is saved with the game, so CONTINUE gives
@@ -82,9 +83,11 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
   date, stage difficulty 5-30 from the seed). After the stage or game over: scores, hiscore table of the day, menu.
   Every date and difficulty preset has its own hiscore table.
 - **VERSUS** - two players fight each other, each defends own castle; destroyed castle or no lives left loses.
-- **LEVEL EDITOR** - edit any level of the chosen set (35 original or 30 new ones): arrows / mouse move cursor, 1-5 tile, 0 eraser, space / left mouse draw,
-  right mouse erase, `[` `]` level, G fill with generated map, S save, D back to original level, T save and play.
-- **SETTINGS** - difficulty preset, sound, full screen, start level, waves, bot, random levels, new levels, controls, NES speed (NTSC / DENDY),
+- **LEVEL EDITOR** (settings screen) - edit any of the 30 custom levels: arrows / mouse move cursor, 1-5 tile, 0 eraser,
+  space / left mouse draw, right mouse erase, `[` `]` level, G fill with generated map, S save, D back to the map the
+  level started from, T save and play. Edited levels are played when CUSTOM LEVELS is on; T plays the level at once
+  whatever that setting is.
+- **SETTINGS** - difficulty preset, sound, full screen, start level, waves, bot, random levels, level editor, custom levels, controls, NES speed (NTSC / DENDY),
   auto fire (ON by default - holding fire button shoots again when bullet slot is free, with the timing of the
   Dendy turbo button: about 12 presses per second; OFF - every shot needs
   a press, like on NES), enemy AI (CLASSIC - random paths, sometimes towards the castle; NES - like on NES: at
@@ -239,7 +242,7 @@ Saved in the game directory (or in `BATTLE_CITY_DATA_DIR` if set):
 | `.savegame` | campaign progress |
 | `.hiscore` | best score |
 | `.hiscores.json` | hiscore tables with names |
-| `custom_levels/` | levels made in editor |
+| `custom_levels/` | levels saved in the editor (played with the CUSTOM LEVELS setting) |
 
 ## Mac app
 
@@ -279,5 +282,5 @@ One test file: `venv/bin/python tests/test_versus.py`, one scenario: `venv/bin/p
 | `battlecity/levelgen.py` | level generator, level of the day seed |
 | `battlecity/bullet.py`, `bonus.py`, `castle.py`, `effects.py`, `timer.py`, `gamepad.py` | other game objects |
 | `levels/` | level maps: `.` empty, `#` brick, `@` steel, `~` water, `%` grass, `-` ice |
-| `levels/new/` | 30 new maps of the NEW LEVELS setting (`tools/make_levels.py`) |
+| `levels/new/` | 30 maps the custom levels start from (`tools/make_levels.py`) |
 | `tests/` | automated tests |

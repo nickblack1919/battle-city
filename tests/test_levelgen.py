@@ -7,7 +7,7 @@ import pygame
 
 from test_endless import select_menu_item, hiscores_file
 from test_savegame import savegame_file, continue_menu, finish_level
-from test_editor import open_editor, custom_level_file, read_rows
+from test_editor import open_editor, editorFrame, custom_level_file, read_rows
 
 STAGES = (1, 12, 24, 35)
 SEEDS = 200
@@ -257,10 +257,10 @@ def editor_menu(ctx):
 	events = open_editor(ctx)
 	if events != None:
 		return events
-	f = ctx.menu_frame
-	if f == 5:
+	f = editorFrame(ctx)
+	if f == 2:
 		return [ctx.key(pygame.K_g)]
-	if f == 7:
+	if f == 4:
 		return [ctx.key(pygame.K_t)]
 	return []
 
@@ -269,9 +269,9 @@ def editor_generate(ctx):
 	if ctx.frame != 1:
 		return
 	rows = read_rows(1)
-	with open(os.path.join(harness.GAME_DIR, "levels", "1")) as f:
-		original = f.read().split("\n")[:26]
-	ctx.check("G fills level with generated map", rows != original)
+	with open(os.path.join(harness.GAME_DIR, "levels", "new", "1")) as f:
+		base = f.read().split("\n")[:26]
+	ctx.check("G fills level with generated map", rows != base)
 	ctx.check("generated map is valid (%s)" % check_map(rows, None), not check_map(rows, None))
 	ctx.check("test play uses it", level_cells(ctx.game.level) >= set(c for c in rows_cells(rows) if c[2] != "#"))
 	ctx.finish()

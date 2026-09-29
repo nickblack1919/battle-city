@@ -1,4 +1,4 @@
-""" Settings instead of menu items: WAVES, BOT, NEW LEVELS (30 new maps) """
+""" Settings instead of menu items: WAVES, BOT, RANDOM LEVELS, CUSTOM LEVELS (30 maps of the editor) """
 
 import os
 import pygame
@@ -29,13 +29,13 @@ def settings(ctx):
 	if ctx.frame != 1:
 		return
 	labels = [item["label"] for item in game.settingsItems()]
-	for label in ("WAVES", "BOT", "RANDOM LEVELS", "NEW LEVELS"):
+	for label in ("WAVES", "BOT", "RANDOM LEVELS", "LEVEL EDITOR", "CUSTOM LEVELS"):
 		ctx.check("settings screen has %s" % label, label in labels)
 
 	def item(label):
 		return [i for i in game.settingsItems() if i["label"] == label][0]
 
-	for label, name in (("WAVES", "WAVES_MODE"), ("BOT", "BOT_PLAYER"), ("RANDOM LEVELS", "RANDOM_LEVELS"), ("NEW LEVELS", "NEW_LEVELS")):
+	for label, name in (("WAVES", "WAVES_MODE"), ("BOT", "BOT_PLAYER"), ("RANDOM LEVELS", "RANDOM_LEVELS"), ("CUSTOM LEVELS", "CUSTOM_LEVELS")):
 		before = g[name]
 		ctx.check("%s is %s" % (label, item(label)["value"]), item(label)["value"] == ("ON" if before else "OFF"))
 		game.changeSetting(item(label)["type"], 1, item(label))
@@ -43,13 +43,14 @@ def settings(ctx):
 
 	# they are saved and read back
 	g["loadSettings"]()
-	ctx.check("settings saved and loaded (%s %s %s %s)" % (g["WAVES_MODE"], g["BOT_PLAYER"], g["RANDOM_LEVELS"], g["NEW_LEVELS"]),
-		g["WAVES_MODE"] and g["BOT_PLAYER"] and g["RANDOM_LEVELS"] and g["NEW_LEVELS"])
+	ctx.check("settings saved and loaded (%s %s %s %s)" % (g["WAVES_MODE"], g["BOT_PLAYER"], g["RANDOM_LEVELS"], g["CUSTOM_LEVELS"]),
+		g["WAVES_MODE"] and g["BOT_PLAYER"] and g["RANDOM_LEVELS"] and g["CUSTOM_LEVELS"])
 
 	# number of levels and their files come from the chosen set
-	ctx.check("30 new levels", g["levelCount"]() == 30 and g["levelFile"](7) == os.path.join("levels", "new", "7"))
-	g["NEW_LEVELS"] = False
-	ctx.check("35 original levels", g["levelCount"]() == 35 and g["levelFile"](7) == os.path.join("levels", "7"))
+	ctx.check("30 custom levels", g["levelCount"]() == 30 and g["levelFile"](7) == os.path.join("levels", "new", "7"))
+	g["CUSTOM_LEVELS"] = False
+	ctx.check("35 standard levels", g["levelCount"]() == 35 and g["levelFile"](7) == os.path.join("levels", "7"))
+	ctx.check("editor always edits the custom set", g["levelCount"](custom = True) == 30 and g["levelFile"](7, custom = True) == os.path.join("levels", "new", "7"))
 	ctx.finish()
 
 
@@ -79,12 +80,12 @@ def waves_setting(ctx):
 	ctx.finish()
 
 
-def new_levels_game(ctx):
-	""" NEW LEVELS setting: the campaign is played on the new maps """
+def custom_levels_game(ctx):
+	""" CUSTOM LEVELS setting: the campaign is played on the levels of the editor """
 	g, game = ctx.g, ctx.game
 	if ctx.frame != 5:
 		return
-	ctx.check("new level set is on", g["NEW_LEVELS"] and g["levelCount"]() == 30)
+	ctx.check("custom level set is on", g["CUSTOM_LEVELS"] and g["levelCount"]() == 30)
 	rows = open(os.path.join("levels", "new", str(game.stage))).read().split("\n")
 	tiles = set([(tile.left, tile.top, tile.type) for tile in game.level.mapr])
 	expected = set()
@@ -94,8 +95,8 @@ def new_levels_game(ctx):
 		for x, ch in enumerate(row):
 			if ch in types and ch != "#":
 				expected.add((x * 16, y * 16, types[ch]))
-	ctx.check("level of the new set is loaded (stage %d)" % game.stage, expected and expected <= tiles)
-	ctx.check("hiscore table of new levels (%s)" % game.hiscoreKey("campaign"), game.hiscoreKey("campaign").startswith("campaign NEW"))
+	ctx.check("level of the custom set is loaded (stage %d)" % game.stage, expected and expected <= tiles)
+	ctx.check("hiscore table of custom levels (%s)" % game.hiscoreKey("campaign"), game.hiscoreKey("campaign").startswith("campaign CUSTOM"))
 	ctx.finish()
 
 
@@ -131,7 +132,7 @@ def random_setting(ctx):
 
 
 def new_levels_files(ctx):
-	""" All 30 new levels are there and playable """
+	""" All 30 maps the custom levels start from are there and playable """
 	g, game = ctx.g, ctx.game
 	if ctx.frame != 1:
 		return
@@ -148,12 +149,12 @@ def new_levels_files(ctx):
 		found = make_levels.check(number, rows)
 		if found:
 			problems.append("%d: %s" % (number, ", ".join(found)))
-	ctx.check("30 new levels are playable (%s)" % "; ".join(problems), not problems)
+	ctx.check("30 maps of the custom set are playable (%s)" % "; ".join(problems), not problems)
 	# they are different maps, not copies
 	maps = set([open(os.path.join("levels", "new", str(n))).read() for n in range(1, 31)])
 	ctx.check("all 30 maps are different (%d)" % len(maps), len(maps) == 30)
 	originals = set([open(os.path.join("levels", str(n))).read() for n in range(1, 36)])
-	ctx.check("new maps are not the original ones", not (maps & originals))
+	ctx.check("they are not the standard maps", not (maps & originals))
 	ctx.finish()
 
 
@@ -161,7 +162,7 @@ SCENARIOS = {
 	"settings": {"fn": settings},
 	"bot_setting": {"fn": bot_setting, "menu": select_menu_item("1 PLAYER"), "setup": harness.settingsSetup(bot=True)},
 	"waves_setting": {"fn": waves_setting, "menu": select_menu_item("1 PLAYER"), "setup": harness.settingsSetup(waves=True)},
-	"new_levels_game": {"fn": new_levels_game, "menu": select_menu_item("1 PLAYER"), "setup": harness.settingsSetup(new_levels=True)},
+	"custom_levels_game": {"fn": custom_levels_game, "menu": select_menu_item("1 PLAYER"), "setup": harness.settingsSetup(custom_levels=True)},
 	"random_setting": {"fn": random_setting, "menu": select_menu_item("1 PLAYER"), "setup": harness.settingsSetup(random_levels=True)},
 	"new_levels_files": {"fn": new_levels_files},
 }
