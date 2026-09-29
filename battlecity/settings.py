@@ -28,6 +28,7 @@ class SettingsMixin():
 			{"label": "WAVES", "value": "ON" if config.WAVES_MODE else "OFF", "type": "waves"},
 			{"label": "BOT", "value": "ON" if config.BOT_PLAYER else "OFF", "type": "botplayer"},
 			{"label": "RANDOM LEVELS", "value": "ON" if config.RANDOM_LEVELS else "OFF", "type": "randomlevels"},
+			{"label": "VERSUS", "value": "ON" if config.VERSUS_MODE else "OFF", "type": "versus"},
 			# level editor and its levels: CUSTOM LEVELS on - the game is played on them
 			{"label": "LEVEL EDITOR", "value": "", "type": "editor"},
 			{"label": "CUSTOM LEVELS", "value": "ON" if config.CUSTOM_LEVELS else "OFF", "type": "customlevels"},
@@ -183,6 +184,8 @@ class SettingsMixin():
 			config.BOT_PLAYER = not config.BOT_PLAYER
 		elif kind == "randomlevels":
 			config.RANDOM_LEVELS = not config.RANDOM_LEVELS
+		elif kind == "versus":
+			config.VERSUS_MODE = not config.VERSUS_MODE
 		elif kind == "customlevels":
 			# other level set: start level can be out of its range
 			config.CUSTOM_LEVELS = not config.CUSTOM_LEVELS

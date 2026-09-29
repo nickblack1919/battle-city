@@ -489,6 +489,8 @@ LEVEL_COUNTS = {False: 35, True: 30}
 WAVES_MODE = False
 # RANDOM LEVELS (settings screen): every stage is a new generated map, never symmetric
 RANDOM_LEVELS = False
+# VERSUS (settings screen): menu items start a duel of two players instead of a game against enemies
+VERSUS_MODE = False
 # LEVEL OF THE DAY: hidden, the menu item is shown only with this setting ("daily" in the settings file)
 SHOW_DAILY_LEVEL = False
 # BOT (settings screen): one more tank is played by the computer - partner of a single player,
@@ -531,7 +533,7 @@ def loadSettings():
 	""" Apply settings saved on settings screen """
 	global play_sounds, START_LEVEL, START_FULLSCREEN, PLAYER_CONTROLS, AUTO_FIRE, ENEMY_AI
 	global GAMEPAD_ASSIGN, GAMEPAD_FIRE_BUTTON, GAMEPAD_START_BUTTON, GAMEPAD_SELECT_BUTTON, LANGUAGE, CRT_FILTER
-	global CUSTOM_LEVELS, WAVES_MODE, BOT_PLAYER, RANDOM_LEVELS, SHOW_DAILY_LEVEL
+	global CUSTOM_LEVELS, WAVES_MODE, BOT_PLAYER, RANDOM_LEVELS, VERSUS_MODE, SHOW_DAILY_LEVEL
 
 	try:
 		with open(dataFile(SETTINGS_FILE), "r") as f:
@@ -558,6 +560,7 @@ def loadSettings():
 	CUSTOM_LEVELS = bool(settings.get("custom_levels", CUSTOM_LEVELS))
 	WAVES_MODE = bool(settings.get("waves", WAVES_MODE))
 	RANDOM_LEVELS = bool(settings.get("random_levels", RANDOM_LEVELS))
+	VERSUS_MODE = bool(settings.get("versus", VERSUS_MODE))
 	SHOW_DAILY_LEVEL = bool(settings.get("daily", SHOW_DAILY_LEVEL))
 	BOT_PLAYER = bool(settings.get("bot", BOT_PLAYER))
 	play_sounds = bool(settings.get("sound", play_sounds))
@@ -605,6 +608,7 @@ def saveSettings(fullscreen):
 		"custom_levels": CUSTOM_LEVELS,
 		"waves": WAVES_MODE,
 		"random_levels": RANDOM_LEVELS,
+		"versus": VERSUS_MODE,
 		"bot": BOT_PLAYER,
 		"nes_version": NES_VERSION,
 		"auto_fire": AUTO_FIRE,

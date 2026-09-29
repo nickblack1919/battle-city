@@ -5,16 +5,15 @@ import pygame
 
 
 def versus_menu(ctx):
+	""" VERSUS is a setting now: any player item starts the duel """
 	game = ctx.game
 	if ctx.menu_frame == 1:
 		return [ctx.key(pygame.K_RETURN)]
 	if ctx.menu_frame == 2:
 		labels = [item[0] for item in game.menuItems()]
-		ctx.check("menu has VERSUS: %s" % labels, "VERSUS" in labels)
-		# 1 press down to VERSUS
-		game.menu_index = labels.index("VERSUS") - 1
-		return [ctx.key(pygame.K_DOWN)]
-	if ctx.menu_frame == 3:
+		ctx.check("versus isn't a menu item any more: %s" % labels, "VERSUS" not in labels)
+		ctx.check("versus is a setting", "VERSUS" in [item["label"] for item in game.settingsItems()])
+		game.menu_index = labels.index("1 PLAYER")
 		return [ctx.key(pygame.K_RETURN)]
 	return []
 
@@ -103,9 +102,9 @@ def bonus(ctx):
 
 
 SCENARIOS = {
-	"castle_destroyed": {"fn": menu_after_result, "menu": versus_menu},
-	"kill_and_lives": {"fn": kill_and_lives, "menu": versus_menu},
-	"bonus": {"fn": bonus, "menu": versus_menu},
+	"castle_destroyed": {"fn": menu_after_result, "menu": versus_menu, "setup": harness.settingsSetup(versus=True)},
+	"kill_and_lives": {"fn": kill_and_lives, "menu": versus_menu, "setup": harness.settingsSetup(versus=True)},
+	"bonus": {"fn": bonus, "menu": versus_menu, "setup": harness.settingsSetup(versus=True)},
 }
 
 if __name__ == "__main__":

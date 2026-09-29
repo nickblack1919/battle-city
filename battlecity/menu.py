@@ -102,7 +102,17 @@ class MenuMixin():
 
 			if activate:
 				label, action, argument = items[self.menu_index]
-				if action == "play":
+				if action == "play" and config.VERSUS_MODE:
+					# VERSUS setting: two players fight each other, every one defends own castle
+					self.mode = "versus"
+					self.random_levels = False
+					self.nr_of_players = 2
+					self.bot = 0
+					self.stage = 0
+					self.versus_winner = None
+					del state.players[:]
+					return self.nextLevel
+				elif action == "play":
 					# WAVES setting: the same items start endless waves instead of the campaign,
 					# RANDOM LEVELS setting: every stage is a new generated map
 					self.random_levels = config.RANDOM_LEVELS
@@ -119,15 +129,6 @@ class MenuMixin():
 					self.first_stage = config.START_LEVEL
 					# NES: stage of a new game is chosen on the first stage screen
 					self.stage_select = True
-					del state.players[:]
-					return self.nextLevel
-				elif action == "versus":
-					self.mode = "versus"
-					self.random_levels = False
-					self.nr_of_players = 2
-					self.bot = 0
-					self.stage = 0
-					self.versus_winner = None
 					del state.players[:]
 					return self.nextLevel
 				elif action == "daily":
@@ -248,7 +249,6 @@ class MenuMixin():
 		# random levels are a setting now; level of the day is hidden ("daily" in the settings file)
 		if config.SHOW_DAILY_LEVEL:
 			items.append(["LEVEL OF THE DAY", "daily", 1])
-		items.append(["VERSUS", "versus", 2])
 		items.append(["SETTINGS", "settings", None])
 		return items
 

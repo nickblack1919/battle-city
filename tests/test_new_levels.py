@@ -29,13 +29,13 @@ def settings(ctx):
 	if ctx.frame != 1:
 		return
 	labels = [item["label"] for item in game.settingsItems()]
-	for label in ("WAVES", "BOT", "RANDOM LEVELS", "LEVEL EDITOR", "CUSTOM LEVELS"):
+	for label in ("WAVES", "BOT", "RANDOM LEVELS", "VERSUS", "LEVEL EDITOR", "CUSTOM LEVELS"):
 		ctx.check("settings screen has %s" % label, label in labels)
 
 	def item(label):
 		return [i for i in game.settingsItems() if i["label"] == label][0]
 
-	for label, name in (("WAVES", "WAVES_MODE"), ("BOT", "BOT_PLAYER"), ("RANDOM LEVELS", "RANDOM_LEVELS"), ("CUSTOM LEVELS", "CUSTOM_LEVELS")):
+	for label, name in (("WAVES", "WAVES_MODE"), ("BOT", "BOT_PLAYER"), ("RANDOM LEVELS", "RANDOM_LEVELS"), ("VERSUS", "VERSUS_MODE"), ("CUSTOM LEVELS", "CUSTOM_LEVELS")):
 		before = g[name]
 		ctx.check("%s is %s" % (label, item(label)["value"]), item(label)["value"] == ("ON" if before else "OFF"))
 		game.changeSetting(item(label)["type"], 1, item(label))

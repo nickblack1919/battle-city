@@ -41,9 +41,9 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
 ## Game modes
 
 - **1 / 2 / 3 PLAYERS** - campaign: 35 stages (30 with the NEW LEVELS setting), scores screen after every stage.
-  Progress is saved after each stage. Four settings change what these items start: WAVES (endless waves instead of the
-  campaign), BOT (the computer plays one more tank), RANDOM LEVELS (every stage generated on the fly) and CUSTOM LEVELS
-  (the 30 levels of the editor).
+  Progress is saved after each stage. Five settings change what these items start: WAVES (endless waves instead of the
+  campaign), BOT (the computer plays one more tank), RANDOM LEVELS (every stage generated on the fly), VERSUS (duel of
+  two players) and CUSTOM LEVELS (the 30 levels of the editor).
 - **BOT setting, one player** - campaign with a computer partner playing player 2 (shown as BOT). It drives with the same speed
   and bullets as a human: finds the best place to shoot enemies from (enemies near the castle first, defends the castle),
   fires only when neither the castle, fortress walls nor the human are in its line of fire, dodges enemy bullets, steps out
@@ -82,12 +82,14 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
   (`SHOW_DAILY_LEVEL`). 1 player, one generated stage, the same for everyone on this date (seed from the local
   date, stage difficulty 5-30 from the seed). After the stage or game over: scores, hiscore table of the day, menu.
   Every date and difficulty preset has its own hiscore table.
-- **VERSUS** - two players fight each other, each defends own castle; destroyed castle or no lives left loses.
+- **VERSUS setting** - the player items start a duel instead of a game against enemies: two players fight each other,
+  each defends own castle; destroyed castle or no lives left loses. It has its own map and ignores the waves, random
+  and custom level settings.
 - **LEVEL EDITOR** (settings screen) - edit any of the 30 custom levels: arrows / mouse move cursor, 1-5 tile, 0 eraser,
   space / left mouse draw, right mouse erase, `[` `]` level, G fill with generated map, S save, D back to the map the
   level started from, T save and play. Edited levels are played when CUSTOM LEVELS is on; T plays the level at once
   whatever that setting is.
-- **SETTINGS** - difficulty preset, sound, full screen, start level, waves, bot, random levels, level editor, custom levels, controls, NES speed (NTSC / DENDY),
+- **SETTINGS** - difficulty preset, sound, full screen, start level, waves, bot, random levels, versus, level editor, custom levels, controls, NES speed (NTSC / DENDY),
   auto fire (ON by default - holding fire button shoots again when bullet slot is free, with the timing of the
   Dendy turbo button: about 12 presses per second; OFF - every shot needs
   a press, like on NES), enemy AI (CLASSIC - random paths, sometimes towards the castle; NES - like on NES: at
