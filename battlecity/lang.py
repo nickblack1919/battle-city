@@ -28,6 +28,8 @@ PHRASES = {
 	"G RANDOM": "G СЛУЧ",
 	"FULL SCREEN": "ВО ВЕСЬ ЭКРАН",
 	"START LEVEL": "ПЕРВЫЙ УРОВЕНЬ",
+	"START STARS": "НАЧАЛЬНЫЕ ЗВЁЗДЫ",
+	"PRESET": "ПО СЛОЖНОСТИ",
 	"NES SPEED": "СКОРОСТЬ NES",
 	"CUSTOM LEVELS": "СВОИ УРОВНИ",
 	"AUTO FIRE": "АВТОСТРЕЛЬБА",

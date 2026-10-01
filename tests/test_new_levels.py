@@ -100,6 +100,45 @@ def custom_levels_game(ctx):
 	ctx.finish()
 
 
+def start_stars(ctx):
+	""" START STARS setting: stars every player starts a life with """
+	g, game = ctx.g, ctx.game
+	if ctx.frame != 1:
+		return
+
+	def item():
+		return [i for i in game.settingsItems() if i["label"] == "START STARS"][0]
+
+	ctx.check("settings screen has START STARS", item()["value"] == "PRESET" and g["START_SUPERPOWER"] == None)
+	preset_stars = g["PLAYER_START_SUPERPOWER"]
+
+	game.changeSetting("stars", 1, item())
+	ctx.check("first value is 0 stars (%s)" % item()["value"], g["START_SUPERPOWER"] == 0 and item()["value"] == "0")
+	for stars in range(1, g["MAX_START_SUPERPOWER"] + 1):
+		game.changeSetting("stars", 1, item())
+		ctx.check("%d stars chosen" % stars, g["START_SUPERPOWER"] == stars and g["PLAYER_START_SUPERPOWER"] == stars)
+	game.changeSetting("stars", 1, item())
+	ctx.check("after the last one comes PRESET again (%s)" % item()["value"],
+		g["START_SUPERPOWER"] == None and g["PLAYER_START_SUPERPOWER"] == preset_stars)
+
+	# chosen stars stay when the difficulty preset changes, and are saved
+	game.changeSetting("stars", -1, item())
+	ctx.check("left arrow takes the last value (%d)" % g["START_SUPERPOWER"], g["START_SUPERPOWER"] == g["MAX_START_SUPERPOWER"])
+	g["applyPreset"]("NES")
+	ctx.check("preset doesn't reset chosen stars", g["PLAYER_START_SUPERPOWER"] == g["MAX_START_SUPERPOWER"])
+	g["applyPreset"]("GOOD")
+	g["START_SUPERPOWER"] = None
+	g["loadSettings"]()
+	ctx.check("stars saved and loaded (%s)" % g["START_SUPERPOWER"], g["START_SUPERPOWER"] == g["MAX_START_SUPERPOWER"])
+
+	# players really start a life with them
+	for player in g["players"]:
+		game.respawnPlayer(player)
+		ctx.check("player starts with %d stars" % g["MAX_START_SUPERPOWER"],
+			player.superpowers == g["MAX_START_SUPERPOWER"] and player.max_active_bullets == 3)
+	ctx.finish()
+
+
 def random_setting(ctx):
 	""" RANDOM LEVELS setting: every stage is a new generated map, never symmetric """
 	g, game = ctx.g, ctx.game
@@ -160,6 +199,7 @@ def new_levels_files(ctx):
 
 SCENARIOS = {
 	"settings": {"fn": settings},
+	"start_stars": {"fn": start_stars},
 	"bot_setting": {"fn": bot_setting, "menu": select_menu_item("1 PLAYER"), "setup": harness.settingsSetup(bot=True)},
 	"waves_setting": {"fn": waves_setting, "menu": select_menu_item("1 PLAYER"), "setup": harness.settingsSetup(waves=True)},
 	"custom_levels_game": {"fn": custom_levels_game, "menu": select_menu_item("1 PLAYER"), "setup": harness.settingsSetup(custom_levels=True)},

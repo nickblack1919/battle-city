@@ -90,7 +90,7 @@ then to players 1 and 2 (can be changed on the settings screen); gamepad Start p
   space / left mouse draw, right mouse erase, `[` `]` level, G fill with generated map, S save, D back to the map the
   level started from, T save and play. Edited levels are played when CUSTOM LEVELS is on; T plays the level at once
   whatever that setting is.
-- **SETTINGS** - difficulty preset, sound, full screen, start level, waves, bot, random levels, versus, level editor, custom levels, controls, NES speed (NTSC / DENDY),
+- **SETTINGS** - difficulty preset, sound, full screen, start level, start stars, waves, bot, random levels, versus, level editor, custom levels, controls, NES speed (NTSC / DENDY),
   auto fire (ON by default - holding fire button shoots again when bullet slot is free, with the timing of the
   Dendy turbo button: about 12 presses per second; OFF - every shot needs
   a press, like on NES), enemy AI (CLASSIC - random paths, sometimes towards the castle; NES - like on NES: at
@@ -216,6 +216,10 @@ version: the game plays the one matching NES SPEED).
 
 Like on NES, a bonus appears on one of 16 fixed places (not right under a player), tank explosions last 48 NES
 frames (fast tank 24, player 32), scores screen pauses are counted in NES frames.
+
+START STARS on the settings screen gives every player tank these stars at the start of every life (PRESET - the
+value of the difficulty preset, 0 - no stars like on NES, up to 6; `START_SUPERPOWER` in config). Chosen stars stay
+when the difficulty preset is changed.
 
 Extra life every 20000 points (NES and NES+: only once, like on NES). In 2+ player games the player who destroyed most
 tanks on a stage gets 1000 points, if they have lives left: dark red "BONUS!" (like on NES) and white points under his

@@ -139,6 +139,11 @@ DEFAULT_ENEMY_ARMOR_HEALTH = 600
 
 # PLAYER
 PLAYER_START_SUPERPOWER = 0	# NES: no stars, normal bullets
+# START STARS (settings screen): stars every player starts a life with, None - the value of the difficulty preset.
+# Stars: 1 faster bullets, 2 two bullets, 3 clears trees, 4 destroys steel, 5 three bullets and frontal armor,
+# 6 clears everything in one shot
+START_SUPERPOWER = None
+MAX_START_SUPERPOWER = 6
 PLAYER_START_LIFE = 3	# NES: 3 (sidebar shows lives left: 2)
 PLAYER_START_HEALTH = 100
 PLAYER_START_SCORE = 0
@@ -455,11 +460,15 @@ OLD_PRESET_NAMES = {"CLASSIC": "NES+"}
 CURRENT_PRESET = None
 
 def applyPreset(name):
-	""" Set game settings from difficulty preset: NES, NES+, GOOD or EXTREME """
-	global CURRENT_PRESET
+	""" Set game settings from difficulty preset: NES, NES+, GOOD or EXTREME
+	(START STARS chosen on the settings screen stays as it is)
+	"""
+	global CURRENT_PRESET, PLAYER_START_SUPERPOWER
 	name = OLD_PRESET_NAMES.get(name, name)
 	globals().update(PRESETS[name])
 	CURRENT_PRESET = name
+	if START_SUPERPOWER != None:
+		PLAYER_START_SUPERPOWER = START_SUPERPOWER
 
 if CLASSIC_MODE:
 	applyPreset("NES+")
@@ -536,6 +545,7 @@ def loadSettings():
 	global play_sounds, START_LEVEL, START_FULLSCREEN, PLAYER_CONTROLS, AUTO_FIRE, ENEMY_AI
 	global GAMEPAD_ASSIGN, GAMEPAD_FIRE_BUTTON, GAMEPAD_START_BUTTON, GAMEPAD_SELECT_BUTTON, LANGUAGE, CRT_FILTER
 	global CUSTOM_LEVELS, WAVES_MODE, BOT_PLAYER, RANDOM_LEVELS, VERSUS_MODE, SHOW_DAILY_LEVEL
+	global START_SUPERPOWER, PLAYER_START_SUPERPOWER
 
 	try:
 		with open(dataFile(SETTINGS_FILE), "r") as f:
@@ -563,6 +573,13 @@ def loadSettings():
 	WAVES_MODE = bool(settings.get("waves", WAVES_MODE))
 	RANDOM_LEVELS = bool(settings.get("random_levels", RANDOM_LEVELS))
 	VERSUS_MODE = bool(settings.get("versus", VERSUS_MODE))
+	try:
+		stars = settings.get("start_stars")
+		if stars != None and 0 <= int(stars) <= MAX_START_SUPERPOWER:
+			START_SUPERPOWER = int(stars)
+			PLAYER_START_SUPERPOWER = START_SUPERPOWER
+	except (TypeError, ValueError):
+		print("Can't read setting start_stars")
 	SHOW_DAILY_LEVEL = bool(settings.get("daily", SHOW_DAILY_LEVEL))
 	BOT_PLAYER = bool(settings.get("bot", BOT_PLAYER))
 	play_sounds = bool(settings.get("sound", play_sounds))
@@ -611,6 +628,7 @@ def saveSettings(fullscreen):
 		"waves": WAVES_MODE,
 		"random_levels": RANDOM_LEVELS,
 		"versus": VERSUS_MODE,
+		"start_stars": START_SUPERPOWER,
 		"bot": BOT_PLAYER,
 		"nes_version": NES_VERSION,
 		"auto_fire": AUTO_FIRE,

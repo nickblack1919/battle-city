@@ -24,6 +24,8 @@ class SettingsMixin():
 			{"label": "SOUND", "value": "ON" if config.play_sounds else "OFF", "type": "sound"},
 			{"label": "FULL SCREEN", "value": "ON" if self.is_fullscreen else "OFF", "type": "fullscreen"},
 			{"label": "START LEVEL", "value": str(config.START_LEVEL), "type": "level"},
+			# stars every player starts a life with (PRESET - the value of the difficulty preset)
+			{"label": "START STARS", "value": "PRESET" if config.START_SUPERPOWER == None else str(config.START_SUPERPOWER), "type": "stars"},
 			# what the menu items start: waves instead of the campaign, a computer tank, new maps
 			{"label": "WAVES", "value": "ON" if config.WAVES_MODE else "OFF", "type": "waves"},
 			{"label": "BOT", "value": "ON" if config.BOT_PLAYER else "OFF", "type": "botplayer"},
@@ -217,6 +219,13 @@ class SettingsMixin():
 			names = sorted(config.NES_VERSIONS)
 			index = names.index(config.NES_VERSION) if config.NES_VERSION in names else 0
 			config.applyNesVersion(names[(index + change) % len(names)])
+		elif kind == "stars":
+			# PRESET, 0, 1 ... MAX_START_SUPERPOWER and back to PRESET
+			values = [None] + list(range(config.MAX_START_SUPERPOWER + 1))
+			index = values.index(config.START_SUPERPOWER) if config.START_SUPERPOWER in values else 0
+			config.START_SUPERPOWER = values[(index + change) % len(values)]
+			# preset value comes back when PRESET is chosen again
+			config.applyPreset(config.CURRENT_PRESET or "GOOD")
 		elif kind == "level":
 			config.START_LEVEL = (config.START_LEVEL - 1 + change) % config.levelCount() + 1
 			self.stage = config.START_LEVEL - 1
